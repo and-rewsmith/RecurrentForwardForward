@@ -1,7 +1,8 @@
 import torch
 
+# TODO: expose as hyperparams
 EPOCHS = 1000000
-ITERATIONS = 10
+ITERATIONS = 3
 THRESHOLD = 1
 DAMPING_FACTOR = 0.7
 EPSILON = 1e-8

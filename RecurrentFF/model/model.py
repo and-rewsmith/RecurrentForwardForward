@@ -31,7 +31,7 @@ def standardize_layer_activations(layer_activations):
     return prev_layer_stdized
 
 
-class InputData:
+class TrainInputData:
     def __init__(self, pos_input, neg_input):
         self.pos_input = pos_input
         self.neg_input = neg_input
@@ -40,8 +40,12 @@ class InputData:
         yield self.pos_input
         yield self.neg_input
 
+    def move_to_device_inplace(self, device):
+        self.pos_input = self.pos_input.to(device)
+        self.neg_input = self.neg_input.to(device)
 
-class LabelData:
+
+class TrainLabelData:
     def __init__(self, pos_labels, neg_labels):
         self.pos_labels = pos_labels
         self.neg_labels = neg_labels
@@ -49,6 +53,10 @@ class LabelData:
     def __iter__(self):
         yield self.pos_labels
         yield self.neg_labels
+
+    def move_to_device_inplace(self, device):
+        self.pos_labels = self.pos_labels.to(device)
+        self.neg_labels = self.neg_labels.to(device)
 
 
 class TestData:
@@ -174,10 +182,8 @@ class RecurrentFFNet(nn.Module):
     other and the output layer, forming a fully connected recurrent
     architecture.
     """
-    # Ties all the layers together.
-    # TODO: look to see if I should be overriding reset_net()
 
-    def __init__(self, train_batch_size, test_batch_size, input_size, hidden_sizes, num_classes, damping_factor=DAMPING_FACTOR):
+    def __init__(self, train_batch_size, test_batch_size, input_size, hidden_sizes, num_classes, damping_factor=DAMPING_FACTOR, changing_classes=False):
         logging.info("initializing network")
         super(RecurrentFFNet, self).__init__()
 
@@ -211,81 +217,93 @@ class RecurrentFFNet(nn.Module):
         for layer in self.layers:
             layer.reset_activations(isTraining)
 
-    def train(self, input_data, label_data, test_data):
+    def train(self, train_loader, test_loader):
         """
-        Trains the RecurrentFFNet model using the provided input data and label
-        data.
+        Trains the RecurrentFFNet model using the provided train and test data loaders.
 
         Args:
-            input_data (object): An object containing positive and negative
-            input data tensors. 
-
-            label_data (object): An object containing positive and negative
-            label data tensors.
-
-            test_data (tuple): A tuple containing the test data, one-hot labels,
-            and the actual labels.
+            train_loader (torch.utils.data.DataLoader): DataLoader providing the training data and labels.
+            test_loader (torch.utils.data.DataLoader): DataLoader providing the test data and labels.
 
         Procedure:
-            For each epoch, the method resets the network's activations and
-            performs a preinitialization step, forwarding both positive and
-            negative data through the network. It then runs a specified number
-            of iterations, where it trains the network using the input and label
-            data. 
+            For each epoch, the method iterates over batches from the train_loader. For each batch, it resets 
+            the network's activations and performs a preinitialization step, forwarding both positive and negative
+            data through the network. It then runs a specified number of iterations, where it trains the network
+            using the input and label data. 
 
-            After each epoch, the method calculates the 'goodness' metric for
-            each layer in the network (for both positive and negative data),
-            averages the layer losses, and then calculates the prediction
-            accuracy on the test data. 
+            After each batch, the method calculates the 'goodness' metric for each layer in the network (for both 
+            positive and negative data), averages the layer losses, and then calculates the prediction accuracy on
+            the test data using test_loader. 
 
-            Finally, the method logs these metrics (accuracy, average loss, and
-            layer-wise 'goodness' scores) for monitoring the training process.
-            The metrics logged depend on the number of layers in the network.
+            Finally, the method logs these metrics (accuracy, average loss, and layer-wise 'goodness' scores) 
+            for monitoring the training process. The metrics logged depend on the number of layers in the network.
 
         Note:
-            'Goodness' here refers to a metric that indicates how well the
-            model's current activations represent a given class. It's calculated
-            by a function `layer_activations_to_goodness` (not shown in this
-            code), which transforms a layer's activations into a 'goodness'
-            score. This function operates on the RecurrentFFNet model level and
-            is called during the training process.
+            'Goodness' here refers to a metric that indicates how well the model's current activations represent 
+            a given class. It's calculated by a function `layer_activations_to_goodness`, which transforms a 
+            layer's activations into a 'goodness' score. This function operates on the RecurrentFFNet model level
+            and is called during the training process.
         """
         for epoch in range(0, EPOCHS):
             logging.info("Epoch: " + str(epoch))
-            self.reset_activations(True)
 
-            for preinit_step in range(0, len(self.layers)):
-                logging.info("Preinitialization step: " + str(preinit_step))
-                self.__advance_layers_forward(ForwardMode.PositiveData,
-                                              input_data.pos_input, label_data.pos_labels, False)
-                self.__advance_layers_forward(ForwardMode.NegativeData,
-                                              input_data.neg_input, label_data.neg_labels, False)
+            for batch, (input_data, label_data) in enumerate(train_loader):
+                logging.info("Batch: " + str(batch))
 
-            for iteration in range(0, ITERATIONS):
-                logging.info("Iteration: " + str(iteration))
-                total_loss = self.__advance_layers_train(
-                    input_data, label_data, True)
-                average_layer_loss = (total_loss / len(self.layers)).item()
-                logging.info("Average layer loss: " + str(average_layer_loss))
+                input_data.move_to_device_inplace(DEVICE)
+                label_data.move_to_device_inplace(DEVICE)
 
-            pos_goodness_per_layer = [
-                layer_activations_to_goodness(layer.pos_activations.current).mean() for layer in self.layers]
-            neg_goodness_per_layer = [
-                layer_activations_to_goodness(layer.neg_activations.current).mean() for layer in self.layers]
+                self.reset_activations(True)
 
-            # Supports wandb tracking of max 3 layer goodnesses
-            try:
-                first_layer_pos_goodness = pos_goodness_per_layer[0]
-                first_layer_neg_goodness = neg_goodness_per_layer[0]
-                second_layer_pos_goodness = pos_goodness_per_layer[1]
-                second_layer_neg_goodness = neg_goodness_per_layer[1]
-                third_layer_pos_goodness = pos_goodness_per_layer[2]
-                third_layer_neg_goodness = neg_goodness_per_layer[2]
-            except:
-                # No-op as there may not be 3 layers
-                pass
+                for preinit_step in range(0, len(self.layers)):
+                    logging.info("Preinitialization step: " +
+                                 str(preinit_step))
 
-            accuracy = self.predict(test_data)
+                    pos_input = input_data.pos_input[0]
+                    neg_input = input_data.neg_input[0]
+                    pos_labels = label_data.pos_labels[0]
+                    neg_labels = label_data.neg_labels[0]
+
+                    self.__advance_layers_forward(ForwardMode.PositiveData,
+                                                  pos_input, pos_labels, False)
+                    self.__advance_layers_forward(ForwardMode.NegativeData,
+                                                  neg_input, neg_labels, False)
+
+                for iteration in range(0, ITERATIONS):
+                    logging.info("Iteration: " + str(iteration))
+
+                    input_data_sample = (
+                        input_data.pos_input[iteration], input_data.neg_input[iteration])
+                    label_data_sample = (
+                        label_data.pos_labels[iteration], label_data.neg_labels[iteration])
+
+                    total_loss = self.__advance_layers_train(
+                        input_data_sample, label_data_sample, True)
+                    average_layer_loss = (total_loss / len(self.layers)).item()
+                    logging.info("Average layer loss: " +
+                                 str(average_layer_loss))
+
+                pos_goodness_per_layer = [
+                    layer_activations_to_goodness(layer.pos_activations.current).mean() for layer in self.layers]
+                neg_goodness_per_layer = [
+                    layer_activations_to_goodness(layer.neg_activations.current).mean() for layer in self.layers]
+
+                # Supports wandb tracking of max 3 layer goodnesses
+                try:
+                    first_layer_pos_goodness = pos_goodness_per_layer[0]
+                    first_layer_neg_goodness = neg_goodness_per_layer[0]
+                    second_layer_pos_goodness = pos_goodness_per_layer[1]
+                    second_layer_neg_goodness = neg_goodness_per_layer[1]
+                    third_layer_pos_goodness = pos_goodness_per_layer[2]
+                    third_layer_neg_goodness = neg_goodness_per_layer[2]
+                except:
+                    # No-op as there may not be 3 layers
+                    pass
+
+            # Get some observability into prediction while training. We cannot
+            # use this if the dataset doesn't have static classes.
+            if self.changing_classes == False:
+                accuracy = self.predict(test_loader)
 
             if len(self.layers) == 3:
                 wandb.log({"acc": accuracy, "loss": average_layer_loss, "first_layer_pos_goodness": first_layer_pos_goodness, "second_layer_pos_goodness": second_layer_pos_goodness, "third_layer_pos_goodness":
@@ -297,12 +315,14 @@ class RecurrentFFNet(nn.Module):
                 wandb.log({"acc": accuracy, "loss": average_layer_loss, "first_layer_pos_goodness":
                           first_layer_pos_goodness, "first_layer_neg_goodness": first_layer_neg_goodness})
 
-    # TODO: Rename to something like predict_enumerate_classes
-    # TODO: We need a simple predict method
-    def predict(self, test_data):
+    # TODO: We need a simple predict method that, given a test dataset, returns
+    # the goodness.
+    def brute_force_predict_for_static_class_scenario(self, test_loader):
         """
         This function predicts the class labels for the provided test data using
-        the trained RecurrentFFNet model. 
+        the trained RecurrentFFNet model. It does so by enumerating all possible
+        class labels and choosing the one that produces the highest 'goodness'
+        score. We cannot use this function for datasets with changing classes.
 
         Args:
             test_data (object): A tuple containing the test data, one-hot labels,
@@ -332,64 +352,77 @@ class RecurrentFFNet(nn.Module):
             predictions by comparing them to the actual labels and returns this
             accuracy.
         """
-        with torch.no_grad():
-            data, labels = test_data
-            data = data.to(DEVICE)
-            labels = labels.to(DEVICE)
+        for batch, test_data in enumerate(test_loader):
+            logging.info("Starting inference for test batch: " + str(batch))
 
-            all_labels_goodness = []
+            # tuple: (correct, total)
+            accuracy_contexts = []
 
-            # evaluate goodness for each possible label
-            for label in range(self.num_classes):
-                self.reset_activations(False)
+            with torch.no_grad():
+                data, labels = test_data
+                data = data.to(DEVICE)
+                labels = labels.to(DEVICE)
 
-                one_hot_labels = torch.zeros(
-                    data.shape[0], self.num_classes, device=DEVICE)
-                one_hot_labels[:, label] = 1.0
+                # exploit the fact we know this is a static class scenario
+                labels = labels[0]
 
-                for _preinit in range(0, len(self.layers)):
-                    self.__advance_layers_forward(ForwardMode.PredictData,
-                                                  data, one_hot_labels, False)
+                all_labels_goodness = []
 
-                lower_iteration_threshold = ITERATIONS // 2 - 1
-                upper_iteration_threshold = ITERATIONS // 2 + 1
-                goodnesses = []
-                for _iteration in range(0, ITERATIONS):
-                    self.__advance_layers_forward(ForwardMode.PredictData,
-                                                  data, one_hot_labels, True)
+                # evaluate goodness for each possible label
+                for label in range(self.num_classes):
+                    self.reset_activations(False)
 
-                    if _iteration >= lower_iteration_threshold and _iteration <= upper_iteration_threshold:
-                        layer_goodnesses = []
-                        for layer in self.layers:
-                            layer_goodnesses.append(layer_activations_to_goodness(
-                                layer.predict_activations.current))
+                    one_hot_labels = torch.zeros(
+                        data.shape[1], self.num_classes, device=DEVICE)
+                    one_hot_labels[:, label] = 1.0
 
-                        goodnesses.append(torch.stack(layer_goodnesses, dim=1))
+                    for preinit_iteration in range(0, len(self.layers)):
+                        self.__advance_layers_forward(ForwardMode.PredictData,
+                                                      data[preinit_iteration], one_hot_labels, False)
 
-                # tensor of shape (batch_size, iterations, num_layers)
-                goodnesses = torch.stack(goodnesses, dim=1)
-                print(goodnesses.shape)
-                # average over iterations
-                goodnesses = goodnesses.mean(dim=1)
-                print(goodnesses.shape)
-                # average over layers
-                goodness = goodnesses.mean(dim=1)
+                    lower_iteration_threshold = ITERATIONS // 2 - 1
+                    upper_iteration_threshold = ITERATIONS // 2 + 1
+                    goodnesses = []
+                    for iteration in range(0, ITERATIONS):
+                        self.__advance_layers_forward(ForwardMode.PredictData,
+                                                      data[iteration], one_hot_labels, True)
 
-                logging.debug("goodness for prediction" + " " +
-                              str(label) + ": " + str(goodness))
-                all_labels_goodness.append(goodness)
+                        if iteration >= lower_iteration_threshold and iteration <= upper_iteration_threshold:
+                            layer_goodnesses = []
+                            for layer in self.layers:
+                                layer_goodnesses.append(layer_activations_to_goodness(
+                                    layer.predict_activations.current))
 
-            all_labels_goodness = torch.stack(all_labels_goodness, dim=1)
+                            goodnesses.append(torch.stack(
+                                layer_goodnesses, dim=1))
 
-            # select the label with the maximum goodness
-            predicted_labels = torch.argmax(all_labels_goodness, dim=1)
-            logging.debug("predicted labels: " + str(predicted_labels))
-            logging.debug("actual labels: " + str(labels))
+                    # tensor of shape (batch_size, iterations, num_layers)
+                    goodnesses = torch.stack(goodnesses, dim=1)
+                    # average over iterations
+                    goodnesses = goodnesses.mean(dim=1)
+                    # average over layers
+                    goodness = goodnesses.mean(dim=1)
 
-            total = data.size(0)
-            correct = (predicted_labels == labels).sum().item()
+                    logging.debug("goodness for prediction" + " " +
+                                  str(label) + ": " + str(goodness))
+                    all_labels_goodness.append(goodness)
 
-        accuracy = 100 * correct / total
+                all_labels_goodness = torch.stack(all_labels_goodness, dim=1)
+
+                # select the label with the maximum goodness
+                predicted_labels = torch.argmax(all_labels_goodness, dim=1)
+                logging.debug("predicted labels: " + str(predicted_labels))
+                logging.debug("actual labels: " + str(labels))
+
+                total = data.size(1)
+                correct = (predicted_labels == labels).sum().item()
+
+                accuracy_contexts.append((correct, total))
+
+        total_correct = sum(correct for correct, _total in accuracy_contexts)
+        total_submissions = sum(
+            total for _correct, total in accuracy_contexts)
+        accuracy = total_correct / total_submissions * 100 if total_submissions else 0
         logging.info(f'test accuracy: {accuracy}%')
 
         return accuracy
@@ -580,39 +613,49 @@ class HiddenLayer(nn.Module):
         return self
 
     # TODO: we can optimize for memory by enabling distinct train / predict mode
-    # TODO: fix hacky isTraining flag
     def reset_activations(self, isTraining):
         activations_dim = None
         if isTraining:
             activations_dim = self.train_activations_dim
+
+            pos_activations_current = torch.zeros(
+                activations_dim[0], activations_dim[1]).to(DEVICE)
+            pos_activations_previous = torch.zeros(
+                activations_dim[0], activations_dim[1]).to(DEVICE)
+            self.pos_activations = Activations(
+                pos_activations_current, pos_activations_previous)
+
+            neg_activations_current = torch.zeros(
+                activations_dim[0], activations_dim[1]).to(DEVICE)
+            neg_activations_previous = torch.zeros(
+                activations_dim[0], activations_dim[1]).to(DEVICE)
+            self.neg_activations = Activations(
+                neg_activations_current, neg_activations_previous)
+
+            self.predict_activations = None
+
         else:
             activations_dim = self.test_activations_dim
 
-        pos_activations_current = torch.zeros(
-            activations_dim[0], activations_dim[1]).to(DEVICE)
-        pos_activations_previous = torch.zeros(
-            activations_dim[0], activations_dim[1]).to(DEVICE)
-        self.pos_activations = Activations(
-            pos_activations_current, pos_activations_previous)
+            predict_activations_current = torch.zeros(
+                activations_dim[0], activations_dim[1]).to(DEVICE)
+            predict_activations_previous = torch.zeros(
+                activations_dim[0], activations_dim[1]).to(DEVICE)
+            self.predict_activations = Activations(
+                predict_activations_current, predict_activations_previous)
 
-        neg_activations_current = torch.zeros(
-            activations_dim[0], activations_dim[1]).to(DEVICE)
-        neg_activations_previous = torch.zeros(
-            activations_dim[0], activations_dim[1]).to(DEVICE)
-        self.neg_activations = Activations(
-            neg_activations_current, neg_activations_previous)
-
-        predict_activations_current = torch.zeros(
-            activations_dim[0], activations_dim[1]).to(DEVICE)
-        predict_activations_previous = torch.zeros(
-            activations_dim[0], activations_dim[1]).to(DEVICE)
-        self.predict_activations = Activations(
-            predict_activations_current, predict_activations_previous)
+            self.pos_activations = None
+            self.neg_activations = None
 
     def advance_stored_activations(self):
-        self.pos_activations.advance()
-        self.neg_activations.advance()
-        self.predict_activations.advance()
+        if self.pos_activations != None:
+            self.pos_activations.advance()
+
+        if self.neg_activations != None:
+            self.neg_activations.advance()
+
+        if self.predict_activations != None:
+            self.predict_activations.advance()
 
     def set_previous_layer(self, previous_layer):
         self.previous_layer = previous_layer
