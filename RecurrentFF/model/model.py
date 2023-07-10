@@ -187,6 +187,7 @@ class RecurrentFFNet(nn.Module):
         logging.info("initializing network")
         super(RecurrentFFNet, self).__init__()
 
+        self.changing_classes = changing_classes
         self.num_classes = num_classes
         self.layers = nn.ModuleList()
         prev_size = input_size
@@ -303,7 +304,8 @@ class RecurrentFFNet(nn.Module):
             # Get some observability into prediction while training. We cannot
             # use this if the dataset doesn't have static classes.
             if self.changing_classes == False:
-                accuracy = self.predict(test_loader)
+                accuracy = self.brute_force_predict_for_static_class_scenario(
+                    test_loader)
 
             if len(self.layers) == 3:
                 wandb.log({"acc": accuracy, "loss": average_layer_loss, "first_layer_pos_goodness": first_layer_pos_goodness, "second_layer_pos_goodness": second_layer_pos_goodness, "third_layer_pos_goodness":

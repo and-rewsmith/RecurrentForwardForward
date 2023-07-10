@@ -49,10 +49,10 @@ class CustomTrainDataset(Dataset):
         while y_neg == y_pos:
             y_neg = torch.randint(0, NUM_CLASSES, (1,)).item()
 
-        positive_one_hot_labels = torch.zeros(NUM_CLASSES, device=DEVICE)
+        positive_one_hot_labels = torch.zeros(NUM_CLASSES)
         positive_one_hot_labels[y_pos] = 1.0
 
-        negative_one_hot_labels = torch.zeros(NUM_CLASSES, device=DEVICE)
+        negative_one_hot_labels = torch.zeros(NUM_CLASSES)
         negative_one_hot_labels[y_neg] = 1.0
 
         return ((x, x), (positive_one_hot_labels, negative_one_hot_labels))
@@ -159,12 +159,12 @@ def MNIST_loaders(train_batch_size, test_batch_size):
     train_loader = DataLoader(CustomTrainDataset(MNIST('./data/', train=True,
                                                        download=True,
                                                        transform=transform)),
-                              batch_size=train_batch_size, shuffle=True, collate_fn=train_collate_fn)
+                              batch_size=train_batch_size, shuffle=True, collate_fn=train_collate_fn, num_workers=8)
 
     test_loader = DataLoader(CustomTestDataset(MNIST('./data/', train=False,
                                                      download=True,
                                                      transform=transform)),
-                             batch_size=test_batch_size, shuffle=False, collate_fn=test_collate_fn)
+                             batch_size=test_batch_size, shuffle=False, collate_fn=test_collate_fn, num_workers=8)
 
     return train_loader, test_loader
 
