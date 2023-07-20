@@ -61,7 +61,7 @@ class TrainLabelData:
 class TestData:
     def __init__(self, input, labels):
         self.input = input
-        # TODO FIX: this will not be a one-hot vector
+        # TODO: this should not be a one-hot vector, as it precludes multiclass classification
         self.labels = labels
 
     def __iter__(self):
@@ -270,7 +270,6 @@ class RecurrentFFNet(nn.Module):
                                                   neg_input, neg_labels, False)
 
                 iterations = input_data.pos_input.shape[0]
-                # TODO: IMPORTANT PLEASE FIX THIS IMMEDIATELY
                 for iteration in range(0, iterations):
                     logging.debug("Iteration: " + str(iteration))
 
