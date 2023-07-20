@@ -389,8 +389,8 @@ class RecurrentFFNet(nn.Module):
                                                       data[0], one_hot_labels, False)
 
                     # TODO: make configurable the number of iterations to use in aggregation
-                    lower_iteration_threshold = iterations // 2 - 10
-                    upper_iteration_threshold = iterations // 2 + 10
+                    lower_iteration_threshold = iterations // 2 - 1
+                    upper_iteration_threshold = iterations // 2 + 1
                     goodnesses = []
                     for iteration in range(0, iterations):
                         self.__advance_layers_forward(ForwardMode.PredictData,
