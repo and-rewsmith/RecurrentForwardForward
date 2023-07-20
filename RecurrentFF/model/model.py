@@ -305,7 +305,7 @@ class RecurrentFFNet(nn.Module):
             # use this if the dataset doesn't have static classes.
             if self.changing_classes == False:
                 accuracy = self.brute_force_predict_for_static_class_scenario(
-                    test_loader, 1)
+                    test_loader)
 
             if len(self.layers) == 3:
                 wandb.log({"acc": accuracy, "loss": average_layer_loss, "first_layer_pos_goodness": first_layer_pos_goodness, "second_layer_pos_goodness": second_layer_pos_goodness, "third_layer_pos_goodness":
