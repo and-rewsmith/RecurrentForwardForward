@@ -7,14 +7,13 @@ from torch.nn import functional as F
 from torch.optim import Adam
 import wandb
 
-from RecurrentFF.model.constants import EPSILON, DAMPING_FACTOR, ITERATIONS, LEARNING_RATE, EPOCHS, THRESHOLD, DEVICE
+from RecurrentFF.model.constants import EPSILON, DAMPING_FACTOR, LEARNING_RATE, EPOCHS, THRESHOLD, DEVICE
 
 # TODO:
-# 1 - Experiment with more layers
-# 2 - Experiment with weight initialization
-# 3 - Try different optimizers
-# 4 - Try layer norm layers
-# 5 - Understand why l2 normalization completely fails
+# 1 - Experiment with weight initialization
+# 2 - Try different optimizers
+# 3 - Try layer norm layers
+# 4 - Understand why l2 normalization completely fails
 
 
 def standardize_layer_activations(layer_activations):
@@ -62,6 +61,7 @@ class TrainLabelData:
 class TestData:
     def __init__(self, input, labels):
         self.input = input
+        # TODO FIX: this will not be a one-hot vector
         self.labels = labels
 
     def __iter__(self):
@@ -269,8 +269,10 @@ class RecurrentFFNet(nn.Module):
                     self.__advance_layers_forward(ForwardMode.NegativeData,
                                                   neg_input, neg_labels, False)
 
-                for iteration in range(0, ITERATIONS):
-                    logging.info("Iteration: " + str(iteration))
+                iterations = input_data.pos_input.shape[0]
+                # TODO: IMPORTANT PLEASE FIX THIS IMMEDIATELY
+                for iteration in range(0, iterations):
+                    logging.debug("Iteration: " + str(iteration))
 
                     input_data_sample = (
                         input_data.pos_input[iteration], input_data.neg_input[iteration])
@@ -304,7 +306,7 @@ class RecurrentFFNet(nn.Module):
             # use this if the dataset doesn't have static classes.
             if self.changing_classes == False:
                 accuracy = self.brute_force_predict_for_static_class_scenario(
-                    test_loader)
+                    test_loader, 1)
 
             if len(self.layers) == 3:
                 wandb.log({"acc": accuracy, "loss": average_layer_loss, "first_layer_pos_goodness": first_layer_pos_goodness, "second_layer_pos_goodness": second_layer_pos_goodness, "third_layer_pos_goodness":
@@ -318,7 +320,7 @@ class RecurrentFFNet(nn.Module):
 
     # TODO: We need a simple predict method that, given a test dataset, returns
     # the goodness.
-    def brute_force_predict_for_static_class_scenario(self, test_loader):
+    def brute_force_predict_for_static_class_scenario(self, test_loader, limit_batches=None):
         """
         This function predicts the class labels for the provided test data using
         the trained RecurrentFFNet model. It does so by enumerating all possible
@@ -354,6 +356,9 @@ class RecurrentFFNet(nn.Module):
             accuracy.
         """
         for batch, test_data in enumerate(test_loader):
+            if limit_batches != None and batch == limit_batches:
+                break
+
             logging.info("Starting inference for test batch: " + str(batch))
 
             # tuple: (correct, total)
@@ -363,6 +368,8 @@ class RecurrentFFNet(nn.Module):
                 data, labels = test_data
                 data = data.to(DEVICE)
                 labels = labels.to(DEVICE)
+
+                iterations = data.shape[0]
 
                 # exploit the fact we know this is a static class scenario
                 labels = labels[0]
@@ -377,14 +384,15 @@ class RecurrentFFNet(nn.Module):
                         data.shape[1], self.num_classes, device=DEVICE)
                     one_hot_labels[:, label] = 1.0
 
-                    for preinit_iteration in range(0, len(self.layers)):
+                    for _preinit_iteration in range(0, len(self.layers)):
                         self.__advance_layers_forward(ForwardMode.PredictData,
-                                                      data[preinit_iteration], one_hot_labels, False)
+                                                      data[0], one_hot_labels, False)
 
-                    lower_iteration_threshold = ITERATIONS // 2 - 1
-                    upper_iteration_threshold = ITERATIONS // 2 + 1
+                    # TODO: make configurable the number of iterations to use in aggregation
+                    lower_iteration_threshold = iterations // 2 - 10
+                    upper_iteration_threshold = iterations // 2 + 10
                     goodnesses = []
-                    for iteration in range(0, ITERATIONS):
+                    for iteration in range(0, iterations):
                         self.__advance_layers_forward(ForwardMode.PredictData,
                                                       data[iteration], one_hot_labels, True)
 
