@@ -377,9 +377,9 @@ class RecurrentFFNet(nn.Module):
                         data.shape[1], self.num_classes, device=DEVICE)
                     one_hot_labels[:, label] = 1.0
 
-                    for preinit_iteration in range(0, len(self.layers)):
+                    for _preinit_iteration in range(0, len(self.layers)):
                         self.__advance_layers_forward(ForwardMode.PredictData,
-                                                      data[preinit_iteration], one_hot_labels, False)
+                                                      data[0], one_hot_labels, False)
 
                     lower_iteration_threshold = ITERATIONS // 2 - 1
                     upper_iteration_threshold = ITERATIONS // 2 + 1

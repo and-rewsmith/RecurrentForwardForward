@@ -159,12 +159,12 @@ def MNIST_loaders(train_batch_size, test_batch_size):
     train_loader = DataLoader(CustomTrainDataset(MNIST('./data/', train=True,
                                                        download=True,
                                                        transform=transform)),
-                              batch_size=train_batch_size, shuffle=True, collate_fn=train_collate_fn, num_workers=8)
+                              batch_size=train_batch_size, shuffle=True, collate_fn=train_collate_fn, num_workers=0)
 
     test_loader = DataLoader(CustomTestDataset(MNIST('./data/', train=False,
                                                      download=True,
                                                      transform=transform)),
-                             batch_size=test_batch_size, shuffle=False, collate_fn=test_collate_fn, num_workers=8)
+                             batch_size=test_batch_size, shuffle=False, collate_fn=test_collate_fn, num_workers=0)
 
     return train_loader, test_loader
 
