@@ -7,7 +7,10 @@ from torch.nn import functional as F
 from torch.optim import Adam
 import wandb
 
-from RecurrentFF.model.constants import EPSILON, DAMPING_FACTOR, LEARNING_RATE, EPOCHS, THRESHOLD, DEVICE
+from RecurrentFF.model.constants import EPSILON, DAMPING_FACTOR, LEARNING_RATE, EPOCHS, THRESHOLD, DEVICE, SKIP_PROFILING
+
+from profilehooks import profile
+
 
 # TODO:
 # 1 - Experiment with weight initialization
@@ -30,6 +33,7 @@ def standardize_layer_activations(layer_activations):
     return prev_layer_stdized
 
 
+# input of dims (frames, batch size, input size)
 class TrainInputData:
     def __init__(self, pos_input, neg_input):
         self.pos_input = pos_input
@@ -44,6 +48,7 @@ class TrainInputData:
         self.neg_input = self.neg_input.to(device)
 
 
+# input of dims (frames, batch size, num classes)
 class TrainLabelData:
     def __init__(self, pos_labels, neg_labels):
         self.pos_labels = pos_labels
@@ -58,10 +63,10 @@ class TrainLabelData:
         self.neg_labels = self.neg_labels.to(device)
 
 
+# input of dims (batch size, num classes)
 class TestData:
     def __init__(self, input, labels):
         self.input = input
-        # TODO: this should not be a one-hot vector, as it precludes multiclass classification
         self.labels = labels
 
     def __iter__(self):
@@ -182,11 +187,11 @@ class RecurrentFFNet(nn.Module):
     architecture.
     """
 
-    def __init__(self, train_batch_size, test_batch_size, input_size, hidden_sizes, num_classes, damping_factor=DAMPING_FACTOR, changing_classes=False):
+    def __init__(self, train_batch_size, test_batch_size, input_size, hidden_sizes, num_classes, damping_factor=DAMPING_FACTOR, static_singleclass=True):
         logging.info("initializing network")
         super(RecurrentFFNet, self).__init__()
 
-        self.changing_classes = changing_classes
+        self.static_singleclass = static_singleclass
         self.num_classes = num_classes
         self.layers = nn.ModuleList()
         prev_size = input_size
@@ -217,6 +222,7 @@ class RecurrentFFNet(nn.Module):
         for layer in self.layers:
             layer.reset_activations(isTraining)
 
+    @profile(stdout=False, filename='baseline.prof', skip=SKIP_PROFILING)
     def train(self, train_loader, test_loader):
         """
         Trains the RecurrentFFNet model using the provided train and test data loaders.
@@ -244,6 +250,7 @@ class RecurrentFFNet(nn.Module):
             layer's activations into a 'goodness' score. This function operates on the RecurrentFFNet model level
             and is called during the training process.
         """
+
         for epoch in range(0, EPOCHS):
             logging.info("Epoch: " + str(epoch))
 
@@ -301,9 +308,11 @@ class RecurrentFFNet(nn.Module):
                     # No-op as there may not be 3 layers
                     pass
 
+                logging.debug("getting next batch")
+
             # Get some observability into prediction while training. We cannot
             # use this if the dataset doesn't have static classes.
-            if self.changing_classes == False:
+            if self.static_singleclass == True:
                 accuracy = self.brute_force_predict_for_static_class_scenario(
                     test_loader, 1)
 
@@ -370,8 +379,9 @@ class RecurrentFFNet(nn.Module):
 
                 iterations = data.shape[0]
 
+                # TODO FIX: this fixes moving mnist but regresses mnist
                 # exploit the fact we know this is a static class scenario
-                labels = labels[0]
+                # labels = labels[0]
 
                 all_labels_goodness = []
 

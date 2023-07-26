@@ -6,3 +6,8 @@ env
 __pycache__
 *.egg-info
 env-*
+moving_mnist_data
+frame.png
+*.prof
+logs.txt
+sequences

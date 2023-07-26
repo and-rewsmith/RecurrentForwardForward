@@ -197,13 +197,10 @@ class SeqMnistTestDataset(Dataset):
 
         # separate label and data
         one_hot_label = torch.Tensor(data[0, :10])
-        y = one_hot_label.argmax().item()  # Convert one-hot label to scalar
+        y = one_hot_label.argmax()  # Convert one-hot label to scalar
 
         if self.transform:
             x = self.transform(x)
-
-        # expand y to have shape (iterations)
-        y = torch.full((x.shape[0],), y)
 
         return x, y
 
@@ -246,7 +243,7 @@ def collate_test(batch):
     """
     data, labels = zip(*batch)
     data = torch.stack(data).transpose(0, 1)
-    labels = torch.stack(labels).transpose(0, 1)
+    labels = torch.stack(labels)
 
     return TestData(data, labels)
 
