@@ -28,6 +28,8 @@ class MovingMNISTDataset(Dataset):
     blocking. The class is designed to work with .pt files and supports
     train/test splitting based on filename prefix.
 
+    NOTE: Do not use shuffle=True for the dataloader. It is not supported.
+
     Parameters
     ----------
     root_dir : str
