@@ -379,10 +379,6 @@ class RecurrentFFNet(nn.Module):
 
                 iterations = data.shape[0]
 
-                # TODO FIX: this fixes moving mnist but regresses mnist
-                # exploit the fact we know this is a static class scenario
-                # labels = labels[0]
-
                 all_labels_goodness = []
 
                 # evaluate goodness for each possible label
