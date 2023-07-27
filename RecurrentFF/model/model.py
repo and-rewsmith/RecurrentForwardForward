@@ -13,10 +13,7 @@ from profilehooks import profile
 
 
 # TODO:
-# 1 - Experiment with weight initialization
-# 2 - Try different optimizers
-# 3 - Try layer norm layers
-# 4 - Understand why l2 normalization completely fails
+# Understand why l2 normalization completely fails
 
 
 def standardize_layer_activations(layer_activations):
@@ -326,8 +323,6 @@ class RecurrentFFNet(nn.Module):
                 wandb.log({"acc": accuracy, "loss": average_layer_loss, "first_layer_pos_goodness":
                           first_layer_pos_goodness, "first_layer_neg_goodness": first_layer_neg_goodness})
 
-    # TODO: We need a simple predict method that, given a test dataset, returns
-    # the goodness.
     def brute_force_predict_for_static_class_scenario(self, test_loader, limit_batches=None):
         """
         This function predicts the class labels for the provided test data using
@@ -626,7 +621,6 @@ class HiddenLayer(nn.Module):
 
         return self
 
-    # TODO: we can optimize for memory by enabling distinct train / predict mode
     def reset_activations(self, isTraining):
         activations_dim = None
         if isTraining:

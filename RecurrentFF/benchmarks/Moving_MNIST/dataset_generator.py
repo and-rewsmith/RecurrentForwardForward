@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 from torchvision.datasets import MNIST
 from torchvision.transforms import Compose, ToTensor
 
-from constants import MOVING_MNIST_DATA_DIR
+from RecurrentFF.benchmarks.Moving_MNIST.constants import MOVING_MNIST_DATA_DIR
 
 
 BATCH_SIZE = 1

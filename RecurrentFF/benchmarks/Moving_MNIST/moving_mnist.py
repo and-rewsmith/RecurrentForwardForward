@@ -11,6 +11,8 @@ from multiprocessing import Process, Manager
 from RecurrentFF.model.model import RecurrentFFNet, TrainInputData, TrainLabelData, TestData
 from RecurrentFF.model.constants import EPOCHS, LEARNING_RATE, THRESHOLD, DAMPING_FACTOR, EPSILON, DEVICE
 
+from RecurrentFF.benchmarks.Moving_MNIST.constants import MOVING_MNIST_DATA_DIR
+
 NUM_CLASSES = 10
 INPUT_SIZE = 4096
 LAYERS = [1000, 1000, 1000]
@@ -221,10 +223,10 @@ def MNIST_loaders(train_batch_size, test_batch_size):
     #     Lambda(lambda x: torch.flatten(x))])
 
     # Cannot shuffle with the dataset implementation
-    train_loader = DataLoader(MovingMNISTDataset('{MOVING_MNIST_DATA_DIR}/', train=True),
+    train_loader = DataLoader(MovingMNISTDataset(f'{MOVING_MNIST_DATA_DIR}/', train=True),
                               batch_size=train_batch_size, shuffle=False, collate_fn=train_collate_fn, num_workers=0)
 
-    test_loader = DataLoader(MovingMNISTDataset('{MOVING_MNIST_DATA_DIR}/', train=False),
+    test_loader = DataLoader(MovingMNISTDataset(f'{MOVING_MNIST_DATA_DIR}/', train=False),
                              batch_size=test_batch_size, shuffle=False, collate_fn=test_collate_fn, num_workers=0)
 
     return train_loader, test_loader
