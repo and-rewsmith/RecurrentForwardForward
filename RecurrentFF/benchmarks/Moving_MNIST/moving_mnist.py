@@ -6,8 +6,8 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 import wandb
 from multiprocessing import Process, Manager
-from RecurrentFF.settings import Settings
 
+from RecurrentFF.settings import Settings
 from RecurrentFF.util import DataConfig, TrainInputData, TrainLabelData, SingleStaticClassTestData
 from RecurrentFF.model.model import RecurrentFFNet
 
