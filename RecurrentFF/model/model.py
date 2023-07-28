@@ -5,12 +5,10 @@ from torch import nn
 from torch.nn import functional as F
 from torch.optim import Adam
 import wandb
+from profilehooks import profile
 
 from RecurrentFF.model.constants import DAMPING_FACTOR, LEARNING_RATE, EPOCHS, THRESHOLD, DEVICE, SKIP_PROFILING, DEFAULT_FOCUS_ITERATION_POS_OFFSET, DEFAULT_FOCUS_ITERATION_NEG_OFFSET
-
-from profilehooks import profile
 from RecurrentFF.model.data_scenario.static_single_class import StaticSingleClassProcessor
-
 from RecurrentFF.model.util import Activations, ForwardMode, OutputLayer, layer_activations_to_goodness, standardize_layer_activations
 
 
