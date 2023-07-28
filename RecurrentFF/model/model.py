@@ -7,7 +7,7 @@ from torch.nn import functional as F
 from torch.optim import Adam
 import wandb
 
-from RecurrentFF.model.constants import EPSILON, DAMPING_FACTOR, LEARNING_RATE, EPOCHS, THRESHOLD, DEVICE, SKIP_PROFILING, FOCUS_ITERATION_POS_OFFSET, FOCUS_ITERATION_NEG_OFFSET
+from RecurrentFF.model.constants import EPSILON, DAMPING_FACTOR, LEARNING_RATE, EPOCHS, THRESHOLD, DEVICE, SKIP_PROFILING, DEFAULT_FOCUS_ITERATION_POS_OFFSET, DEFAULT_FOCUS_ITERATION_NEG_OFFSET
 
 from profilehooks import profile
 
@@ -184,7 +184,7 @@ class RecurrentFFNet(nn.Module):
     architecture.
     """
 
-    def __init__(self, train_batch_size, test_batch_size, input_size, hidden_sizes, num_classes, focus_iteration_neg_offset=FOCUS_ITERATION_NEG_OFFSET, focus_iteration_pos_offset=FOCUS_ITERATION_POS_OFFSET, damping_factor=DAMPING_FACTOR, static_singleclass=True):
+    def __init__(self, train_batch_size, test_batch_size, input_size, hidden_sizes, num_classes, focus_iteration_neg_offset=DEFAULT_FOCUS_ITERATION_NEG_OFFSET, focus_iteration_pos_offset=DEFAULT_FOCUS_ITERATION_POS_OFFSET, damping_factor=DAMPING_FACTOR, static_singleclass=True):
         logging.info("initializing network")
         super(RecurrentFFNet, self).__init__()
 
