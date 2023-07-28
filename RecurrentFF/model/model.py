@@ -7,7 +7,7 @@ from torch.nn import functional as F
 from torch.optim import Adam
 import wandb
 
-from RecurrentFF.model.constants import EPSILON, DAMPING_FACTOR, LEARNING_RATE, EPOCHS, THRESHOLD, DEVICE, SKIP_PROFILING
+from RecurrentFF.model.constants import EPSILON, DAMPING_FACTOR, LEARNING_RATE, EPOCHS, THRESHOLD, DEVICE, SKIP_PROFILING, FOCUS_ITERATION_POS_OFFSET, FOCUS_ITERATION_NEG_OFFSET
 
 from profilehooks import profile
 
@@ -61,7 +61,7 @@ class TrainLabelData:
 
 
 # input of dims (batch size, num classes)
-class TestData:
+class SingleStaticClassTestData:
     def __init__(self, input, labels):
         self.input = input
         self.labels = labels
@@ -184,12 +184,15 @@ class RecurrentFFNet(nn.Module):
     architecture.
     """
 
-    def __init__(self, train_batch_size, test_batch_size, input_size, hidden_sizes, num_classes, damping_factor=DAMPING_FACTOR, static_singleclass=True):
+    def __init__(self, train_batch_size, test_batch_size, input_size, hidden_sizes, num_classes, focus_iteration_neg_offset=FOCUS_ITERATION_NEG_OFFSET, focus_iteration_pos_offset=FOCUS_ITERATION_POS_OFFSET, damping_factor=DAMPING_FACTOR, static_singleclass=True):
         logging.info("initializing network")
         super(RecurrentFFNet, self).__init__()
 
         self.static_singleclass = static_singleclass
         self.num_classes = num_classes
+        self.focus_iteration_neg_offset = focus_iteration_neg_offset
+        self.focus_iteration_pos_offset = focus_iteration_pos_offset
+
         self.layers = nn.ModuleList()
         prev_size = input_size
         for size in hidden_sizes:
@@ -251,61 +254,9 @@ class RecurrentFFNet(nn.Module):
         for epoch in range(0, EPOCHS):
             logging.info("Epoch: " + str(epoch))
 
-            for batch, (input_data, label_data) in enumerate(train_loader):
-                logging.info("Batch: " + str(batch))
-
-                input_data.move_to_device_inplace(DEVICE)
-                label_data.move_to_device_inplace(DEVICE)
-
-                self.reset_activations(True)
-
-                for preinit_step in range(0, len(self.layers)):
-                    logging.debug("Preinitialization step: " +
-                                  str(preinit_step))
-
-                    pos_input = input_data.pos_input[0]
-                    neg_input = input_data.neg_input[0]
-                    pos_labels = label_data.pos_labels[0]
-                    neg_labels = label_data.neg_labels[0]
-
-                    self.__advance_layers_forward(ForwardMode.PositiveData,
-                                                  pos_input, pos_labels, False)
-                    self.__advance_layers_forward(ForwardMode.NegativeData,
-                                                  neg_input, neg_labels, False)
-
-                iterations = input_data.pos_input.shape[0]
-                for iteration in range(0, iterations):
-                    logging.debug("Iteration: " + str(iteration))
-
-                    input_data_sample = (
-                        input_data.pos_input[iteration], input_data.neg_input[iteration])
-                    label_data_sample = (
-                        label_data.pos_labels[iteration], label_data.neg_labels[iteration])
-
-                    total_loss = self.__advance_layers_train(
-                        input_data_sample, label_data_sample, True)
-                    average_layer_loss = (total_loss / len(self.layers)).item()
-                    logging.debug("Average layer loss: " +
-                                  str(average_layer_loss))
-
-                pos_goodness_per_layer = [
-                    layer_activations_to_goodness(layer.pos_activations.current).mean() for layer in self.layers]
-                neg_goodness_per_layer = [
-                    layer_activations_to_goodness(layer.neg_activations.current).mean() for layer in self.layers]
-
-                # Supports wandb tracking of max 3 layer goodnesses
-                try:
-                    first_layer_pos_goodness = pos_goodness_per_layer[0]
-                    first_layer_neg_goodness = neg_goodness_per_layer[0]
-                    second_layer_pos_goodness = pos_goodness_per_layer[1]
-                    second_layer_neg_goodness = neg_goodness_per_layer[1]
-                    third_layer_pos_goodness = pos_goodness_per_layer[2]
-                    third_layer_neg_goodness = neg_goodness_per_layer[2]
-                except:
-                    # No-op as there may not be 3 layers
-                    pass
-
-                logging.debug("getting next batch")
+            for batch_num, (input_data, label_data) in enumerate(train_loader):
+                average_layer_loss, pos_goodness_per_layer, neg_goodness_per_layer = self.__train_batch(batch_num,
+                                                                                                        input_data, label_data)
 
             # Get some observability into prediction while training. We cannot
             # use this if the dataset doesn't have static classes.
@@ -313,15 +264,8 @@ class RecurrentFFNet(nn.Module):
                 accuracy = self.brute_force_predict_for_static_class_scenario(
                     test_loader, 1)
 
-            if len(self.layers) == 3:
-                wandb.log({"acc": accuracy, "loss": average_layer_loss, "first_layer_pos_goodness": first_layer_pos_goodness, "second_layer_pos_goodness": second_layer_pos_goodness, "third_layer_pos_goodness":
-                          third_layer_pos_goodness, "first_layer_neg_goodness": first_layer_neg_goodness, "second_layer_neg_goodness": second_layer_neg_goodness, "third_layer_neg_goodness": third_layer_neg_goodness})
-            elif len(self.layers) == 2:
-                wandb.log({"acc": accuracy, "loss": average_layer_loss, "first_layer_pos_goodness": first_layer_pos_goodness, "second_layer_pos_goodness":
-                          second_layer_pos_goodness, "first_layer_neg_goodness": first_layer_neg_goodness, "second_layer_neg_goodness": second_layer_neg_goodness})
-            elif len(self.layers) == 1:
-                wandb.log({"acc": accuracy, "loss": average_layer_loss, "first_layer_pos_goodness":
-                          first_layer_pos_goodness, "first_layer_neg_goodness": first_layer_neg_goodness})
+            self.__log_metrics(accuracy, average_layer_loss,
+                               pos_goodness_per_layer, neg_goodness_per_layer)
 
     def brute_force_predict_for_static_class_scenario(self, test_loader, limit_batches=None):
         """
@@ -388,9 +332,8 @@ class RecurrentFFNet(nn.Module):
                         self.__advance_layers_forward(ForwardMode.PredictData,
                                                       data[0], one_hot_labels, False)
 
-                    # TODO: make configurable the number of iterations to use in aggregation
-                    lower_iteration_threshold = iterations // 2 - 1
-                    upper_iteration_threshold = iterations // 2 + 1
+                    lower_iteration_threshold = iterations // 2 - self.focus_iteration_neg_offset
+                    upper_iteration_threshold = iterations // 2 + self.focus_iteration_pos_offset
                     goodnesses = []
                     for iteration in range(0, iterations):
                         self.__advance_layers_forward(ForwardMode.PredictData,
@@ -435,6 +378,85 @@ class RecurrentFFNet(nn.Module):
         logging.info(f'test accuracy: {accuracy}%')
 
         return accuracy
+
+    def __train_batch(self, batch_num, input_data, label_data):
+        logging.info("Batch: " + str(batch_num))
+
+        input_data.move_to_device_inplace(DEVICE)
+        label_data.move_to_device_inplace(DEVICE)
+
+        self.reset_activations(True)
+
+        for preinit_step in range(0, len(self.layers)):
+            logging.debug("Preinitialization step: " +
+                          str(preinit_step))
+
+            pos_input = input_data.pos_input[0]
+            neg_input = input_data.neg_input[0]
+            pos_labels = label_data.pos_labels[0]
+            neg_labels = label_data.neg_labels[0]
+
+            self.__advance_layers_forward(ForwardMode.PositiveData,
+                                          pos_input, pos_labels, False)
+            self.__advance_layers_forward(ForwardMode.NegativeData,
+                                          neg_input, neg_labels, False)
+
+        pos_goodness_per_layer = []
+        neg_goodness_per_layer = []
+        iterations = input_data.pos_input.shape[0]
+        for iteration in range(0, iterations):
+            logging.debug("Iteration: " + str(iteration))
+
+            input_data_sample = (
+                input_data.pos_input[iteration], input_data.neg_input[iteration])
+            label_data_sample = (
+                label_data.pos_labels[iteration], label_data.neg_labels[iteration])
+
+            total_loss = self.__advance_layers_train(
+                input_data_sample, label_data_sample, True)
+            average_layer_loss = (total_loss / len(self.layers)).item()
+            logging.debug("Average layer loss: " +
+                          str(average_layer_loss))
+
+            if iteration >= self.focus_iteration_neg_offset and iteration <= self.focus_iteration_pos_offset:
+                pos_goodness_per_layer.append(
+                    [layer_activations_to_goodness(
+                        layer.pos_activations.current).mean() for layer in self.layers]
+                )
+                neg_goodness_per_layer.append(
+                    [layer_activations_to_goodness(
+                        layer.neg_activations.current).mean() for layer in self.layers]
+                )
+
+        pos_goodness_per_layer = [sum(layer_goodnesses)/len(layer_goodnesses)
+                                  for layer_goodnesses in zip(*pos_goodness_per_layer)]
+        neg_goodness_per_layer = [sum(layer_goodnesses)/len(layer_goodnesses)
+                                  for layer_goodnesses in zip(*neg_goodness_per_layer)]
+
+        return average_layer_loss, pos_goodness_per_layer, neg_goodness_per_layer
+
+    def __log_metrics(self, accuracy, average_layer_loss, pos_goodness_per_layer, neg_goodness_per_layer):
+        # Supports wandb tracking of max 3 layer goodnesses
+        try:
+            first_layer_pos_goodness = pos_goodness_per_layer[0]
+            first_layer_neg_goodness = neg_goodness_per_layer[0]
+            second_layer_pos_goodness = pos_goodness_per_layer[1]
+            second_layer_neg_goodness = neg_goodness_per_layer[1]
+            third_layer_pos_goodness = pos_goodness_per_layer[2]
+            third_layer_neg_goodness = neg_goodness_per_layer[2]
+        except:
+            # No-op as there may not be 3 layers
+            pass
+
+        if len(self.layers) == 3:
+            wandb.log({"acc": accuracy, "loss": average_layer_loss, "first_layer_pos_goodness": first_layer_pos_goodness, "second_layer_pos_goodness": second_layer_pos_goodness, "third_layer_pos_goodness":
+                       third_layer_pos_goodness, "first_layer_neg_goodness": first_layer_neg_goodness, "second_layer_neg_goodness": second_layer_neg_goodness, "third_layer_neg_goodness": third_layer_neg_goodness})
+        elif len(self.layers) == 2:
+            wandb.log({"acc": accuracy, "loss": average_layer_loss, "first_layer_pos_goodness": first_layer_pos_goodness, "second_layer_pos_goodness":
+                       second_layer_pos_goodness, "first_layer_neg_goodness": first_layer_neg_goodness, "second_layer_neg_goodness": second_layer_neg_goodness})
+        elif len(self.layers) == 1:
+            wandb.log({"acc": accuracy, "loss": average_layer_loss, "first_layer_pos_goodness":
+                       first_layer_pos_goodness, "first_layer_neg_goodness": first_layer_neg_goodness})
 
     def __advance_layers_train(self, input_data, label_data, should_damp):
         """

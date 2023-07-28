@@ -6,7 +6,7 @@ from torchvision.datasets import MNIST
 from torchvision.transforms import Compose, ToTensor, Normalize, Lambda
 import wandb
 
-from RecurrentFF.model.model import RecurrentFFNet, TrainInputData, TrainLabelData, TestData
+from RecurrentFF.model.model import RecurrentFFNet, TrainInputData, TrainLabelData, SingleStaticClassTestData
 from RecurrentFF.model.constants import EPOCHS, LEARNING_RATE, THRESHOLD, DAMPING_FACTOR, EPSILON, DEVICE
 
 NUM_CLASSES = 10
@@ -147,7 +147,7 @@ def test_collate_fn(batch):
     data = data.unsqueeze(0).repeat(ITERATIONS, 1, 1)
 
     # 4. Return as a custom object
-    return TestData(data, labels)
+    return SingleStaticClassTestData(data, labels)
 
 
 def MNIST_loaders(train_batch_size, test_batch_size):

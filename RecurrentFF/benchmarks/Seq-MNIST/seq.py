@@ -8,12 +8,12 @@ from torch.utils.data import DataLoader, Dataset
 import wandb
 import numpy as np
 
-from RecurrentFF.model.model import RecurrentFFNet, TrainInputData, TrainLabelData, TestData
+from RecurrentFF.model.model import RecurrentFFNet, TrainInputData, TrainLabelData, SingleStaticClassTestData
 from RecurrentFF.model.constants import EPOCHS, LEARNING_RATE, THRESHOLD, DAMPING_FACTOR, EPSILON, DEVICE
 
 NUM_CLASSES = 10
 INPUT_SIZE = 4
-LAYERS = [500, 250, 200]
+LAYERS = [500, 500, 500]
 TRAIN_BATCH_SIZE = 5000
 TEST_BATCH_SIZE = 5000
 
@@ -243,7 +243,7 @@ def collate_test(batch):
     data = torch.stack(data).transpose(0, 1)
     labels = torch.stack(labels)
 
-    return TestData(data, labels)
+    return SingleStaticClassTestData(data, labels)
 
 
 def MNIST_loaders(train_batch_size, test_batch_size):

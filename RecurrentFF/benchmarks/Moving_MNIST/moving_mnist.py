@@ -8,7 +8,7 @@ import wandb
 from matplotlib import pyplot as plt
 from multiprocessing import Process, Manager
 
-from RecurrentFF.model.model import RecurrentFFNet, TrainInputData, TrainLabelData, TestData
+from RecurrentFF.model.model import RecurrentFFNet, TrainInputData, TrainLabelData, SingleStaticClassTestData
 from RecurrentFF.model.constants import EPOCHS, LEARNING_RATE, THRESHOLD, DAMPING_FACTOR, EPSILON, DEVICE
 
 from RecurrentFF.benchmarks.Moving_MNIST.constants import MOVING_MNIST_DATA_DIR
@@ -212,7 +212,7 @@ def test_collate_fn(batch):
 
     positive_labels = positive_labels.argmax(dim=1)
 
-    return TestData(pos_data, positive_labels)
+    return SingleStaticClassTestData(pos_data, positive_labels)
 
 
 def MNIST_loaders(train_batch_size, test_batch_size):
