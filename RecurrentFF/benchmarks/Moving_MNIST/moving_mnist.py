@@ -5,10 +5,10 @@ import time
 import torch
 from torch.utils.data import DataLoader, Dataset
 import wandb
-from matplotlib import pyplot as plt
 from multiprocessing import Process, Manager
 
-from RecurrentFF.model.model import RecurrentFFNet, TrainInputData, TrainLabelData, SingleStaticClassTestData
+from RecurrentFF.model.util import TrainInputData, TrainLabelData, SingleStaticClassTestData
+from RecurrentFF.model.model import RecurrentFFNet
 from RecurrentFF.model.constants import EPOCHS, LEARNING_RATE, THRESHOLD, DAMPING_FACTOR, EPSILON, DEVICE
 
 from RecurrentFF.benchmarks.Moving_MNIST.constants import MOVING_MNIST_DATA_DIR

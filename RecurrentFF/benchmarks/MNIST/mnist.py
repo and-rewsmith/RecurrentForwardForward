@@ -6,7 +6,8 @@ from torchvision.datasets import MNIST
 from torchvision.transforms import Compose, ToTensor, Normalize, Lambda
 import wandb
 
-from RecurrentFF.model.model import RecurrentFFNet, TrainInputData, TrainLabelData, SingleStaticClassTestData
+from RecurrentFF.model.util import TrainInputData, TrainLabelData, SingleStaticClassTestData
+from RecurrentFF.model.model import RecurrentFFNet
 from RecurrentFF.model.constants import EPOCHS, LEARNING_RATE, THRESHOLD, DAMPING_FACTOR, EPSILON, DEVICE
 
 NUM_CLASSES = 10

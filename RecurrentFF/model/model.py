@@ -1,4 +1,3 @@
-from enum import Enum
 import logging
 
 import torch
@@ -7,153 +6,12 @@ from torch.nn import functional as F
 from torch.optim import Adam
 import wandb
 
-from RecurrentFF.model.constants import EPSILON, DAMPING_FACTOR, LEARNING_RATE, EPOCHS, THRESHOLD, DEVICE, SKIP_PROFILING, DEFAULT_FOCUS_ITERATION_POS_OFFSET, DEFAULT_FOCUS_ITERATION_NEG_OFFSET
+from RecurrentFF.model.constants import DAMPING_FACTOR, LEARNING_RATE, EPOCHS, THRESHOLD, DEVICE, SKIP_PROFILING, DEFAULT_FOCUS_ITERATION_POS_OFFSET, DEFAULT_FOCUS_ITERATION_NEG_OFFSET
 
 from profilehooks import profile
+from RecurrentFF.model.data_scenario.static_single_class import StaticSingleClassProcessor
 
-
-# TODO:
-# Understand why l2 normalization completely fails
-
-
-def standardize_layer_activations(layer_activations):
-    # Compute mean and standard deviation for prev_layer
-    prev_layer_mean = layer_activations.mean(
-        dim=1, keepdim=True)
-    prev_layer_std = layer_activations.std(
-        dim=1, keepdim=True)
-
-    # Apply standardization
-    prev_layer_stdized = (
-        layer_activations - prev_layer_mean) / (prev_layer_std + EPSILON)
-
-    return prev_layer_stdized
-
-
-# input of dims (frames, batch size, input size)
-class TrainInputData:
-    def __init__(self, pos_input, neg_input):
-        self.pos_input = pos_input
-        self.neg_input = neg_input
-
-    def __iter__(self):
-        yield self.pos_input
-        yield self.neg_input
-
-    def move_to_device_inplace(self, device):
-        self.pos_input = self.pos_input.to(device)
-        self.neg_input = self.neg_input.to(device)
-
-
-# input of dims (frames, batch size, num classes)
-class TrainLabelData:
-    def __init__(self, pos_labels, neg_labels):
-        self.pos_labels = pos_labels
-        self.neg_labels = neg_labels
-
-    def __iter__(self):
-        yield self.pos_labels
-        yield self.neg_labels
-
-    def move_to_device_inplace(self, device):
-        self.pos_labels = self.pos_labels.to(device)
-        self.neg_labels = self.neg_labels.to(device)
-
-
-# input of dims (batch size, num classes)
-class SingleStaticClassTestData:
-    def __init__(self, input, labels):
-        self.input = input
-        self.labels = labels
-
-    def __iter__(self):
-        yield self.input
-        yield self.labels
-
-
-class Activations:
-    def __init__(self, current, previous):
-        self.current = current
-        self.previous = previous
-
-    def __iter__(self):
-        yield self.current
-        yield self.previous
-
-    def advance(self):
-        self.previous = self.current
-
-
-class OutputLayer(nn.Module):
-    def __init__(self, prev_size, label_size) -> None:
-        super(OutputLayer, self).__init__()
-
-        self.backward_linear = nn.Linear(
-            label_size, prev_size)
-
-
-class ForwardMode(Enum):
-    PositiveData = 1
-    NegativeData = 2
-    PredictData = 3
-
-
-def activations_to_goodness(activations):
-    """
-    Computes the 'goodness' of activations for each layer in a neural network by
-    taking the mean of the squared values.
-
-    'Goodness' in this context refers to the average squared activation value.
-    This function is designed to work with PyTorch tensors, which represent
-    layers in a neural network.
-
-    Args:
-        activations (list of torch.Tensor): A list of tensors representing
-        activations from each layer of a neural network. Each tensor in the list
-        corresponds to one layer's activations, and has shape (batch_size,
-        num_activations), where batch_size is the number of samples processed
-        together, and num_activations is the number of neurons in the layer.
-
-    Returns:
-        list of torch.Tensor: A list of tensors, each tensor corresponding to
-        the 'goodness' (mean of the squared activations) of each layer in the
-        input. Each tensor in the output list has shape (batch_size,), since the
-        mean is taken over the activation values for each sample in the batch.
-    """
-    goodness = []
-    for act in activations:
-        goodness_for_layer = torch.mean(
-            torch.square(act), dim=1)
-        goodness.append(goodness_for_layer)
-
-    return goodness
-
-
-def layer_activations_to_goodness(layer_activations):
-    """
-    Computes the 'goodness' of activations for a given layer in a neural network
-    by taking the mean of the squared values.
-
-    'Goodness' in this context refers to the average squared activation value.
-    This function is designed to work with PyTorch tensors, which represent the
-    layer's activations.
-
-    Args:
-        layer_activations (torch.Tensor): A tensor representing activations from
-        one layer of a neural network. The tensor has shape (batch_size,
-        num_activations), where batch_size is the number of samples processed
-        together, and num_activations is the number of neurons in the layer.
-
-    Returns:
-        torch.Tensor: A tensor corresponding to the 'goodness' (mean of the
-        squared activations) of the given layer. The output tensor has shape
-        (batch_size,), since the mean is taken over the activation values for
-        each sample in the batch.
-    """
-    goodness_for_layer = torch.mean(
-        torch.square(layer_activations), dim=1)
-
-    return goodness_for_layer
+from RecurrentFF.model.util import Activations, ForwardMode, OutputLayer, layer_activations_to_goodness, standardize_layer_activations
 
 
 class RecurrentFFNet(nn.Module):
@@ -184,43 +42,45 @@ class RecurrentFFNet(nn.Module):
     architecture.
     """
 
-    def __init__(self, train_batch_size, test_batch_size, input_size, hidden_sizes, num_classes, focus_iteration_neg_offset=DEFAULT_FOCUS_ITERATION_NEG_OFFSET, focus_iteration_pos_offset=DEFAULT_FOCUS_ITERATION_POS_OFFSET, damping_factor=DAMPING_FACTOR, static_singleclass=True):
+    def __init__(self, train_batch_size, test_batch_size, input_size, hidden_sizes, num_classes, focus_iteration_neg_offset=DEFAULT_FOCUS_ITERATION_NEG_OFFSET, focus_iteration_pos_offset=DEFAULT_FOCUS_ITERATION_POS_OFFSET, damping_factor=DAMPING_FACTOR):
         logging.info("initializing network")
         super(RecurrentFFNet, self).__init__()
 
-        self.static_singleclass = static_singleclass
         self.num_classes = num_classes
         self.focus_iteration_neg_offset = focus_iteration_neg_offset
         self.focus_iteration_pos_offset = focus_iteration_pos_offset
 
-        self.layers = nn.ModuleList()
+        # TODO: define softmax weights
+
+        inner_layers = nn.ModuleList()
         prev_size = input_size
         for size in hidden_sizes:
             hidden_layer = HiddenLayer(
                 train_batch_size, test_batch_size, prev_size, size, damping_factor)
-            self.layers.append(hidden_layer)
+            inner_layers.append(hidden_layer)
             prev_size = size
 
         self.output_layer = OutputLayer(hidden_sizes[-1], num_classes)
 
         # attach layers to each other
-        for i, hidden_layer in enumerate(self.layers):
+        for i, hidden_layer in enumerate(inner_layers):
             if i != 0:
-                hidden_layer.set_previous_layer(self.layers[i - 1])
+                hidden_layer.set_previous_layer(inner_layers[i - 1])
 
-        for i, hidden_layer in enumerate(self.layers):
-            if i != len(self.layers) - 1:
-                hidden_layer.set_next_layer(self.layers[i + 1])
+        for i, hidden_layer in enumerate(inner_layers):
+            if i != len(inner_layers) - 1:
+                hidden_layer.set_next_layer(inner_layers[i + 1])
             else:
                 hidden_layer.set_next_layer(self.output_layer)
 
-        self.optimizer = Adam(self.parameters(), lr=LEARNING_RATE)
+        optimizer = Adam(self.parameters(), lr=LEARNING_RATE)
+        self.inner_layers = InnerLayers(inner_layers, optimizer)
+
+        # when we eventually support changing/multiclass scenarios this will be configurable
+        self.processor = StaticSingleClassProcessor(
+            self.num_classes, self.inner_layers, self.focus_iteration_neg_offset, self.focus_iteration_pos_offset)
 
         logging.info("finished initializing network")
-
-    def reset_activations(self, isTraining):
-        for layer in self.layers:
-            layer.reset_activations(isTraining)
 
     @profile(stdout=False, filename='baseline.prof', skip=SKIP_PROFILING)
     def train(self, train_loader, test_loader):
@@ -254,130 +114,21 @@ class RecurrentFFNet(nn.Module):
         for epoch in range(0, EPOCHS):
             logging.info("Epoch: " + str(epoch))
 
+            # TODO: run forward pass to get negative data
+
             for batch_num, (input_data, label_data) in enumerate(train_loader):
                 average_layer_loss, pos_goodness_per_layer, neg_goodness_per_layer = self.__train_batch(batch_num,
                                                                                                         input_data, label_data)
 
+            # TODO: train softmax
+
             # Get some observability into prediction while training. We cannot
             # use this if the dataset doesn't have static classes.
-            if self.static_singleclass == True:
-                accuracy = self.brute_force_predict_for_static_class_scenario(
-                    test_loader, 1)
+            accuracy = self.processor.brute_force_predict(
+                test_loader, 1)
 
             self.__log_metrics(accuracy, average_layer_loss,
                                pos_goodness_per_layer, neg_goodness_per_layer)
-
-    def brute_force_predict_for_static_class_scenario(self, test_loader, limit_batches=None):
-        """
-        This function predicts the class labels for the provided test data using
-        the trained RecurrentFFNet model. It does so by enumerating all possible
-        class labels and choosing the one that produces the highest 'goodness'
-        score. We cannot use this function for datasets with changing classes.
-
-        Args:
-            test_data (object): A tuple containing the test data, one-hot labels,
-            and the actual labels. The data is assumed to be PyTorch tensors.
-
-        Returns:
-            float: The prediction accuracy as a percentage.
-
-        Procedure:
-            The function first moves the test data and labels to the appropriate
-            device. It then calculates the 'goodness' metric for each possible
-            class label, using a two-step process:
-
-                1. Resetting the network's activations and forwarding the data
-                   through the network with the current label.
-                2. For each iteration within a specified threshold, forwarding
-                   the data again, but this time retaining the
-                activations, which are used to calculate the 'goodness' for each
-                layer.
-
-            The 'goodness' values across iterations and layers are then averaged
-            to produce a single 'goodness' score for each class label. The class
-            with the highest 'goodness' score is chosen as the prediction for
-            each test sample.
-
-            Finally, the function calculates the overall accuracy of the model's
-            predictions by comparing them to the actual labels and returns this
-            accuracy.
-        """
-        for batch, test_data in enumerate(test_loader):
-            if limit_batches != None and batch == limit_batches:
-                break
-
-            logging.info("Starting inference for test batch: " + str(batch))
-
-            # tuple: (correct, total)
-            accuracy_contexts = []
-
-            with torch.no_grad():
-                data, labels = test_data
-                data = data.to(DEVICE)
-                labels = labels.to(DEVICE)
-
-                iterations = data.shape[0]
-
-                all_labels_goodness = []
-
-                # evaluate goodness for each possible label
-                for label in range(self.num_classes):
-                    self.reset_activations(False)
-
-                    one_hot_labels = torch.zeros(
-                        data.shape[1], self.num_classes, device=DEVICE)
-                    one_hot_labels[:, label] = 1.0
-
-                    for _preinit_iteration in range(0, len(self.layers)):
-                        self.__advance_layers_forward(ForwardMode.PredictData,
-                                                      data[0], one_hot_labels, False)
-
-                    lower_iteration_threshold = iterations // 2 - self.focus_iteration_neg_offset
-                    upper_iteration_threshold = iterations // 2 + self.focus_iteration_pos_offset
-                    goodnesses = []
-                    for iteration in range(0, iterations):
-                        self.__advance_layers_forward(ForwardMode.PredictData,
-                                                      data[iteration], one_hot_labels, True)
-
-                        if iteration >= lower_iteration_threshold and iteration <= upper_iteration_threshold:
-                            layer_goodnesses = []
-                            for layer in self.layers:
-                                layer_goodnesses.append(layer_activations_to_goodness(
-                                    layer.predict_activations.current))
-
-                            goodnesses.append(torch.stack(
-                                layer_goodnesses, dim=1))
-
-                    # tensor of shape (batch_size, iterations, num_layers)
-                    goodnesses = torch.stack(goodnesses, dim=1)
-                    # average over iterations
-                    goodnesses = goodnesses.mean(dim=1)
-                    # average over layers
-                    goodness = goodnesses.mean(dim=1)
-
-                    logging.debug("goodness for prediction" + " " +
-                                  str(label) + ": " + str(goodness))
-                    all_labels_goodness.append(goodness)
-
-                all_labels_goodness = torch.stack(all_labels_goodness, dim=1)
-
-                # select the label with the maximum goodness
-                predicted_labels = torch.argmax(all_labels_goodness, dim=1)
-                logging.debug("predicted labels: " + str(predicted_labels))
-                logging.debug("actual labels: " + str(labels))
-
-                total = data.size(1)
-                correct = (predicted_labels == labels).sum().item()
-
-                accuracy_contexts.append((correct, total))
-
-        total_correct = sum(correct for correct, _total in accuracy_contexts)
-        total_submissions = sum(
-            total for _correct, total in accuracy_contexts)
-        accuracy = total_correct / total_submissions * 100 if total_submissions else 0
-        logging.info(f'test accuracy: {accuracy}%')
-
-        return accuracy
 
     def __train_batch(self, batch_num, input_data, label_data):
         logging.info("Batch: " + str(batch_num))
@@ -385,9 +136,9 @@ class RecurrentFFNet(nn.Module):
         input_data.move_to_device_inplace(DEVICE)
         label_data.move_to_device_inplace(DEVICE)
 
-        self.reset_activations(True)
+        self.inner_layers.reset_activations(True)
 
-        for preinit_step in range(0, len(self.layers)):
+        for preinit_step in range(0, len(self.inner_layers)):
             logging.debug("Preinitialization step: " +
                           str(preinit_step))
 
@@ -396,10 +147,10 @@ class RecurrentFFNet(nn.Module):
             pos_labels = label_data.pos_labels[0]
             neg_labels = label_data.neg_labels[0]
 
-            self.__advance_layers_forward(ForwardMode.PositiveData,
-                                          pos_input, pos_labels, False)
-            self.__advance_layers_forward(ForwardMode.NegativeData,
-                                          neg_input, neg_labels, False)
+            self.inner_layers.advance_layers_forward(ForwardMode.PositiveData,
+                                                     pos_input, pos_labels, False)
+            self.inner_layers.advance_layers_forward(ForwardMode.NegativeData,
+                                                     neg_input, neg_labels, False)
 
         pos_goodness_per_layer = []
         neg_goodness_per_layer = []
@@ -412,20 +163,20 @@ class RecurrentFFNet(nn.Module):
             label_data_sample = (
                 label_data.pos_labels[iteration], label_data.neg_labels[iteration])
 
-            total_loss = self.__advance_layers_train(
+            total_loss = self.inner_layers.advance_layers_train(
                 input_data_sample, label_data_sample, True)
-            average_layer_loss = (total_loss / len(self.layers)).item()
+            average_layer_loss = (total_loss / len(self.inner_layers)).item()
             logging.debug("Average layer loss: " +
                           str(average_layer_loss))
 
             if iteration >= self.focus_iteration_neg_offset and iteration <= self.focus_iteration_pos_offset:
                 pos_goodness_per_layer.append(
                     [layer_activations_to_goodness(
-                        layer.pos_activations.current).mean() for layer in self.layers]
+                        layer.pos_activations.current).mean() for layer in self.inner_layers]
                 )
                 neg_goodness_per_layer.append(
                     [layer_activations_to_goodness(
-                        layer.neg_activations.current).mean() for layer in self.layers]
+                        layer.neg_activations.current).mean() for layer in self.inner_layers]
                 )
 
         pos_goodness_per_layer = [sum(layer_goodnesses)/len(layer_goodnesses)
@@ -448,17 +199,25 @@ class RecurrentFFNet(nn.Module):
             # No-op as there may not be 3 layers
             pass
 
-        if len(self.layers) == 3:
+        if len(self.inner_layers) == 3:
             wandb.log({"acc": accuracy, "loss": average_layer_loss, "first_layer_pos_goodness": first_layer_pos_goodness, "second_layer_pos_goodness": second_layer_pos_goodness, "third_layer_pos_goodness":
                        third_layer_pos_goodness, "first_layer_neg_goodness": first_layer_neg_goodness, "second_layer_neg_goodness": second_layer_neg_goodness, "third_layer_neg_goodness": third_layer_neg_goodness})
-        elif len(self.layers) == 2:
+        elif len(self.inner_layers) == 2:
             wandb.log({"acc": accuracy, "loss": average_layer_loss, "first_layer_pos_goodness": first_layer_pos_goodness, "second_layer_pos_goodness":
                        second_layer_pos_goodness, "first_layer_neg_goodness": first_layer_neg_goodness, "second_layer_neg_goodness": second_layer_neg_goodness})
-        elif len(self.layers) == 1:
+        elif len(self.inner_layers) == 1:
             wandb.log({"acc": accuracy, "loss": average_layer_loss, "first_layer_pos_goodness":
                        first_layer_pos_goodness, "first_layer_neg_goodness": first_layer_neg_goodness})
 
-    def __advance_layers_train(self, input_data, label_data, should_damp):
+
+class InnerLayers(nn.Module):
+
+    def __init__(self, layers, optimizer):
+        super(InnerLayers, self).__init__()
+        self.optimizer = optimizer
+        self.layers = layers
+
+    def advance_layers_train(self, input_data, label_data, should_damp):
         """
         Advances the training process for all layers in the network by computing
         the loss for each layer and updating their activations. 
@@ -513,7 +272,7 @@ class RecurrentFFNet(nn.Module):
 
         return total_loss
 
-    def __advance_layers_forward(self, mode, input_data, label_data, should_damp):
+    def advance_layers_forward(self, mode, input_data, label_data, should_damp):
         """
         Executes a forward pass through all layers of the network using the
         given mode, input data, label data, and a damping flag.
@@ -559,6 +318,16 @@ class RecurrentFFNet(nn.Module):
 
         for layer in self.layers:
             layer.advance_stored_activations()
+
+    def reset_activations(self, isTraining):
+        for layer in self.layers:
+            layer.reset_activations(isTraining)
+
+    def __len__(self):
+        return len(self.layers)
+
+    def __iter__(self):
+        return (layer for layer in self.layers)
 
 
 class HiddenLayer(nn.Module):
