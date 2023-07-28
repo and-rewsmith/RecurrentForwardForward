@@ -6,19 +6,20 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 import wandb
 from multiprocessing import Process, Manager
+from RecurrentFF.settings import Settings
 
-from RecurrentFF.model.util import TrainInputData, TrainLabelData, SingleStaticClassTestData
+from RecurrentFF.util import DataConfig, TrainInputData, TrainLabelData, SingleStaticClassTestData
 from RecurrentFF.model.model import RecurrentFFNet
-from RecurrentFF.model.constants import EPOCHS, LEARNING_RATE, THRESHOLD, DAMPING_FACTOR, EPSILON, DEVICE
 
 from RecurrentFF.benchmarks.Moving_MNIST.constants import MOVING_MNIST_DATA_DIR
 
 NUM_CLASSES = 10
 INPUT_SIZE = 4096
-LAYERS = [500, 500, 500]
 TRAIN_BATCH_SIZE = 5000
 TEST_BATCH_SIZE = 5000
-ITERATIONS = 10
+ITERATIONS = 20
+FOCUS_ITERATION_NEG_OFFSET = 2
+FOCUS_ITERATION_POS_OFFSET = 2
 DATA_PER_FILE = 1000
 
 
@@ -236,6 +237,10 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s - %(levelname)s - %(message)s')
 
+    settings = Settings()
+    data_config = DataConfig(INPUT_SIZE, NUM_CLASSES,
+                             TRAIN_BATCH_SIZE, TEST_BATCH_SIZE, ITERATIONS, FOCUS_ITERATION_NEG_OFFSET, FOCUS_ITERATION_POS_OFFSET)
+
     # Pytorch utils.
     torch.autograd.set_detect_anomaly(True)
     torch.manual_seed(1234)
@@ -249,13 +254,13 @@ if __name__ == '__main__':
         config={
             "architecture": "Recurrent-FF",
             "dataset": "Moving-MNIST",
-            "epochs": EPOCHS,
-            "learning_rate": LEARNING_RATE,
-            "layers": str(LAYERS),
+            "epochs": settings.model.epochs,
+            "learning_rate": settings.model.learning_rate,
+            "layers": str(settings.model.hidden_sizes),
             "iterations": ITERATIONS,
-            "threshold": THRESHOLD,
-            "damping_factor": DAMPING_FACTOR,
-            "epsilon": EPSILON,
+            "loss_threshold": settings.model.loss_threshold,
+            "damping_factor": settings.model.damping_factor,
+            "epsilon": settings.model.epsilon,
         }
     )
 
@@ -264,8 +269,7 @@ if __name__ == '__main__':
         TRAIN_BATCH_SIZE, TEST_BATCH_SIZE)
 
     # Create and run model.
-    model = RecurrentFFNet(TRAIN_BATCH_SIZE, TEST_BATCH_SIZE,
-                           INPUT_SIZE, LAYERS, NUM_CLASSES).to(DEVICE)
+    model = RecurrentFFNet(data_config).to(settings.device.device)
 
     model.train(train_loader, test_loader)
 

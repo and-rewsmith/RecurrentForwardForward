@@ -2,10 +2,12 @@ from enum import Enum
 import torch
 from torch import nn
 
-from RecurrentFF.model.constants import EPSILON
+from RecurrentFF.settings import Settings
 
 
 def standardize_layer_activations(layer_activations):
+    settings = Settings()
+
     # Compute mean and standard deviation for prev_layer
     prev_layer_mean = layer_activations.mean(
         dim=1, keepdim=True)
@@ -14,9 +16,20 @@ def standardize_layer_activations(layer_activations):
 
     # Apply standardization
     prev_layer_stdized = (
-        layer_activations - prev_layer_mean) / (prev_layer_std + EPSILON)
+        layer_activations - prev_layer_mean) / (prev_layer_std + settings.model.epsilon)
 
     return prev_layer_stdized
+
+
+class DataConfig:
+    def __init__(self, data_size, num_classes, train_batch_size, test_batch_size, iterations, focus_iteration_neg_offset, focus_iteration_pos_offset):
+        self.data_size = data_size
+        self.num_classes = num_classes
+        self.train_batch_size = train_batch_size
+        self.test_batch_size = test_batch_size
+        self.iterations = iterations
+        self.focus_iteration_neg_offset = focus_iteration_neg_offset
+        self.focus_iteration_pos_offset = focus_iteration_pos_offset
 
 
 # input of dims (frames, batch size, input size)

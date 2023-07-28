@@ -9,13 +9,14 @@ import wandb
 import numpy as np
 
 from RecurrentFF.model.model import RecurrentFFNet, TrainInputData, TrainLabelData, SingleStaticClassTestData
-from RecurrentFF.model.constants import EPOCHS, LEARNING_RATE, THRESHOLD, DAMPING_FACTOR, EPSILON, DEVICE
+from RecurrentFF.settings import Settings
+from RecurrentFF.util import DataConfig
 
-NUM_CLASSES = 10
 INPUT_SIZE = 4
-LAYERS = [500, 500, 500]
+NUM_CLASSES = 10
 TRAIN_BATCH_SIZE = 5000
 TEST_BATCH_SIZE = 5000
+ITERATIONS = 150
 
 
 class SeqMnistTrainDataset(Dataset):
@@ -260,6 +261,10 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s - %(levelname)s - %(message)s')
 
+    settings = Settings()
+    data_config = DataConfig(INPUT_SIZE, NUM_CLASSES,
+                             TRAIN_BATCH_SIZE, TEST_BATCH_SIZE, ITERATIONS)
+
     # Pytorch utils.
     torch.autograd.set_detect_anomaly(True)
     torch.manual_seed(1234)
@@ -272,12 +277,12 @@ if __name__ == "__main__":
         config={
             "architecture": "Recurrent-FF",
             "dataset": "Seq-MNIST",
-            "epochs": EPOCHS,
-            "learning_rate": LEARNING_RATE,
-            "layers": str(LAYERS),
-            "threshold": THRESHOLD,
-            "damping_factor": DAMPING_FACTOR,
-            "epsilon": EPSILON,
+            "epochs": settings.model.epochs,
+            "learning_rate": settings.model.learning_rate,
+            "layers": str(settings.model.hidden_sizes),
+            "loss_threshold": settings.model.loss_threshold,
+            "damping_factor": settings.model.damping_factor,
+            "epsilon": settings.model.epsilon,
         }
     )
 
@@ -286,8 +291,7 @@ if __name__ == "__main__":
         TRAIN_BATCH_SIZE, TEST_BATCH_SIZE)
 
     # Create and run model.
-    model = RecurrentFFNet(TRAIN_BATCH_SIZE, TEST_BATCH_SIZE,
-                           INPUT_SIZE, LAYERS, NUM_CLASSES).to(DEVICE)
+    model = RecurrentFFNet(data_config).to(settings.device.device)
 
     model.train(train_loader, test_loader)
 

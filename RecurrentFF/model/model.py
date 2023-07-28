@@ -7,9 +7,9 @@ from torch.optim import Adam
 import wandb
 from profilehooks import profile
 
-from RecurrentFF.model.constants import DAMPING_FACTOR, LEARNING_RATE, EPOCHS, THRESHOLD, DEVICE, SKIP_PROFILING, DEFAULT_FOCUS_ITERATION_POS_OFFSET, DEFAULT_FOCUS_ITERATION_NEG_OFFSET
 from RecurrentFF.model.data_scenario.static_single_class import StaticSingleClassProcessor
-from RecurrentFF.model.util import Activations, ForwardMode, OutputLayer, layer_activations_to_goodness, standardize_layer_activations
+from RecurrentFF.util import Activations, ForwardMode, OutputLayer, layer_activations_to_goodness, standardize_layer_activations
+from RecurrentFF.settings import Settings
 
 
 class RecurrentFFNet(nn.Module):
@@ -40,25 +40,25 @@ class RecurrentFFNet(nn.Module):
     architecture.
     """
 
-    def __init__(self, train_batch_size, test_batch_size, input_size, hidden_sizes, num_classes, focus_iteration_neg_offset=DEFAULT_FOCUS_ITERATION_NEG_OFFSET, focus_iteration_pos_offset=DEFAULT_FOCUS_ITERATION_POS_OFFSET, damping_factor=DAMPING_FACTOR):
+    def __init__(self, data_config):
         logging.info("initializing network")
         super(RecurrentFFNet, self).__init__()
 
-        self.num_classes = num_classes
-        self.focus_iteration_neg_offset = focus_iteration_neg_offset
-        self.focus_iteration_pos_offset = focus_iteration_pos_offset
+        self.settings = Settings()
+        self.data_config = data_config
 
         # TODO: define softmax weights
 
         inner_layers = nn.ModuleList()
-        prev_size = input_size
-        for size in hidden_sizes:
+        prev_size = data_config.data_size
+        for size in self.settings.model.hidden_sizes:
             hidden_layer = HiddenLayer(
-                train_batch_size, test_batch_size, prev_size, size, damping_factor)
+                data_config.train_batch_size, data_config.test_batch_size, prev_size, size, self.settings.model.damping_factor)
             inner_layers.append(hidden_layer)
             prev_size = size
 
-        self.output_layer = OutputLayer(hidden_sizes[-1], num_classes)
+        self.output_layer = OutputLayer(
+            self.settings.model.hidden_sizes[-1], self.data_config.num_classes)
 
         # attach layers to each other
         for i, hidden_layer in enumerate(inner_layers):
@@ -75,11 +75,11 @@ class RecurrentFFNet(nn.Module):
 
         # when we eventually support changing/multiclass scenarios this will be configurable
         self.processor = StaticSingleClassProcessor(
-            self.num_classes, self.inner_layers, self.focus_iteration_neg_offset, self.focus_iteration_pos_offset)
+            self.inner_layers, data_config)
 
         logging.info("finished initializing network")
 
-    @profile(stdout=False, filename='baseline.prof', skip=SKIP_PROFILING)
+    @profile(stdout=False, filename='baseline.prof', skip=Settings().model.skip_profiling)
     def train(self, train_loader, test_loader):
         """
         Trains the RecurrentFFNet model using the provided train and test data loaders.
@@ -107,8 +107,9 @@ class RecurrentFFNet(nn.Module):
             layer's activations into a 'goodness' score. This function operates on the RecurrentFFNet model level
             and is called during the training process.
         """
+        settings = Settings()
 
-        for epoch in range(0, EPOCHS):
+        for epoch in range(0, settings.model.epochs):
             logging.info("Epoch: " + str(epoch))
 
             # TODO: run forward pass to get negative data
@@ -130,8 +131,8 @@ class RecurrentFFNet(nn.Module):
     def __train_batch(self, batch_num, input_data, label_data):
         logging.info("Batch: " + str(batch_num))
 
-        input_data.move_to_device_inplace(DEVICE)
-        label_data.move_to_device_inplace(DEVICE)
+        input_data.move_to_device_inplace(self.settings.device.device)
+        label_data.move_to_device_inplace(self.settings.device.device)
 
         self.inner_layers.reset_activations(True)
 
@@ -166,7 +167,7 @@ class RecurrentFFNet(nn.Module):
             logging.debug("Average layer loss: " +
                           str(average_layer_loss))
 
-            if iteration >= self.focus_iteration_neg_offset and iteration <= self.focus_iteration_pos_offset:
+            if iteration >= self.data_config.focus_iteration_neg_offset and iteration <= self.data_config.focus_iteration_pos_offset:
                 pos_goodness_per_layer.append(
                     [layer_activations_to_goodness(
                         layer.pos_activations.current).mean() for layer in self.inner_layers]
@@ -211,8 +212,12 @@ class InnerLayers(nn.Module):
 
     def __init__(self, layers):
         super(InnerLayers, self).__init__()
+
+        self.settings = Settings()
+
         self.layers = layers
-        self.optimizer = Adam(self.parameters(), lr=LEARNING_RATE)
+        self.optimizer = Adam(
+            self.parameters(), lr=self.settings.model.learning_rate)
 
     def advance_layers_train(self, input_data, label_data, should_damp):
         """
@@ -356,6 +361,8 @@ class HiddenLayer(nn.Module):
     def __init__(self, train_batch_size, test_batch_size, prev_size, size, damping_factor):
         super(HiddenLayer, self).__init__()
 
+        self.settings = Settings()
+
         self.train_activations_dim = (train_batch_size, size)
         self.test_activations_dim = (test_batch_size, size)
 
@@ -415,16 +422,16 @@ class HiddenLayer(nn.Module):
             activations_dim = self.train_activations_dim
 
             pos_activations_current = torch.zeros(
-                activations_dim[0], activations_dim[1]).to(DEVICE)
+                activations_dim[0], activations_dim[1]).to(self.settings.device.device)
             pos_activations_previous = torch.zeros(
-                activations_dim[0], activations_dim[1]).to(DEVICE)
+                activations_dim[0], activations_dim[1]).to(self.settings.device.device)
             self.pos_activations = Activations(
                 pos_activations_current, pos_activations_previous)
 
             neg_activations_current = torch.zeros(
-                activations_dim[0], activations_dim[1]).to(DEVICE)
+                activations_dim[0], activations_dim[1]).to(self.settings.device.device)
             neg_activations_previous = torch.zeros(
-                activations_dim[0], activations_dim[1]).to(DEVICE)
+                activations_dim[0], activations_dim[1]).to(self.settings.device.device)
             self.neg_activations = Activations(
                 neg_activations_current, neg_activations_previous)
 
@@ -434,9 +441,9 @@ class HiddenLayer(nn.Module):
             activations_dim = self.test_activations_dim
 
             predict_activations_current = torch.zeros(
-                activations_dim[0], activations_dim[1]).to(DEVICE)
+                activations_dim[0], activations_dim[1]).to(self.settings.device.device)
             predict_activations_previous = torch.zeros(
-                activations_dim[0], activations_dim[1]).to(DEVICE)
+                activations_dim[0], activations_dim[1]).to(self.settings.device.device)
             self.predict_activations = Activations(
                 predict_activations_current, predict_activations_previous)
 
@@ -460,6 +467,8 @@ class HiddenLayer(nn.Module):
         self.next_layer = next_layer
 
     def train(self, optimizer, input_data, label_data, should_damp):
+        settings = Settings()
+
         optimizer.zero_grad()
 
         pos_activations = None
@@ -498,8 +507,8 @@ class HiddenLayer(nn.Module):
         # Loss function equivelent to:
         # L = log(1 + exp(((-p + 2) + (n - 2))/2)
         layer_loss = F.softplus(torch.cat([
-            (-1 * pos_goodness) + THRESHOLD,
-            neg_goodness - THRESHOLD
+            (-1 * pos_goodness) + settings.model.loss_threshold,
+            neg_goodness - settings.model.loss_threshold
         ])).mean()
 
         layer_loss.backward()

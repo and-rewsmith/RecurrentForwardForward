@@ -6,16 +6,17 @@ from torchvision.datasets import MNIST
 from torchvision.transforms import Compose, ToTensor, Normalize, Lambda
 import wandb
 
-from RecurrentFF.model.util import TrainInputData, TrainLabelData, SingleStaticClassTestData
+from RecurrentFF.util import DataConfig, TrainInputData, TrainLabelData, SingleStaticClassTestData
 from RecurrentFF.model.model import RecurrentFFNet
-from RecurrentFF.model.constants import EPOCHS, LEARNING_RATE, THRESHOLD, DAMPING_FACTOR, EPSILON, DEVICE
+from RecurrentFF.settings import Settings
 
-NUM_CLASSES = 10
 INPUT_SIZE = 784
-LAYERS = [500, 500, 500]
+NUM_CLASSES = 10
 TRAIN_BATCH_SIZE = 5000
 TEST_BATCH_SIZE = 5000
 ITERATIONS = 10
+FOCUS_ITERATION_NEG_OFFSET = 1
+FOCUS_ITERATION_POS_OFFSET = 1
 
 
 class CustomTrainDataset(Dataset):
@@ -182,6 +183,10 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s - %(levelname)s - %(message)s')
 
+    settings = Settings()
+    data_config = DataConfig(INPUT_SIZE, NUM_CLASSES,
+                             TRAIN_BATCH_SIZE, TEST_BATCH_SIZE, ITERATIONS, FOCUS_ITERATION_NEG_OFFSET, FOCUS_ITERATION_POS_OFFSET)
+
     # Pytorch utils.
     torch.autograd.set_detect_anomaly(True)
     torch.manual_seed(1234)
@@ -194,23 +199,22 @@ if __name__ == "__main__":
         config={
             "architecture": "Recurrent-FF",
             "dataset": "MNIST",
-            "epochs": EPOCHS,
-            "learning_rate": LEARNING_RATE,
-            "layers": str(LAYERS),
+            "epochs": settings.model.epochs,
+            "learning_rate": settings.model.learning_rate,
+            "layers": str(settings.model.hidden_sizes),
             "iterations": ITERATIONS,
-            "threshold": THRESHOLD,
-            "damping_factor": DAMPING_FACTOR,
-            "epsilon": EPSILON,
+            "loss_threshold": settings.model.loss_threshold,
+            "damping_factor": settings.model.damping_factor,
+            "epsilon": settings.model.epsilon,
         }
     )
 
     # Generate train data.
     train_loader, test_loader = MNIST_loaders(
-        TRAIN_BATCH_SIZE, TEST_BATCH_SIZE)
+        data_config.train_batch_size, data_config.test_batch_size)
 
     # Create and run model.
-    model = RecurrentFFNet(TRAIN_BATCH_SIZE, TEST_BATCH_SIZE,
-                           INPUT_SIZE, LAYERS, NUM_CLASSES).to(DEVICE)
+    model = RecurrentFFNet(data_config).to(settings.device.device)
 
     model.train(train_loader, test_loader)
 

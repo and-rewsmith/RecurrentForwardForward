@@ -1,6 +1,11 @@
 import toml
+import torch
+
+CONFIG_FILE = "./config.toml"
 
 
+# NOTE: No mutable state allowed. Everything should be static if using this, so
+# singleton ok.
 class Singleton(type):
     _instances = {}
 
@@ -12,28 +17,21 @@ class Singleton(type):
 
 
 class Settings(metaclass=Singleton):
-    class Data:
-        def __init__(self, data_dict):
-            self.train_batch_size = data_dict['train_batch_size']
-            self.test_batch_size = data_dict['test_batch_size']
-
     class Model:
         def __init__(self, model_dict):
+            self.hidden_sizes = model_dict['hidden_sizes']
             self.epochs = model_dict['epochs']
             self.loss_threshold = model_dict['loss_threshold']
             self.damping_factor = model_dict['damping_factor']
             self.epsilon = model_dict['epsilon']
             self.learning_rate = model_dict['learning_rate']
             self.skip_profiling = model_dict['skip_profiling']
-            self.default_focus_iteration_neg_offset = model_dict['default_focus_iteration_neg_offset']
-            self.default_focus_iteration_pos_offset = model_dict['default_focus_iteration_pos_offset']
 
     class Device:
         def __init__(self, device_dict):
-            self.device = device_dict['device']
+            self.device = torch.device(device_dict['device'])
 
-    def __init__(self, config_file):
-        config = toml.load(config_file)
-        self.data = self.Data(config['data'])
+    def __init__(self):
+        config = toml.load(CONFIG_FILE)
         self.model = self.Model(config['model'])
         self.device = self.Device(config['device'])

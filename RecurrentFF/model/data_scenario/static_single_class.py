@@ -2,17 +2,16 @@ import logging
 
 import torch
 
-from RecurrentFF.model.constants import DEVICE
 from RecurrentFF.model.data_scenario.processor import DataScenarioProcessor
-from RecurrentFF.model.util import layer_activations_to_goodness, ForwardMode
+from RecurrentFF.util import layer_activations_to_goodness, ForwardMode
+from RecurrentFF.settings import Settings
 
 
 class StaticSingleClassProcessor(DataScenarioProcessor):
-    def __init__(self, num_classes, inner_layers, focus_iteration_neg_offset, focus_iteration_pos_offset):
-        self.num_classes = num_classes
+    def __init__(self, inner_layers, data_config):
         self.inner_layers = inner_layers
-        self.focus_iteration_neg_offset = focus_iteration_neg_offset
-        self.focus_iteration_pos_offset = focus_iteration_pos_offset
+        self.data_config = data_config
+        self.settings = Settings()
 
     def brute_force_predict(self, test_loader, limit_batches=None):
         """
@@ -60,27 +59,29 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
 
             with torch.no_grad():
                 data, labels = test_data
-                data = data.to(DEVICE)
-                labels = labels.to(DEVICE)
+                data = data.to(self.settings.device.device)
+                labels = labels.to(self.settings.device.device)
 
                 iterations = data.shape[0]
 
                 all_labels_goodness = []
 
                 # evaluate goodness for each possible label
-                for label in range(self.num_classes):
+                for label in range(self.data_config.num_classes):
                     self.inner_layers.reset_activations(False)
 
                     one_hot_labels = torch.zeros(
-                        data.shape[1], self.num_classes, device=DEVICE)
+                        data.shape[1], self.data_config.num_classes, device=self.settings.device.device)
                     one_hot_labels[:, label] = 1.0
 
                     for _preinit_iteration in range(0, len(self.inner_layers)):
                         self.inner_layers.advance_layers_forward(ForwardMode.PredictData,
                                                                  data[0], one_hot_labels, False)
 
-                    lower_iteration_threshold = iterations // 2 - self.focus_iteration_neg_offset
-                    upper_iteration_threshold = iterations // 2 + self.focus_iteration_pos_offset
+                    lower_iteration_threshold = iterations // 2 - \
+                        self.data_config.focus_iteration_neg_offset
+                    upper_iteration_threshold = iterations // 2 + \
+                        self.data_config.focus_iteration_pos_offset
                     goodnesses = []
                     for iteration in range(0, iterations):
                         self.inner_layers.advance_layers_forward(ForwardMode.PredictData,
