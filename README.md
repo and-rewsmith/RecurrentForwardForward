@@ -18,13 +18,14 @@ python -m RecurrentFF.benchmarks.MNIST.mnist
 - [x] Data and label inputs conducive to changing accross timesteps
 - [ ] Dynamic negative data
 - [ ] Invert objective function: low activations for positive data
+- [ ] Fast weights
 - [ ] Receptive fields
 - [ ] Peer normalization
+- [ ] Non-differentiable black boxes within network? Which pattern is best?
 - [ ] Support data manipulation for positive data
 - [ ] Generative circuit
 - [ ] Support data reconstruction
 - [ ] Support negative data synthesis
-- [ ] Making a spiking version of the model
 
 ## Benchmark TODO:
 
