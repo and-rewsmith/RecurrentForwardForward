@@ -1,22 +1,22 @@
 import logging
 import os
-from io import BytesIO
 
 import torch
-import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset
 import wandb
 import numpy as np
 
-from RecurrentFF.model.model import RecurrentFFNet, TrainInputData, TrainLabelData, SingleStaticClassTestData
+from RecurrentFF.model.model import RecurrentFFNet
 from RecurrentFF.settings import Settings
-from RecurrentFF.util import DataConfig
+from RecurrentFF.util import DataConfig, SingleStaticClassTestData, TrainInputData, TrainLabelData
 
 INPUT_SIZE = 4
 NUM_CLASSES = 10
 TRAIN_BATCH_SIZE = 5000
 TEST_BATCH_SIZE = 5000
 ITERATIONS = 150
+FOCUS_ITERATION_NEG_OFFSET = 15
+FOCUS_ITERATION_POS_OFFSET = 15
 
 
 class SeqMnistTrainDataset(Dataset):
@@ -57,19 +57,19 @@ class SeqMnistTrainDataset(Dataset):
 
         x = torch.Tensor(data[:, 10:14])  # Your original tensor
         # repeat tensor rows to desired length
-        x = self.repeat_data_to_length(x, 150)
+        x = self.repeat_data_to_length(x, ITERATIONS)
 
         # separate labels and data
         one_hot_labels = torch.Tensor(data[0, :10]).unsqueeze(
             0).repeat(data.shape[0], 1)
         one_hot_labels = self.repeat_data_to_length(
-            one_hot_labels, 150)  # repeat labels to desired length
+            one_hot_labels, ITERATIONS)  # repeat labels to desired length
 
         # create negative labels
         negative_one_hot_labels = self.get_negative_labels(
             one_hot_labels[0]).repeat(data.shape[0], 1)
         negative_one_hot_labels = self.repeat_data_to_length(
-            negative_one_hot_labels, 150)  # repeat negative labels to desired length
+            negative_one_hot_labels, ITERATIONS)  # repeat negative labels to desired length
 
         if self.transform:
             x = self.transform(x)
@@ -263,7 +263,7 @@ if __name__ == "__main__":
 
     settings = Settings()
     data_config = DataConfig(INPUT_SIZE, NUM_CLASSES,
-                             TRAIN_BATCH_SIZE, TEST_BATCH_SIZE, ITERATIONS)
+                             TRAIN_BATCH_SIZE, TEST_BATCH_SIZE, ITERATIONS, FOCUS_ITERATION_NEG_OFFSET, FOCUS_ITERATION_POS_OFFSET)
 
     # Pytorch utils.
     torch.autograd.set_detect_anomaly(True)
