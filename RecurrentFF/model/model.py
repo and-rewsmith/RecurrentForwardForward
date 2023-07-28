@@ -73,8 +73,7 @@ class RecurrentFFNet(nn.Module):
             else:
                 hidden_layer.set_next_layer(self.output_layer)
 
-        optimizer = Adam(self.parameters(), lr=LEARNING_RATE)
-        self.inner_layers = InnerLayers(inner_layers, optimizer)
+        self.inner_layers = InnerLayers(inner_layers)
 
         # when we eventually support changing/multiclass scenarios this will be configurable
         self.processor = StaticSingleClassProcessor(
@@ -212,10 +211,10 @@ class RecurrentFFNet(nn.Module):
 
 class InnerLayers(nn.Module):
 
-    def __init__(self, layers, optimizer):
+    def __init__(self, layers):
         super(InnerLayers, self).__init__()
-        self.optimizer = optimizer
         self.layers = layers
+        self.optimizer = Adam(self.parameters(), lr=LEARNING_RATE)
 
     def advance_layers_train(self, input_data, label_data, should_damp):
         """
@@ -499,7 +498,7 @@ class HiddenLayer(nn.Module):
         logging.debug("neg goodness: " + str(neg_goodness))
 
         # Loss function equivelent to:
-        # z = log(1 + exp(((-x + 2) + (y - 2))/2)
+        # L = log(1 + exp(((-p + 2) + (n - 2))/2)
         layer_loss = F.softplus(torch.cat([
             (-1 * pos_goodness) + THRESHOLD,
             neg_goodness - THRESHOLD

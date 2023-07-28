@@ -1,8 +1,8 @@
 import logging
 
 import torch
-from RecurrentFF.model.constants import DEVICE
 
+from RecurrentFF.model.constants import DEVICE
 from RecurrentFF.model.data_scenario.processor import DataScenarioProcessor
 from RecurrentFF.model.util import layer_activations_to_goodness, ForwardMode
 
