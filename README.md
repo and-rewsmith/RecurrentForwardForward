@@ -16,18 +16,18 @@ python -m RecurrentFF.benchmarks.MNIST.mnist
 - [x] Recurrent connections
 - [x] Lateral connections
 - [x] Data and label inputs conducive to changing accross timesteps
-- [] Dynamic negative data
-- [] Receptive fields
-- [] Peer normalization
-- [] Support data manipulation for positive data
-- [] Generative circuit
-- [] Support data reconstruction
-- [] Support negative data synthesis
-- [] Making a spiking version of the model
+- [ ] Dynamic negative data
+- [ ] Receptive fields
+- [ ] Peer normalization
+- [ ] Support data manipulation for positive data
+- [ ] Generative circuit
+- [ ] Support data reconstruction
+- [ ] Support negative data synthesis
+- [ ] Making a spiking version of the model
 
 ## Benchmark TODO:
 
 - [x] Benchmark on MNIST
 - [x] Benchmark on Moving MNIST
 - [x] Benchmark on Seq MNIST
-- [] Benchmark on non-static multiclass dataset
+- [ ] Benchmark on non-static multiclass dataset
