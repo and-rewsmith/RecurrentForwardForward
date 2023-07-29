@@ -18,6 +18,6 @@ jobs:
 
           if [[ ! "${title}" =~ ${correct_format_regex} ]]; then
             echo "Error: Invalid PR Title '${title}'"
-            echo "PR title must start with one of the following prefixes: 'feat:', 'fix:', 'docs:', 'style:', 'refactor:', 'chore:', 'perf:', 'test:', 'build:', 'ci:', 'revert:'"
+            echo "PR title must start with one of the following prefixes: 'feat', 'fix', 'docs', 'style', 'refactor', 'chore', 'perf', 'test', 'build', 'ci', 'revert'"
             exit 1
           fi
