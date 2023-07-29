@@ -8,4 +8,4 @@ learning_rate = 0.00005
 skip_profiling = 1
 
 [device]
-device = "cuda"
+device = "mps"
