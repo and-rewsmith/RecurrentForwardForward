@@ -294,5 +294,3 @@ if __name__ == "__main__":
     model = RecurrentFFNet(data_config).to(settings.device.device)
 
     model.train(train_loader, test_loader)
-
-    model.predict(test_loader)

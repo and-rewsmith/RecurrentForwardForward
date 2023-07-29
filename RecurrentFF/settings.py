@@ -1,6 +1,8 @@
 import toml
 import torch
 
+from RecurrentFF.benchmarks.arguments import get_arguments
+
 CONFIG_FILE = "./config.toml"
 
 
@@ -32,6 +34,11 @@ class Settings(metaclass=Singleton):
             self.device = torch.device(device_dict['device'])
 
     def __init__(self):
-        config = toml.load(CONFIG_FILE)
+        args = get_arguments()
+        if args.config_file is not None:
+            config = toml.load(args.config_file)
+        else:
+            config = toml.load(CONFIG_FILE)
+
         self.model = self.Model(config['model'])
         self.device = self.Device(config['device'])

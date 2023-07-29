@@ -1,0 +1,31 @@
+name: "Python Commands Check"
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+jobs:
+  check-commands:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Validate commands
+        run: |
+          python -m RecurrentFF.benchmarks.MNIST.mnist --config-file ./test/config-files/smoke.toml
+          python -m RecurrentFF.benchmarks.Moving_MNIST.moving_mnist --config-file ./test/config-files/smoke.toml
+          python -m RecurrentFF.benchmarks.Seq_MNIST.seq --config-file ./test/config-files/smoke.toml
