@@ -1,11 +1,5 @@
-[data]
-train_batch_size = 5000
-test_batch_size = 5000
-iterations = 10
-
-
 [model]
-hidden_sizes = [500, 500, 500]
+hidden_sizes = [1000, 1000, 1000]
 epochs = 10000
 loss_threshold = 1
 damping_factor = 0.7
@@ -14,4 +8,4 @@ learning_rate = 0.00005
 skip_profiling = 1
 
 [device]
-device = "mps"
+device = "cuda"
