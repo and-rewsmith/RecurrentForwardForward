@@ -1,4 +1,3 @@
-import logging
 import os
 
 import torch
@@ -8,7 +7,7 @@ import numpy as np
 
 from RecurrentFF.model.model import RecurrentFFNet
 from RecurrentFF.settings import Settings
-from RecurrentFF.util import DataConfig, SingleStaticClassTestData, TrainInputData, TrainLabelData
+from RecurrentFF.util import DataConfig, SingleStaticClassTestData, TrainInputData, TrainLabelData, set_logging
 
 INPUT_SIZE = 4
 NUM_CLASSES = 10
@@ -258,12 +257,11 @@ def MNIST_loaders(train_batch_size, test_batch_size):
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO,
-                        format='%(asctime)s - %(levelname)s - %(message)s')
-
     settings = Settings()
     data_config = DataConfig(INPUT_SIZE, NUM_CLASSES,
                              TRAIN_BATCH_SIZE, TEST_BATCH_SIZE, ITERATIONS, FOCUS_ITERATION_NEG_OFFSET, FOCUS_ITERATION_POS_OFFSET)
+
+    set_logging()
 
     # Pytorch utils.
     torch.autograd.set_detect_anomaly(True)

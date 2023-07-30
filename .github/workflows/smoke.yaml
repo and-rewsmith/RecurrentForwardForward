@@ -25,7 +25,4 @@ jobs:
           pip install -r test/pip/requirements.txt
 
       - name: Validate commands
-        run: |
-          python -m RecurrentFF.benchmarks.MNIST.mnist --config-file ./test/config-files/smoke.toml
-          python -m RecurrentFF.benchmarks.Moving_MNIST.moving_mnist --config-file ./test/config-files/smoke.toml
-          python -m RecurrentFF.benchmarks.Seq_MNIST.seq --config-file ./test/config-files/smoke.toml
+        run: ./test/scripts/smoke.sh

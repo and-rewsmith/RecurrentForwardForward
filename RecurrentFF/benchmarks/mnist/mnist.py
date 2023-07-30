@@ -1,12 +1,10 @@
-import logging
-
 import torch
 from torch.utils.data import DataLoader, Dataset
 from torchvision.datasets import MNIST
 from torchvision.transforms import Compose, ToTensor, Normalize, Lambda
 import wandb
 
-from RecurrentFF.util import DataConfig, TrainInputData, TrainLabelData, SingleStaticClassTestData
+from RecurrentFF.util import DataConfig, TrainInputData, TrainLabelData, SingleStaticClassTestData, set_logging
 from RecurrentFF.model.model import RecurrentFFNet
 from RecurrentFF.settings import Settings
 
@@ -180,12 +178,11 @@ def convert_to_timestep_dims(data):
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO,
-                        format='%(asctime)s - %(levelname)s - %(message)s')
-
     settings = Settings()
     data_config = DataConfig(INPUT_SIZE, NUM_CLASSES,
                              TRAIN_BATCH_SIZE, TEST_BATCH_SIZE, ITERATIONS, FOCUS_ITERATION_NEG_OFFSET, FOCUS_ITERATION_POS_OFFSET)
+
+    set_logging()
 
     # Pytorch utils.
     torch.autograd.set_detect_anomaly(True)

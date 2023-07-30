@@ -1,8 +1,17 @@
 from enum import Enum
+import logging
 import torch
 from torch import nn
 
 from RecurrentFF.settings import Settings
+
+
+def set_logging():
+    """
+    Must be called after argparse.
+    """
+    logging.basicConfig(level=logging.INFO,
+                        format='%(asctime)s - %(levelname)s - %(message)s')
 
 
 def standardize_layer_activations(layer_activations):

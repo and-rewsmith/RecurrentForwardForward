@@ -1,5 +1,4 @@
 import argparse
-import logging
 
 
 def get_arguments():
@@ -16,6 +15,6 @@ def get_arguments():
     args = parser.parse_args()
 
     if args.config_file is not None:
-        logging.info(f'Configured config file path is {args.config_file}')
+        print(f'Configured config file path is {args.config_file}')
 
     return args

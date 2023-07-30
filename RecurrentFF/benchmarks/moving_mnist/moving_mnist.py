@@ -1,17 +1,16 @@
 import os
-import logging
 import time
+from multiprocessing import Process, Manager
 
 import torch
 from torch.utils.data import DataLoader, Dataset
 import wandb
-from multiprocessing import Process, Manager
 
 from RecurrentFF.settings import Settings
-from RecurrentFF.util import DataConfig, TrainInputData, TrainLabelData, SingleStaticClassTestData
+from RecurrentFF.util import DataConfig, TrainInputData, TrainLabelData, SingleStaticClassTestData, set_logging
 from RecurrentFF.model.model import RecurrentFFNet
 
-from RecurrentFF.benchmarks.Moving_MNIST.constants import MOVING_MNIST_DATA_DIR
+from RecurrentFF.benchmarks.moving_mnist.constants import MOVING_MNIST_DATA_DIR
 
 NUM_CLASSES = 10
 INPUT_SIZE = 4096
@@ -125,11 +124,14 @@ class MovingMNISTDataset(Dataset):
         tuple
             Tuple of sequences and corresponding one-hot labels.
         """
+        if idx == 1000:
+            print("calling get item")
         while idx >= self.data_chunk_idx + len(self.data_chunk["sequences"]):
             self.load_event.set()  # Signal the background process to load more data
 
             while self.data_queue.empty():
                 time.sleep(0.1)  # Wait for data to be loaded
+                print("waiting")
                 pass
 
             self.data_chunk = self.data_queue.get()  # Wait for data to be loaded
@@ -170,6 +172,7 @@ class MovingMNISTDataset(Dataset):
         """
         while True:
             load_event.wait()  # Wait for a signal to load data
+            print("received event")
 
             # Load chunks into the queue until it is full or all data files have been loaded
             while not data_queue.full() and self.file_idx < len(self.data_files):
@@ -234,12 +237,11 @@ def MNIST_loaders(train_batch_size, test_batch_size):
 
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO,
-                        format='%(asctime)s - %(levelname)s - %(message)s')
-
     settings = Settings()
     data_config = DataConfig(INPUT_SIZE, NUM_CLASSES,
                              TRAIN_BATCH_SIZE, TEST_BATCH_SIZE, ITERATIONS, FOCUS_ITERATION_NEG_OFFSET, FOCUS_ITERATION_POS_OFFSET)
+
+    set_logging()
 
     # Pytorch utils.
     torch.autograd.set_detect_anomaly(True)
