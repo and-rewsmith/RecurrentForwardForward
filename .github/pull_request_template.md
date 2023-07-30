@@ -22,5 +22,5 @@
 
 ## Pull Request Title Format
 
-See the [contributing guide](CONTRIBUTING.md) for details.
+See the [contributing guide](/CONTRIBUTING.md) for details.
 
