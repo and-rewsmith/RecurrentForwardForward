@@ -49,7 +49,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
             accuracy.
         """
         for batch, test_data in enumerate(test_loader):
-            if limit_batches != None and batch == limit_batches:
+            if limit_batches is not None and batch == limit_batches:
                 break
 
             logging.info("Starting inference for test batch: " + str(batch))
@@ -71,12 +71,14 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                     self.inner_layers.reset_activations(False)
 
                     one_hot_labels = torch.zeros(
-                        data.shape[1], self.data_config.num_classes, device=self.settings.device.device)
+                        data.shape[1],
+                        self.data_config.num_classes,
+                        device=self.settings.device.device)
                     one_hot_labels[:, label] = 1.0
 
                     for _preinit_iteration in range(0, len(self.inner_layers)):
-                        self.inner_layers.advance_layers_forward(ForwardMode.PredictData,
-                                                                 data[0], one_hot_labels, False)
+                        self.inner_layers.advance_layers_forward(
+                            ForwardMode.PredictData, data[0], one_hot_labels, False)
 
                     lower_iteration_threshold = iterations // 2 - \
                         self.data_config.focus_iteration_neg_offset
@@ -84,14 +86,15 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                         self.data_config.focus_iteration_pos_offset
                     goodnesses = []
                     for iteration in range(0, iterations):
-                        self.inner_layers.advance_layers_forward(ForwardMode.PredictData,
-                                                                 data[iteration], one_hot_labels, True)
+                        self.inner_layers.advance_layers_forward(
+                            ForwardMode.PredictData, data[iteration], one_hot_labels, True)
 
                         if iteration >= lower_iteration_threshold and iteration <= upper_iteration_threshold:
                             layer_goodnesses = []
                             for layer in self.inner_layers:
-                                layer_goodnesses.append(layer_activations_to_goodness(
-                                    layer.predict_activations.current))
+                                layer_goodnesses.append(
+                                    layer_activations_to_goodness(
+                                        layer.predict_activations.current))
 
                             goodnesses.append(torch.stack(
                                 layer_goodnesses, dim=1))

@@ -7,9 +7,19 @@ from torch.optim import Adam
 import wandb
 from profilehooks import profile
 
-from RecurrentFF.model.data_scenario.static_single_class import StaticSingleClassProcessor
-from RecurrentFF.util import Activations, ForwardMode, OutputLayer, layer_activations_to_goodness, standardize_layer_activations
-from RecurrentFF.settings import Settings
+from RecurrentFF.model.data_scenario.static_single_class import (
+    StaticSingleClassProcessor,
+)
+from RecurrentFF.util import (
+    Activations,
+    ForwardMode,
+    OutputLayer,
+    layer_activations_to_goodness,
+    standardize_layer_activations,
+)
+from RecurrentFF.settings import (
+    Settings,
+)
 
 
 class RecurrentFFNet(nn.Module):
@@ -20,7 +30,7 @@ class RecurrentFFNet(nn.Module):
     This class represents a multi-layer network composed of an input layer, one
     or more hidden layers, and an output layer. Unlike traditional feed-forward
     networks, the hidden layers in this network are recurrent, i.e., they are
-    connected back to themselves across timesteps. 
+    connected back to themselves across timesteps.
 
     The learning procedure used here is a variant of the "Forward-Forward"
     algorithm, which is a greedy multi-layer learning method inspired by
@@ -53,7 +63,11 @@ class RecurrentFFNet(nn.Module):
         prev_size = data_config.data_size
         for size in self.settings.model.hidden_sizes:
             hidden_layer = HiddenLayer(
-                data_config.train_batch_size, data_config.test_batch_size, prev_size, size, self.settings.model.damping_factor)
+                data_config.train_batch_size,
+                data_config.test_batch_size,
+                prev_size,
+                size,
+                self.settings.model.damping_factor)
             inner_layers.append(hidden_layer)
             prev_size = size
 
@@ -73,13 +87,15 @@ class RecurrentFFNet(nn.Module):
 
         self.inner_layers = InnerLayers(inner_layers)
 
-        # when we eventually support changing/multiclass scenarios this will be configurable
+        # when we eventually support changing/multiclass scenarios this will be
+        # configurable
         self.processor = StaticSingleClassProcessor(
             self.inner_layers, data_config)
 
         logging.info("finished initializing network")
 
-    @profile(stdout=False, filename='baseline.prof', skip=Settings().model.skip_profiling)
+    @profile(stdout=False, filename='baseline.prof',
+             skip=Settings().model.skip_profiling)
     def train(self, train_loader, test_loader):
         """
         Trains the RecurrentFFNet model using the provided train and test data loaders.
@@ -89,21 +105,21 @@ class RecurrentFFNet(nn.Module):
             test_loader (torch.utils.data.DataLoader): DataLoader providing the test data and labels.
 
         Procedure:
-            For each epoch, the method iterates over batches from the train_loader. For each batch, it resets 
+            For each epoch, the method iterates over batches from the train_loader. For each batch, it resets
             the network's activations and performs a preinitialization step, forwarding both positive and negative
             data through the network. It then runs a specified number of iterations, where it trains the network
-            using the input and label data. 
+            using the input and label data.
 
-            After each batch, the method calculates the 'goodness' metric for each layer in the network (for both 
+            After each batch, the method calculates the 'goodness' metric for each layer in the network (for both
             positive and negative data), averages the layer losses, and then calculates the prediction accuracy on
-            the test data using test_loader. 
+            the test data using test_loader.
 
-            Finally, the method logs these metrics (accuracy, average loss, and layer-wise 'goodness' scores) 
+            Finally, the method logs these metrics (accuracy, average loss, and layer-wise 'goodness' scores)
             for monitoring the training process. The metrics logged depend on the number of layers in the network.
 
         Note:
-            'Goodness' here refers to a metric that indicates how well the model's current activations represent 
-            a given class. It's calculated by a function `layer_activations_to_goodness`, which transforms a 
+            'Goodness' here refers to a metric that indicates how well the model's current activations represent
+            a given class. It's calculated by a function `layer_activations_to_goodness`, which transforms a
             layer's activations into a 'goodness' score. This function operates on the RecurrentFFNet model level
             and is called during the training process.
         """
@@ -115,8 +131,8 @@ class RecurrentFFNet(nn.Module):
             # TODO: run forward pass to get negative data
 
             for batch_num, (input_data, label_data) in enumerate(train_loader):
-                average_layer_loss, pos_goodness_per_layer, neg_goodness_per_layer = self.__train_batch(batch_num,
-                                                                                                        input_data, label_data)
+                average_layer_loss, pos_goodness_per_layer, neg_goodness_per_layer = self.__train_batch(
+                    batch_num, input_data, label_data)
 
             # TODO: train softmax
 
@@ -145,10 +161,10 @@ class RecurrentFFNet(nn.Module):
             pos_labels = label_data.pos_labels[0]
             neg_labels = label_data.neg_labels[0]
 
-            self.inner_layers.advance_layers_forward(ForwardMode.PositiveData,
-                                                     pos_input, pos_labels, False)
-            self.inner_layers.advance_layers_forward(ForwardMode.NegativeData,
-                                                     neg_input, neg_labels, False)
+            self.inner_layers.advance_layers_forward(
+                ForwardMode.PositiveData, pos_input, pos_labels, False)
+            self.inner_layers.advance_layers_forward(
+                ForwardMode.NegativeData, neg_input, neg_labels, False)
 
         pos_goodness_per_layer = []
         neg_goodness_per_layer = []
@@ -157,9 +173,11 @@ class RecurrentFFNet(nn.Module):
             logging.debug("Iteration: " + str(iteration))
 
             input_data_sample = (
-                input_data.pos_input[iteration], input_data.neg_input[iteration])
+                input_data.pos_input[iteration],
+                input_data.neg_input[iteration])
             label_data_sample = (
-                label_data.pos_labels[iteration], label_data.neg_labels[iteration])
+                label_data.pos_labels[iteration],
+                label_data.neg_labels[iteration])
 
             total_loss = self.inner_layers.advance_layers_train(
                 input_data_sample, label_data_sample, True)
@@ -167,24 +185,32 @@ class RecurrentFFNet(nn.Module):
             logging.debug("Average layer loss: " +
                           str(average_layer_loss))
 
-            if iteration >= self.data_config.focus_iteration_neg_offset and iteration <= self.data_config.focus_iteration_pos_offset:
-                pos_goodness_per_layer.append(
-                    [layer_activations_to_goodness(
-                        layer.pos_activations.current).mean() for layer in self.inner_layers]
-                )
-                neg_goodness_per_layer.append(
-                    [layer_activations_to_goodness(
-                        layer.neg_activations.current).mean() for layer in self.inner_layers]
-                )
+            if iteration >= self.data_config.focus_iteration_neg_offset and \
+                    iteration <= self.data_config.focus_iteration_pos_offset:
+                pos_goodness_per_layer.append([layer_activations_to_goodness(
+                    layer.pos_activations.current).mean() for layer in self.inner_layers])
+                neg_goodness_per_layer.append([layer_activations_to_goodness(
+                    layer.neg_activations.current).mean() for layer in self.inner_layers])
 
-        pos_goodness_per_layer = [sum(layer_goodnesses)/len(layer_goodnesses)
-                                  for layer_goodnesses in zip(*pos_goodness_per_layer)]
-        neg_goodness_per_layer = [sum(layer_goodnesses)/len(layer_goodnesses)
-                                  for layer_goodnesses in zip(*neg_goodness_per_layer)]
+        pos_goodness_per_layer = [
+            sum(layer_goodnesses) /
+            len(layer_goodnesses) for layer_goodnesses in zip(
+                *
+                pos_goodness_per_layer)]
+        neg_goodness_per_layer = [
+            sum(layer_goodnesses) /
+            len(layer_goodnesses) for layer_goodnesses in zip(
+                *
+                neg_goodness_per_layer)]
 
         return average_layer_loss, pos_goodness_per_layer, neg_goodness_per_layer
 
-    def __log_metrics(self, accuracy, average_layer_loss, pos_goodness_per_layer, neg_goodness_per_layer):
+    def __log_metrics(
+            self,
+            accuracy,
+            average_layer_loss,
+            pos_goodness_per_layer,
+            neg_goodness_per_layer):
         # Supports wandb tracking of max 3 layer goodnesses
         try:
             first_layer_pos_goodness = pos_goodness_per_layer[0]
@@ -193,19 +219,31 @@ class RecurrentFFNet(nn.Module):
             second_layer_neg_goodness = neg_goodness_per_layer[1]
             third_layer_pos_goodness = pos_goodness_per_layer[2]
             third_layer_neg_goodness = neg_goodness_per_layer[2]
-        except:
+        except BaseException:
             # No-op as there may not be 3 layers
             pass
 
         if len(self.inner_layers) == 3:
-            wandb.log({"acc": accuracy, "loss": average_layer_loss, "first_layer_pos_goodness": first_layer_pos_goodness, "second_layer_pos_goodness": second_layer_pos_goodness, "third_layer_pos_goodness":
-                       third_layer_pos_goodness, "first_layer_neg_goodness": first_layer_neg_goodness, "second_layer_neg_goodness": second_layer_neg_goodness, "third_layer_neg_goodness": third_layer_neg_goodness})
+            wandb.log({"acc": accuracy,
+                       "loss": average_layer_loss,
+                       "first_layer_pos_goodness": first_layer_pos_goodness,
+                       "second_layer_pos_goodness": second_layer_pos_goodness,
+                       "third_layer_pos_goodness": third_layer_pos_goodness,
+                       "first_layer_neg_goodness": first_layer_neg_goodness,
+                       "second_layer_neg_goodness": second_layer_neg_goodness,
+                       "third_layer_neg_goodness": third_layer_neg_goodness})
         elif len(self.inner_layers) == 2:
-            wandb.log({"acc": accuracy, "loss": average_layer_loss, "first_layer_pos_goodness": first_layer_pos_goodness, "second_layer_pos_goodness":
-                       second_layer_pos_goodness, "first_layer_neg_goodness": first_layer_neg_goodness, "second_layer_neg_goodness": second_layer_neg_goodness})
+            wandb.log({"acc": accuracy,
+                       "loss": average_layer_loss,
+                       "first_layer_pos_goodness": first_layer_pos_goodness,
+                       "second_layer_pos_goodness": second_layer_pos_goodness,
+                       "first_layer_neg_goodness": first_layer_neg_goodness,
+                       "second_layer_neg_goodness": second_layer_neg_goodness})
         elif len(self.inner_layers) == 1:
-            wandb.log({"acc": accuracy, "loss": average_layer_loss, "first_layer_pos_goodness":
-                       first_layer_pos_goodness, "first_layer_neg_goodness": first_layer_neg_goodness})
+            wandb.log({"acc": accuracy,
+                       "loss": average_layer_loss,
+                       "first_layer_pos_goodness": first_layer_pos_goodness,
+                       "first_layer_neg_goodness": first_layer_neg_goodness})
 
 
 class InnerLayers(nn.Module):
@@ -222,7 +260,7 @@ class InnerLayers(nn.Module):
     def advance_layers_train(self, input_data, label_data, should_damp):
         """
         Advances the training process for all layers in the network by computing
-        the loss for each layer and updating their activations. 
+        the loss for each layer and updating their activations.
 
         The method handles different layer scenarios: if it's a single layer,
         both the input data and label data are used for training. If it's the
@@ -274,7 +312,12 @@ class InnerLayers(nn.Module):
 
         return total_loss
 
-    def advance_layers_forward(self, mode, input_data, label_data, should_damp):
+    def advance_layers_forward(
+            self,
+            mode,
+            input_data,
+            label_data,
+            should_damp):
         """
         Executes a forward pass through all layers of the network using the
         given mode, input data, label data, and a damping flag.
@@ -340,14 +383,14 @@ class HiddenLayer(nn.Module):
     with specific objectives: one is dedicated to processing positive ("real")
     data with the aim of enhancing the 'goodness' across every hidden layer,
     while the other is tasked with processing negative data and adjusting the
-    weights to reduce the 'goodness' metric. 
+    weights to reduce the 'goodness' metric.
 
     The HiddenLayer is essentially a node within this network, with possible
     connections to both preceding and succeeding layers, depending on its
     specific location within the network architecture. The first layer in this
     setup is connected directly to the input data, and the last layer maintains
     a connection to the output data. The intermediate layers establish a link to
-    both their previous and next layers, if available. 
+    both their previous and next layers, if available.
 
     In each HiddenLayer, a forward linear transformation and a backward linear
     transformation are defined. The forward transformation is applied to the
@@ -358,7 +401,13 @@ class HiddenLayer(nn.Module):
     adjustment of weights based on the output or next layer's activations.
     """
 
-    def __init__(self, train_batch_size, test_batch_size, prev_size, size, damping_factor):
+    def __init__(
+            self,
+            train_batch_size,
+            test_batch_size,
+            prev_size,
+            size,
+            damping_factor):
         super(HiddenLayer, self).__init__()
 
         self.settings = Settings()
@@ -422,16 +471,20 @@ class HiddenLayer(nn.Module):
             activations_dim = self.train_activations_dim
 
             pos_activations_current = torch.zeros(
-                activations_dim[0], activations_dim[1]).to(self.settings.device.device)
+                activations_dim[0], activations_dim[1]).to(
+                self.settings.device.device)
             pos_activations_previous = torch.zeros(
-                activations_dim[0], activations_dim[1]).to(self.settings.device.device)
+                activations_dim[0], activations_dim[1]).to(
+                self.settings.device.device)
             self.pos_activations = Activations(
                 pos_activations_current, pos_activations_previous)
 
             neg_activations_current = torch.zeros(
-                activations_dim[0], activations_dim[1]).to(self.settings.device.device)
+                activations_dim[0], activations_dim[1]).to(
+                self.settings.device.device)
             neg_activations_previous = torch.zeros(
-                activations_dim[0], activations_dim[1]).to(self.settings.device.device)
+                activations_dim[0], activations_dim[1]).to(
+                self.settings.device.device)
             self.neg_activations = Activations(
                 neg_activations_current, neg_activations_previous)
 
@@ -441,9 +494,11 @@ class HiddenLayer(nn.Module):
             activations_dim = self.test_activations_dim
 
             predict_activations_current = torch.zeros(
-                activations_dim[0], activations_dim[1]).to(self.settings.device.device)
+                activations_dim[0], activations_dim[1]).to(
+                self.settings.device.device)
             predict_activations_previous = torch.zeros(
-                activations_dim[0], activations_dim[1]).to(self.settings.device.device)
+                activations_dim[0], activations_dim[1]).to(
+                self.settings.device.device)
             self.predict_activations = Activations(
                 predict_activations_current, predict_activations_previous)
 
@@ -451,13 +506,13 @@ class HiddenLayer(nn.Module):
             self.neg_activations = None
 
     def advance_stored_activations(self):
-        if self.pos_activations != None:
+        if self.pos_activations is not None:
             self.pos_activations.advance()
 
-        if self.neg_activations != None:
+        if self.neg_activations is not None:
             self.neg_activations.advance()
 
-        if self.predict_activations != None:
+        if self.predict_activations is not None:
             self.predict_activations.advance()
 
     def set_previous_layer(self, previous_layer):
@@ -473,20 +528,20 @@ class HiddenLayer(nn.Module):
 
         pos_activations = None
         neg_activations = None
-        if input_data != None and label_data != None:
+        if input_data is not None and label_data is not None:
             (pos_input, neg_input) = input_data
             (pos_labels, neg_labels) = label_data
             pos_activations = self.forward(
                 ForwardMode.PositiveData, pos_input, pos_labels, should_damp)
             neg_activations = self.forward(
                 ForwardMode.NegativeData, neg_input, neg_labels, should_damp)
-        elif input_data != None:
+        elif input_data is not None:
             (pos_input, neg_input) = input_data
             pos_activations = self.forward(
                 ForwardMode.PositiveData, pos_input, None, should_damp)
             neg_activations = self.forward(
                 ForwardMode.NegativeData, neg_input, None, should_damp)
-        elif label_data != None:
+        elif label_data is not None:
             (pos_labels, neg_labels) = label_data
             pos_activations = self.forward(
                 ForwardMode.PositiveData, None, pos_labels, should_damp)
@@ -521,7 +576,7 @@ class HiddenLayer(nn.Module):
     def forward(self, mode, data, labels, should_damp):
         """
         Propagates input data forward through the network, updating the
-        activation state of the current layer based on the operating mode. 
+        activation state of the current layer based on the operating mode.
 
         Handles various scenarios depending on the layer configuration in the
         network (input layer, output layer, or a middle layer).
@@ -563,14 +618,14 @@ class HiddenLayer(nn.Module):
             activations.
         """
         # Make sure assumptions aren't violated regarding layer connectivity.
-        if data == None:
-            assert self.previous_layer != None
-        if labels == None:
-            assert self.next_layer != None
+        if data is None:
+            assert self.previous_layer is not None
+        if labels is None:
+            assert self.next_layer is not None
 
         # Middle layer.
         new_activation = None
-        if data == None and labels == None:
+        if data is None and labels is None:
             next_layer_prev_timestep_activations = None
             prev_layer_prev_timestep_activations = None
             prev_act = None
@@ -595,9 +650,16 @@ class HiddenLayer(nn.Module):
             next_layer_stdized = standardize_layer_activations(
                 next_layer_prev_timestep_activations)
 
-            new_activation = F.relu(F.linear(prev_layer_stdized, self.forward_linear.weight) +
-                                    F.linear(next_layer_stdized,
-                                             self.next_layer.backward_linear.weight) + F.linear(prev_act, self.lateral_linear.weight))
+            new_activation = F.relu(
+                F.linear(
+                    prev_layer_stdized,
+                    self.forward_linear.weight) +
+                F.linear(
+                    next_layer_stdized,
+                    self.next_layer.backward_linear.weight) +
+                F.linear(
+                    prev_act,
+                    self.lateral_linear.weight))
             if should_damp:
                 old_activation = new_activation
                 new_activation = (1 - self.damping_factor) * \
@@ -605,7 +667,7 @@ class HiddenLayer(nn.Module):
 
         # Single layer scenario. Hidden layer connected to input layer and
         # output layer.
-        elif data != None and labels != None:
+        elif data is not None and labels is not None:
             prev_act = None
             if mode == ForwardMode.PositiveData:
                 prev_act = self.pos_activations.previous
@@ -615,8 +677,16 @@ class HiddenLayer(nn.Module):
                 prev_act = self.predict_activations.previous
             prev_act = prev_act.detach()
 
-            new_activation = F.relu(F.linear(
-                data, self.forward_linear.weight) + F.linear(labels, self.next_layer.backward_linear.weight) + F.linear(prev_act, self.lateral_linear.weight))
+            new_activation = F.relu(
+                F.linear(
+                    data,
+                    self.forward_linear.weight) +
+                F.linear(
+                    labels,
+                    self.next_layer.backward_linear.weight) +
+                F.linear(
+                    prev_act,
+                    self.lateral_linear.weight))
 
             if should_damp:
                 old_activation = new_activation
@@ -624,7 +694,7 @@ class HiddenLayer(nn.Module):
                     prev_act + self.damping_factor * old_activation
 
         # Input layer scenario. Connected to input layer and hidden layer.
-        elif data != None:
+        elif data is not None:
             prev_act = None
             next_layer_prev_timestep_activations = None
             if mode == ForwardMode.PositiveData:
@@ -643,8 +713,16 @@ class HiddenLayer(nn.Module):
             next_layer_stdized = standardize_layer_activations(
                 next_layer_prev_timestep_activations)
 
-            new_activation = F.relu(F.linear(data, self.forward_linear.weight) + F.linear(
-                next_layer_stdized, self.next_layer.backward_linear.weight) + F.linear(prev_act, self.lateral_linear.weight))
+            new_activation = F.relu(
+                F.linear(
+                    data,
+                    self.forward_linear.weight) +
+                F.linear(
+                    next_layer_stdized,
+                    self.next_layer.backward_linear.weight) +
+                F.linear(
+                    prev_act,
+                    self.lateral_linear.weight))
 
             if should_damp:
                 old_activation = new_activation
@@ -652,7 +730,7 @@ class HiddenLayer(nn.Module):
                     prev_act + self.damping_factor * old_activation
 
         # Output layer scenario. Connected to hidden layer and output layer.
-        elif labels != None:
+        elif labels is not None:
             prev_layer_prev_timestep_activations = None
             prev_act = None
             if mode == ForwardMode.PositiveData:
@@ -671,8 +749,16 @@ class HiddenLayer(nn.Module):
             prev_layer_stdized = standardize_layer_activations(
                 prev_layer_prev_timestep_activations)
 
-            new_activation = F.relu(F.linear(prev_layer_stdized,
-                                             self.forward_linear.weight) + F.linear(labels, self.next_layer.backward_linear.weight) + F.linear(prev_act, self.lateral_linear.weight))
+            new_activation = F.relu(
+                F.linear(
+                    prev_layer_stdized,
+                    self.forward_linear.weight) +
+                F.linear(
+                    labels,
+                    self.next_layer.backward_linear.weight) +
+                F.linear(
+                    prev_act,
+                    self.lateral_linear.weight))
 
             if should_damp:
                 old_activation = new_activation

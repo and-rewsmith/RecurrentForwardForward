@@ -19,7 +19,7 @@ FOCUS_ITERATION_POS_OFFSET = 1
 
 class CustomTrainDataset(Dataset):
     """
-    A custom PyTorch Dataset for training data that wraps around another dataset 
+    A custom PyTorch Dataset for training data that wraps around another dataset
     and applies custom processing for positive and negative label generation.
 
     Args:
@@ -61,7 +61,7 @@ class CustomTrainDataset(Dataset):
 
 class CustomTestDataset(Dataset):
     """
-    A custom PyTorch Dataset for test data that wraps around another dataset 
+    A custom PyTorch Dataset for test data that wraps around another dataset
     and applies custom processing.
 
     Args:
@@ -122,7 +122,9 @@ def train_collate_fn(batch):
     negative_labels = negative_labels.unsqueeze(0).repeat(ITERATIONS, 1, 1)
 
     # 5. Return as custom objects
-    return TrainInputData(data1, data2), TrainLabelData(positive_labels, negative_labels)
+    return TrainInputData(
+        data1, data2), TrainLabelData(
+        positive_labels, negative_labels)
 
 
 def test_collate_fn(batch):
@@ -156,15 +158,29 @@ def MNIST_loaders(train_batch_size, test_batch_size):
         Normalize((0.1307,), (0.3081,)),
         Lambda(lambda x: torch.flatten(x))])
 
-    train_loader = DataLoader(CustomTrainDataset(MNIST('./data/', train=True,
-                                                       download=True,
-                                                       transform=transform)),
-                              batch_size=train_batch_size, shuffle=True, collate_fn=train_collate_fn, num_workers=0)
+    train_loader = DataLoader(
+        CustomTrainDataset(
+            MNIST(
+                './data/',
+                train=True,
+                download=True,
+                transform=transform)),
+        batch_size=train_batch_size,
+        shuffle=True,
+        collate_fn=train_collate_fn,
+        num_workers=0)
 
-    test_loader = DataLoader(CustomTestDataset(MNIST('./data/', train=False,
-                                                     download=True,
-                                                     transform=transform)),
-                             batch_size=test_batch_size, shuffle=True, collate_fn=test_collate_fn, num_workers=0)
+    test_loader = DataLoader(
+        CustomTestDataset(
+            MNIST(
+                './data/',
+                train=False,
+                download=True,
+                transform=transform)),
+        batch_size=test_batch_size,
+        shuffle=True,
+        collate_fn=test_collate_fn,
+        num_workers=0)
 
     return train_loader, test_loader
 
@@ -179,8 +195,14 @@ def convert_to_timestep_dims(data):
 
 if __name__ == "__main__":
     settings = Settings()
-    data_config = DataConfig(INPUT_SIZE, NUM_CLASSES,
-                             TRAIN_BATCH_SIZE, TEST_BATCH_SIZE, ITERATIONS, FOCUS_ITERATION_NEG_OFFSET, FOCUS_ITERATION_POS_OFFSET)
+    data_config = DataConfig(
+        INPUT_SIZE,
+        NUM_CLASSES,
+        TRAIN_BATCH_SIZE,
+        TEST_BATCH_SIZE,
+        ITERATIONS,
+        FOCUS_ITERATION_NEG_OFFSET,
+        FOCUS_ITERATION_POS_OFFSET)
 
     set_logging()
 

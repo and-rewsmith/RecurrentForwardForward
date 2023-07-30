@@ -33,8 +33,11 @@ class SeqMnistTrainDataset(Dataset):
         self.path = data_folder
 
         # Get all the training files
-        self.data_files = [f for f in os.listdir(os.path.join(data_folder, 'sequences'))
-                           if f.startswith('trainimg-') and f.endswith('-targetdata.txt')]
+        self.data_files = [
+            f for f in os.listdir(
+                os.path.join(
+                    data_folder,
+                    'sequences')) if f.startswith('trainimg-') and f.endswith('-targetdata.txt')]
 
     def __getitem__(self, index):
         """
@@ -44,7 +47,7 @@ class SeqMnistTrainDataset(Dataset):
             index (int): Index of the item.
 
         Returns:
-            tuple: Tuple of inputs and labels. Inputs are a tuple of original data and 
+            tuple: Tuple of inputs and labels. Inputs are a tuple of original data and
             its duplicate. Labels are a tuple of positive one-hot labels and negative one-hot labels.
         """
         data_file = self.data_files[index]
@@ -151,7 +154,9 @@ def collate_train(data):
     pos_labels = pos_labels.transpose(0, 1)
     neg_labels = neg_labels.transpose(0, 1)
 
-    return TrainInputData(pos_data, neg_data), TrainLabelData(pos_labels, neg_labels)
+    return TrainInputData(
+        pos_data, neg_data), TrainLabelData(
+        pos_labels, neg_labels)
 
 
 class SeqMnistTestDataset(Dataset):
@@ -169,8 +174,11 @@ class SeqMnistTestDataset(Dataset):
         self.path = data_folder
 
         # Get all the testing files
-        self.data_files = [f for f in os.listdir(os.path.join(data_folder, 'sequences'))
-                           if f.startswith('trainimg-') and f.endswith('-targetdata.txt')]
+        self.data_files = [
+            f for f in os.listdir(
+                os.path.join(
+                    data_folder,
+                    'sequences')) if f.startswith('trainimg-') and f.endswith('-targetdata.txt')]
 
     def __getitem__(self, index):
         """
@@ -247,19 +255,33 @@ def collate_test(batch):
 
 
 def MNIST_loaders(train_batch_size, test_batch_size):
-    train_loader = DataLoader(SeqMnistTrainDataset('./RecurrentFF/benchmarks/Seq-MNIST/data/'),
-                              batch_size=train_batch_size, shuffle=True, collate_fn=collate_train, num_workers=8)
+    train_loader = DataLoader(
+        SeqMnistTrainDataset('./RecurrentFF/benchmarks/Seq-MNIST/data/'),
+        batch_size=train_batch_size,
+        shuffle=True,
+        collate_fn=collate_train,
+        num_workers=8)
 
-    test_loader = DataLoader(SeqMnistTestDataset('./RecurrentFF/benchmarks/Seq-MNIST/data/'),
-                             batch_size=test_batch_size, shuffle=False, collate_fn=collate_test, num_workers=8)
+    test_loader = DataLoader(
+        SeqMnistTestDataset('./RecurrentFF/benchmarks/Seq-MNIST/data/'),
+        batch_size=test_batch_size,
+        shuffle=False,
+        collate_fn=collate_test,
+        num_workers=8)
 
     return train_loader, test_loader
 
 
 if __name__ == "__main__":
     settings = Settings()
-    data_config = DataConfig(INPUT_SIZE, NUM_CLASSES,
-                             TRAIN_BATCH_SIZE, TEST_BATCH_SIZE, ITERATIONS, FOCUS_ITERATION_NEG_OFFSET, FOCUS_ITERATION_POS_OFFSET)
+    data_config = DataConfig(
+        INPUT_SIZE,
+        NUM_CLASSES,
+        TRAIN_BATCH_SIZE,
+        TEST_BATCH_SIZE,
+        ITERATIONS,
+        FOCUS_ITERATION_NEG_OFFSET,
+        FOCUS_ITERATION_POS_OFFSET)
 
     set_logging()
 

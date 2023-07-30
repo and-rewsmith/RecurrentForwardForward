@@ -25,7 +25,7 @@ class MovingMNISTDataset(Dataset):
     A Dataset for loading and serving sequences from the MovingMNIST dataset. This dataset is specifically
     designed for loading .pt (PyTorch serialized tensors) files from a directory and organizing them into
     chunks that can be fed to a model for training or testing. The dataset uses multiprocessing queues
-    for loading the chunks, enabling concurrent data loading and processing. It also separates training 
+    for loading the chunks, enabling concurrent data loading and processing. It also separates training
     and testing data based on the filenames, allowing for easy dataset splitting.
 
     Attributes:
@@ -89,7 +89,7 @@ class MovingMNISTDataset(Dataset):
 
     def __getitem__(self, idx):
         """
-        Returns the sequence and its corresponding positive and negative labels at the given index. 
+        Returns the sequence and its corresponding positive and negative labels at the given index.
         If the index is beyond the current data chunk, it loads the next chunk into memory.
 
         Parameters:
@@ -100,7 +100,7 @@ class MovingMNISTDataset(Dataset):
         Returns:
         --------
         Tuple:
-            A tuple containing two sequences and their corresponding positive and negative labels. 
+            A tuple containing two sequences and their corresponding positive and negative labels.
             Each sequence is a tensor and the labels are one-hot encoded tensors.
         """
         if idx >= self.data_chunk_idx + len(self.data_chunk["sequences"]):
@@ -127,7 +127,8 @@ class MovingMNISTDataset(Dataset):
         negative_one_hot_labels = torch.zeros(NUM_CLASSES)
         negative_one_hot_labels[y_neg] = 1.0
 
-        return (sequences, sequences), (positive_one_hot_labels, negative_one_hot_labels)
+        return (sequences, sequences), (positive_one_hot_labels,
+                                        negative_one_hot_labels)
 
 
 def train_collate_fn(batch):
@@ -144,7 +145,9 @@ def train_collate_fn(batch):
     positive_labels = positive_labels.unsqueeze(0).repeat(ITERATIONS, 1, 1)
     negative_labels = negative_labels.unsqueeze(0).repeat(ITERATIONS, 1, 1)
 
-    return TrainInputData(data1, data2), TrainLabelData(positive_labels, negative_labels)
+    return TrainInputData(
+        data1, data2), TrainLabelData(
+        positive_labels, negative_labels)
 
 
 def test_collate_fn(batch):
@@ -169,19 +172,37 @@ def MNIST_loaders(train_batch_size, test_batch_size):
     #     Lambda(lambda x: torch.flatten(x))])
 
     # Cannot shuffle with the dataset implementation
-    train_loader = DataLoader(MovingMNISTDataset(f'{MOVING_MNIST_DATA_DIR}/', train=True),
-                              batch_size=train_batch_size, shuffle=False, collate_fn=train_collate_fn, num_workers=0)
+    train_loader = DataLoader(
+        MovingMNISTDataset(
+            f'{MOVING_MNIST_DATA_DIR}/',
+            train=True),
+        batch_size=train_batch_size,
+        shuffle=False,
+        collate_fn=train_collate_fn,
+        num_workers=0)
 
-    test_loader = DataLoader(MovingMNISTDataset(f'{MOVING_MNIST_DATA_DIR}/', train=False),
-                             batch_size=test_batch_size, shuffle=False, collate_fn=test_collate_fn, num_workers=0)
+    test_loader = DataLoader(
+        MovingMNISTDataset(
+            f'{MOVING_MNIST_DATA_DIR}/',
+            train=False),
+        batch_size=test_batch_size,
+        shuffle=False,
+        collate_fn=test_collate_fn,
+        num_workers=0)
 
     return train_loader, test_loader
 
 
 if __name__ == '__main__':
     settings = Settings()
-    data_config = DataConfig(INPUT_SIZE, NUM_CLASSES,
-                             TRAIN_BATCH_SIZE, TEST_BATCH_SIZE, ITERATIONS, FOCUS_ITERATION_NEG_OFFSET, FOCUS_ITERATION_POS_OFFSET)
+    data_config = DataConfig(
+        INPUT_SIZE,
+        NUM_CLASSES,
+        TRAIN_BATCH_SIZE,
+        TEST_BATCH_SIZE,
+        ITERATIONS,
+        FOCUS_ITERATION_NEG_OFFSET,
+        FOCUS_ITERATION_POS_OFFSET)
 
     set_logging()
 
