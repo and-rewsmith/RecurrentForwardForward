@@ -1,6 +1,5 @@
 import os
-import time
-from multiprocessing import Process, Manager
+import multiprocessing
 
 import torch
 from torch.utils.data import DataLoader, Dataset
@@ -9,7 +8,6 @@ import wandb
 from RecurrentFF.settings import Settings
 from RecurrentFF.util import DataConfig, TrainInputData, TrainLabelData, SingleStaticClassTestData, set_logging
 from RecurrentFF.model.model import RecurrentFFNet
-
 from RecurrentFF.benchmarks.moving_mnist.constants import MOVING_MNIST_DATA_DIR
 
 NUM_CLASSES = 10
@@ -24,52 +22,37 @@ DATA_PER_FILE = 1000
 
 class MovingMNISTDataset(Dataset):
     """
-    Custom Dataset class for loading and processing the Moving MNIST dataset.
+    A Dataset for loading and serving sequences from the MovingMNIST dataset. This dataset is specifically
+    designed for loading .pt (PyTorch serialized tensors) files from a directory and organizing them into
+    chunks that can be fed to a model for training or testing. The dataset uses multiprocessing queues
+    for loading the chunks, enabling concurrent data loading and processing. It also separates training 
+    and testing data based on the filenames, allowing for easy dataset splitting.
 
-    The data are loaded asynchronously in a separate process to avoid I/O
-    blocking. The class is designed to work with .pt files and supports
-    train/test splitting based on filename prefix.
-
-    NOTE: Do not use shuffle=True for the dataloader. It is not supported.
-
-    Parameters
-    ----------
+    Attributes:
+    -----------
     root_dir : str
-        Path to the directory with .pt files.
-    train : bool, optional
-        If True, the dataset will only load files with 'train_' prefix. If
-        False, only 'test_' files are loaded.
-    queue_maxsize : int, optional
-        The maximum size of the data loading queue.
-
-    Attributes
-    ----------
-    root_dir : str
-        Path to the directory with .pt files.
+        The directory where the .pt files are stored.
     train : bool
-        If True, the dataset will only load files with 'train_' prefix.
-    queue_maxsize : int
-        The maximum size of the data loading queue.
+        Specifies if the dataset should load the training files or the testing files.
     data_files : list
-        List of .pt files to be loaded.
+        The list of data file paths loaded from the root_dir.
     file_idx : int
-        Index of the current file being processed.
+        The index of the current file being processed.
     data_chunk_idx : int
-        Index of the current chunk in memory.
-    data_queue : multiprocessing.Manager().Queue()
-        A queue object used for loading data chunks.
-    load_event : multiprocessing.Manager().Event()
-        An event object used for signaling when new data should be loaded.
-    loader_process : multiprocessing.Process()
-        A separate process for loading data chunks.
+        The index of the current chunk in memory.
+    load_event : multiprocessing.Queue
+        A queue to signal data loading events.
     data_chunk : dict
-        The current data chunk in memory.
+        The current chunk of data in memory. The chunk is a dictionary with "sequences" and "labels" as keys.
     """
 
-    def __init__(self, root_dir, train=True, queue_maxsize=5):
+    def __init__(self, root_dir, train=True):
+        """
+        Initializes the dataset with the root directory, the training/testing mode, and the max size of the queue.
+        It also initializes the data queue and loads the first chunk of data into memory.
+        """
         self.root_dir = root_dir
         self.train = train
-        self.queue_maxsize = queue_maxsize
 
         # List of all .pt files in root_dir
         self.data_files = [f for f in os.listdir(
@@ -86,55 +69,46 @@ class MovingMNISTDataset(Dataset):
         self.file_idx = 0  # Index of the current file
         self.data_chunk_idx = 0  # Index of the current chunk in memory
 
-        manager = Manager()
-        self.data_queue = manager.Queue(
-            maxsize=self.queue_maxsize)  # Parameterized queue size
-        self.load_event = manager.Event()
-
-        chunk_data = torch.load(os.path.join(
+        self.data_chunk = torch.load(os.path.join(
             self.root_dir, self.data_files[self.file_idx]))
-        self.data_queue.put(chunk_data)
-        self.file_idx += 1
-
-        self.loader_process = Process(
-            target=self._load_data_loop, args=(self.data_queue, self.load_event))
-        self.loader_process.start()
-
-        self.data_chunk = self.data_queue.get()  # Load first chunk into memory
 
     def __len__(self):
-        # this will be called at beginning of new batch, so reset is needed
+        """
+        Returns the total number of sequences in the dataset. This method also resets the counters,
+        making ready for the next epoch.
+
+        Returns:
+        --------
+        int:
+            The total number of sequences in the dataset.
+        """
+        # this will be called at beginning of new epoch, so reset is needed
         self.data_chunk_idx = 0
+        self.file_idx = 0
         return len(self.data_files) * DATA_PER_FILE
 
     def __getitem__(self, idx):
         """
-        Fetches a data instance and its corresponding label from the dataset.
+        Returns the sequence and its corresponding positive and negative labels at the given index. 
+        If the index is beyond the current data chunk, it loads the next chunk into memory.
 
-        If the requested index goes beyond the current data chunk, the method
-        signals for the next chunk to be loaded.
-
-        Parameters
-        ----------
+        Parameters:
+        -----------
         idx : int
-            Index of the data instance to fetch.
+            The index of the sequence to get.
 
-        Returns
-        -------
-        tuple
-            Tuple of sequences and corresponding one-hot labels.
+        Returns:
+        --------
+        Tuple:
+            A tuple containing two sequences and their corresponding positive and negative labels. 
+            Each sequence is a tensor and the labels are one-hot encoded tensors.
         """
-        if idx == 1000:
-            print("calling get item")
-        while idx >= self.data_chunk_idx + len(self.data_chunk["sequences"]):
-            self.load_event.set()  # Signal the background process to load more data
+        if idx >= self.data_chunk_idx + len(self.data_chunk["sequences"]):
+            self.file_idx += 1
 
-            while self.data_queue.empty():
-                time.sleep(0.1)  # Wait for data to be loaded
-                print("waiting")
-                pass
+            self.data_chunk = torch.load(os.path.join(
+                self.root_dir, self.data_files[self.file_idx]))
 
-            self.data_chunk = self.data_queue.get()  # Wait for data to be loaded
             # Update the chunk start index
             self.data_chunk_idx += len(self.data_chunk["sequences"])
 
@@ -154,38 +128,6 @@ class MovingMNISTDataset(Dataset):
         negative_one_hot_labels[y_neg] = 1.0
 
         return (sequences, sequences), (positive_one_hot_labels, negative_one_hot_labels)
-
-    def _load_data_loop(self, data_queue, load_event):
-        """
-        An internal method that runs in a separate process and loads data
-        chunks.
-
-        The method waits for a load event before loading data. It then loads as
-        many chunks as it can into the queue.
-
-        Parameters
-        ----------
-        data_queue : multiprocessing.Manager().Queue()
-            The queue to which data chunks are loaded.
-        load_event : multiprocessing.Manager().Event()
-            An event object used for signaling when new data should be loaded.
-        """
-        while True:
-            load_event.wait()  # Wait for a signal to load data
-            print("received event")
-
-            # Load chunks into the queue until it is full or all data files have been loaded
-            while not data_queue.full() and self.file_idx < len(self.data_files):
-                chunk_data = torch.load(os.path.join(
-                    self.root_dir, self.data_files[self.file_idx]))
-                data_queue.put(chunk_data)
-                self.file_idx += 1
-
-            load_event.clear()  # Clear the event after data is loaded
-
-            # reset the loop
-            if self.file_idx >= len(self.data_files):
-                self.file_idx = 0
 
 
 def train_collate_fn(batch):
@@ -247,7 +189,6 @@ if __name__ == '__main__':
     torch.autograd.set_detect_anomaly(True)
     torch.manual_seed(1234)
 
-    print("init wandb")
     wandb.init(
         # set the wandb project where this run will be logged
         project="Recurrent-FF",
@@ -274,3 +215,7 @@ if __name__ == '__main__':
     model = RecurrentFFNet(data_config).to(settings.device.device)
 
     model.train(train_loader, test_loader)
+
+    # Explicitly delete multiprocessing components
+    del train_loader
+    del test_loader

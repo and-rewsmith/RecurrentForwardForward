@@ -1,0 +1,24 @@
+name: Python PEP 8 compliance check
+
+on:
+  push:
+    paths:
+    - '**.py'
+  pull_request:
+    paths:
+    - '**.py'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout source
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.8
+
+    - name: Run PEP 8 compliance check
+      run: ./pep8_check.sh
