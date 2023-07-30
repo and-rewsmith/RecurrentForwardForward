@@ -1,0 +1,11 @@
+[model]
+hidden_sizes = [250, 250, 250]
+epochs = 20
+loss_threshold = 1
+damping_factor = 0.7
+epsilon = 0.00000001
+learning_rate = 0.00005
+skip_profiling = 1
+
+[device]
+device = "cpu"
