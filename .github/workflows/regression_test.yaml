@@ -1,4 +1,4 @@
-name: Python PEP 8 compliance check
+name: Regression Test
 
 on:
   push:
