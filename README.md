@@ -35,3 +35,7 @@ python -m RecurrentFF.benchmarks.MNIST.mnist
 - [x] Benchmark on Moving MNIST
 - [x] Benchmark on Seq MNIST
 - [ ] Benchmark on non-static multiclass dataset
+
+## Contributing:
+
+Please see [the contributing guide](CONTRIBUTING.md) for guidance.
