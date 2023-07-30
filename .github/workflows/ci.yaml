@@ -26,5 +26,5 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r test/pip/requirements.txt
 
-    - name: Run regression test
+    - name: Run ci test
       run: ./test/scripts/ci.sh
