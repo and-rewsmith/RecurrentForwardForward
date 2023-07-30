@@ -20,4 +20,4 @@ jobs:
         python-version: 3.8
 
     - name: Run PEP 8 compliance check
-      run: ./pep8_check.sh
+      run: ./test/scripts/pep8.sh
