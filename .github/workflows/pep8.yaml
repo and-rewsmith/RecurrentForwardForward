@@ -1,12 +1,11 @@
 name: Python PEP 8 compliance check
 
 on:
-  push:
-    paths:
-    - '**.py'
   pull_request:
-    paths:
-    - '**.py'
+    types:
+      - opened
+      - edited
+      - synchronize
 
 jobs:
   build:
