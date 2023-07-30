@@ -26,5 +26,5 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r test/pip/requirements.txt
 
-    - name: Run ci test
+    - name: Run CI test
       run: ./test/scripts/ci.sh
