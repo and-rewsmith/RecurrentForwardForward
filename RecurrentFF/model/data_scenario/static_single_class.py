@@ -12,25 +12,11 @@ from RecurrentFF.settings import Settings
 
 
 def formulate_incorrect_class(prob_tensor: torch.Tensor, correct_onehot_tensor: torch.Tensor, settings: Settings) -> torch.Tensor:
-    """
-    Finds the one-hot encoded class with a probabilistic selection that is not the
-    correct class from prob_tensor.
-
-    Args:
-        prob_tensor (torch.Tensor): Tensor of shape [batch_size, classes]
-            containing probabilities.
-        correct_onehot_tensor (torch.Tensor): One-hot encoded tensor of shape
-            [batch_size, classes] containing correct classes.
-
-    Returns:
-        torch.Tensor: One-hot encoded tensor of shape [batch_size, classes]
-            with the selected incorrect class.
-    """
-    # Compute the indices of the maximum probability for each sample
-    max_prob_indices = prob_tensor.argmax(dim=1)
-
     # Compute the indices of the correct class for each sample
     correct_indices = correct_onehot_tensor.argmax(dim=1)
+
+    # Compute the indices of the maximum probability for each sample
+    max_prob_indices = prob_tensor.argmax(dim=1)
 
     # Compute the percentage where the maximum probability index matches the correct class index
     percentage_matching = (
@@ -38,15 +24,19 @@ def formulate_incorrect_class(prob_tensor: torch.Tensor, correct_onehot_tensor: 
     logging.info(
         f"Latent classifier accuracy: {percentage_matching}%")
 
+    # Extract the probabilities of the correct classes
+    correct_probs = prob_tensor.gather(
+        1, correct_indices.unsqueeze(1)).squeeze()
+
+    # Generate random numbers for each sample in the range [0, 1 - correct_probs]
+    rand_nums = torch.rand_like(correct_probs) * (1 - correct_probs)
+    rand_nums = rand_nums.unsqueeze(1).to(device=settings.device.device)
+
     # Zero out the probabilities corresponding to the correct class
     masked_prob_tensor = prob_tensor * (1 - correct_onehot_tensor)
 
     # Create a cumulative sum of the masked probabilities along the classes dimension
     cumulative_prob = torch.cumsum(masked_prob_tensor, dim=1)
-
-    # Generate random numbers for the entire batch
-    rand_nums = torch.rand(cumulative_prob.size(
-        0), 1).to(device=settings.device.device)
 
     # Expand random numbers to the same shape as cumulative_prob for comparison
     rand_nums_expanded = rand_nums.expand_as(cumulative_prob)
@@ -56,13 +46,6 @@ def formulate_incorrect_class(prob_tensor: torch.Tensor, correct_onehot_tensor: 
 
     # Use argmax() to find the index of the first True value in each row
     selected_indices = mask.argmax(dim=1)
-
-    # Identify where the random number is greater than all cumulative probabilities
-    no_selection_mask = mask.sum(dim=1) == 0
-
-    # For the cases where no selection was made, select the index of the first non-zero cumulative probability
-    selected_indices[no_selection_mask] = (
-        cumulative_prob[no_selection_mask] > 0).int().argmax(dim=1)
 
     # Create a tensor with zeros and the same shape as the prob_tensor
     result_onehot_tensor = torch.zeros_like(
@@ -76,7 +59,7 @@ def formulate_incorrect_class(prob_tensor: torch.Tensor, correct_onehot_tensor: 
     correct = (selected_indices == max_indices_correct).sum().item()
     incorrect = prob_tensor.size(0) - correct
 
-    logging.info("optimization classifier accuracy: " +
+    logging.info("Optimization classifier accuracy: " +
                  str(correct / (correct + incorrect)))
 
     return result_onehot_tensor
@@ -254,7 +237,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                     # average over layers
                     goodness = goodnesses.mean(dim=1)
 
-                    logging.debug("goodness for prediction" + " " +
+                    logging.debug("Goodness for prediction" + " " +
                                   str(label) + ": " + str(goodness))
                     all_labels_goodness.append(goodness)
 
@@ -262,8 +245,8 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
 
                 # select the label with the maximum goodness
                 predicted_labels = torch.argmax(all_labels_goodness, dim=1)
-                logging.debug("predicted labels: " + str(predicted_labels))
-                logging.debug("actual labels: " + str(labels))
+                logging.debug("Predicted labels: " + str(predicted_labels))
+                logging.debug("Actual labels: " + str(labels))
 
                 total = data.size(1)
                 correct = (predicted_labels == labels).sum().item()
@@ -274,7 +257,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
         total_submissions = sum(
             total for _correct, total in accuracy_contexts)
         accuracy = total_correct / total_submissions * 100 if total_submissions else 0
-        logging.info(f'test accuracy: {accuracy}%')
+        logging.info(f'Test accuracy: {accuracy}%')
 
         return accuracy
 

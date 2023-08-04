@@ -62,7 +62,7 @@ class RecurrentFFNet(nn.Module):
     """
 
     def __init__(self, data_config):
-        logging.info("initializing network")
+        logging.info("Initializing network")
         super(RecurrentFFNet, self).__init__()
 
         self.settings = Settings.new()
@@ -101,7 +101,7 @@ class RecurrentFFNet(nn.Module):
         self.processor = StaticSingleClassProcessor(
             self.inner_layers, data_config)
 
-        logging.info("finished initializing network")
+        logging.info("Finished initializing network")
 
     @profile(stdout=False, filename='baseline.prof',
              skip=Settings.new().model.skip_profiling)
