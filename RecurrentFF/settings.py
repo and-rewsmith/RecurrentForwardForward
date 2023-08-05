@@ -29,6 +29,7 @@ class Settings(metaclass=Singleton):
             self.learning_rate = model_dict['learning_rate']
             self.skip_profiling = model_dict['skip_profiling']
             self.should_log_metrics = model_dict["should_log_metrics"]
+            self.should_replace_neg_data = model_dict["should_replace_neg_data"]
 
     class Device:
         def __init__(self, device_dict):

@@ -141,8 +141,7 @@ class RecurrentFFNet(nn.Module):
                 input_data.move_to_device_inplace(self.settings.device.device)
                 label_data.move_to_device_inplace(self.settings.device.device)
 
-                # TODO: only do this after first few epochs (determine)
-                if epoch >= 0:
+                if self.settings.model.should_replace_neg_data:
                     self.processor.replace_negative_data_inplace(
                         input_data.pos_input, label_data)
 
@@ -208,9 +207,10 @@ class RecurrentFFNet(nn.Module):
                 positive_latents = torch.cat(positive_latents, dim=1)
                 pos_target_latents.track_collapsed_latents(positive_latents)
 
-        pos_target_latents = pos_target_latents.retrieve()
-        self.processor.train_class_predictor_from_latents(
-            pos_target_latents, label_data.pos_labels[0])
+        if self.settings.model.should_replace_neg_data:
+            pos_target_latents = pos_target_latents.retrieve()
+            self.processor.train_class_predictor_from_latents(
+                pos_target_latents, label_data.pos_labels[0])
 
         pos_goodness_per_layer = [
             sum(layer_goodnesses) /

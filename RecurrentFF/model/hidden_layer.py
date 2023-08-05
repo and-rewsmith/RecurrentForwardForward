@@ -387,15 +387,6 @@ class HiddenLayer(nn.Module):
             prev_layer_stdized = standardize_layer_activations(
                 prev_layer_prev_timestep_activations)
 
-            # print("---------------------------------")
-            # print(prev_layer_stdized.shape)
-            # print(self.forward_linear.weight.shape)
-            # print(labels.shape)
-            # print(self.next_layer.backward_linear.weight.shape)
-            # print(prev_act.shape)
-            # print(self.lateral_linear.weight.shape)
-            # print("++++++++++++++++++++++++++++++++")
-
             new_activation = F.relu(
                 F.linear(
                     prev_layer_stdized,

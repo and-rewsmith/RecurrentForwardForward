@@ -4,9 +4,9 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 import wandb
 import numpy as np
-from RecurrentFF.model.data_scenario.static_single_class import SingleStaticClassTestData
 
 from RecurrentFF.model.model import RecurrentFFNet
+from RecurrentFF.model.data_scenario.static_single_class import SingleStaticClassTestData
 from RecurrentFF.settings import Settings
 from RecurrentFF.util import DataConfig, TrainInputData, TrainLabelData, set_logging
 

@@ -212,8 +212,6 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
             if limit_batches is not None and batch == limit_batches:
                 break
 
-            logging.info("Starting inference for test batch: " + str(batch))
-
             # tuple: (correct, total)
             accuracy_contexts = []
 

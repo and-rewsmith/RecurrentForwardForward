@@ -1,5 +1,5 @@
 [model]
-hidden_sizes = [1000, 1000, 1000]
+hidden_sizes = [100, 100, 100]
 epochs = 10000
 loss_threshold = 1
 damping_factor = 0.7
@@ -7,6 +7,8 @@ epsilon = 0.00000001
 learning_rate = 0.001
 skip_profiling = 1
 should_log_metrics = true 
+should_replace_neg_data = true
 
 [device]
-device = "cpu"
+device = "mps"
+
