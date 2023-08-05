@@ -96,8 +96,9 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
         self.data_config = data_config
         self.settings = Settings.new()
 
+        # latents for all but first layer
         self.classification_weights = nn.Linear(
-            sum(self.settings.model.hidden_sizes), self.data_config.num_classes).to(device=self.settings.device.device)
+            sum(self.settings.model.hidden_sizes[1:]), self.data_config.num_classes).to(device=self.settings.device.device)
 
         # TODO: do we need to explore what learning rate is best?
         self.optimizer = RMSprop(
@@ -120,6 +121,10 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
         """
         self.optimizer.zero_grad()
         latents = latents.detach()
+
+        # remove first layer latents
+        hiddne_size_layer_0 = self.settings.model.hidden_sizes[0]
+        latents = latents[:, hiddne_size_layer_0:]
 
         class_logits = F.linear(
             latents, self.classification_weights.weight)
@@ -162,6 +167,10 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                 be replaced.
         """
         latents = self.__retrieve_latents__(input_batch, input_labels)
+
+        # remove first layer latents
+        hidden_size_layer_0 = self.settings.model.hidden_sizes[0]
+        latents = latents[:, hidden_size_layer_0:]
 
         class_logits = F.linear(latents, self.classification_weights.weight)
         class_probabilities = F.softmax(class_logits, dim=-1)
