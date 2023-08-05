@@ -4,9 +4,10 @@ import multiprocessing
 import torch
 from torch.utils.data import DataLoader, Dataset
 import wandb
+from RecurrentFF.model.data_scenario.static_single_class import SingleStaticClassTestData
 
 from RecurrentFF.settings import Settings
-from RecurrentFF.util import DataConfig, TrainInputData, TrainLabelData, SingleStaticClassTestData, set_logging
+from RecurrentFF.util import DataConfig, TrainInputData, TrainLabelData, set_logging
 from RecurrentFF.model.model import RecurrentFFNet
 from RecurrentFF.benchmarks.moving_mnist.constants import MOVING_MNIST_DATA_DIR
 

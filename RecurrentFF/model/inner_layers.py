@@ -2,7 +2,7 @@ import logging
 
 
 from torch import nn
-from torch.optim import Adam, RMSprop
+from torch.optim import RMSprop
 
 from RecurrentFF.settings import (
     Settings,

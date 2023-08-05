@@ -12,6 +12,21 @@ from RecurrentFF.util import DataConfig, LatentAverager, TrainLabelData, layer_a
 from RecurrentFF.settings import Settings
 
 
+class SingleStaticClassTestData:
+    """
+    inputs of dims (timesteps, batch_size, data_size)
+    labels of dims (batch size, num classes)
+    """
+
+    def __init__(self, input, labels):
+        self.input = input
+        self.labels = labels
+
+    def __iter__(self):
+        yield self.input
+        yield self.labels
+
+
 def formulate_incorrect_class(prob_tensor: torch.Tensor, correct_onehot_tensor: torch.Tensor, settings: Settings) -> torch.Tensor:
     # Compute the indices of the correct class for each sample
     correct_indices = correct_onehot_tensor.argmax(dim=1)
@@ -74,19 +89,6 @@ def formulate_incorrect_class(prob_tensor: torch.Tensor, correct_onehot_tensor: 
     logging.info("Optimization classifier accuracy: " +
                  str(correct / (correct + incorrect)))
 
-    if correct > 0:
-        for i in range(0, selected_indices.shape[0]):
-            if selected_indices[i] == max_indices_correct[i]:
-                print(correct_indices[i])
-                print(prob_tensor[i])
-                print(cumulative_prob[i])
-                print(rand_nums_expanded[i])
-                print(selected_indices[i])
-                print(max_indices_correct[i])
-                input()
-
-        print("----------------------BAD proceeding")
-
     return result_onehot_tensor
 
 
@@ -124,7 +126,6 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
         class_logits = F.linear(
             latents, self.classification_weights.weight)
 
-        # Compute the cross-entropy loss between the predicted probabilities and the true labels
         loss = F.cross_entropy(
             class_logits, labels)
 
@@ -133,10 +134,8 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                 "latent_classifier_loss": loss
             })
 
-        # Perform backpropagation to compute the gradients
         loss.backward()
 
-        # Update the parameters with the optimizer
         self.optimizer.step()
 
         logging.info(

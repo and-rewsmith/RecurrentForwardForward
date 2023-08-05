@@ -79,18 +79,6 @@ class TrainLabelData:
         self.neg_labels = self.neg_labels.to(device)
 
 
-# TODO: move this to static singleclass
-# input of dims (batch size, num classes)
-class SingleStaticClassTestData:
-    def __init__(self, input, labels):
-        self.input = input
-        self.labels = labels
-
-    def __iter__(self):
-        yield self.input
-        yield self.labels
-
-
 class Activations:
     def __init__(self, current, previous):
         self.current = current
