@@ -45,5 +45,5 @@ class Settings(metaclass=Singleton):
 
     def new():
         args = get_arguments()
-        config_file = args.config_file if args.config_file != None else CONFIG_FILE
+        config_file = args.config_file if args.config_file is not None else CONFIG_FILE
         return Settings.from_config_file(config_file)

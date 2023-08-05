@@ -27,7 +27,9 @@ class SingleStaticClassTestData:
         yield self.labels
 
 
-def formulate_incorrect_class(prob_tensor: torch.Tensor, correct_onehot_tensor: torch.Tensor, settings: Settings) -> torch.Tensor:
+def formulate_incorrect_class(prob_tensor: torch.Tensor,
+                              correct_onehot_tensor: torch.Tensor,
+                              settings: Settings) -> torch.Tensor:
     # Compute the indices of the correct class for each sample
     correct_indices = correct_onehot_tensor.argmax(dim=1)
 
