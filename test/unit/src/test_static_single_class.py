@@ -54,6 +54,20 @@ class TestFormulateIncorrectClass(unittest.TestCase):
         self.assertFalse(torch.any(selected_indices == correct_indices),
                          "No selected index should match the correct index.")
 
+    def test_high_confidence_good_classifier(self):
+        mock_settings = Settings.from_config_file(
+            TEST_CONFIG_FILE)
+
+        prob_tensor = torch.tensor([[1.0, 0, 0], [0, 1.0, 0]])
+        correct_onehot_tensor = torch.tensor([[1, 0, 0], [0, 1, 0]])
+
+        result = formulate_incorrect_class(
+            prob_tensor, correct_onehot_tensor, mock_settings)
+        correct_indices = correct_onehot_tensor.argmax(dim=1)
+        selected_indices = result.argmax(dim=1)
+        self.assertFalse(torch.any(selected_indices == correct_indices),
+                         "No selected index should match the correct index.")
+
 
 if __name__ == '__main__':
     unittest.main()
