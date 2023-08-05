@@ -3,7 +3,8 @@ import logging
 import torch
 from torch import nn
 from torch.nn import functional as F
-from torch.optim import Adam
+from torch.optim import Adam, RMSprop
+import wandb
 
 from RecurrentFF.model.data_scenario.processor import DataScenarioProcessor
 from RecurrentFF.model.inner_layers import InnerLayers
@@ -24,19 +25,30 @@ def formulate_incorrect_class(prob_tensor: torch.Tensor, correct_onehot_tensor: 
     logging.info(
         f"Latent classifier accuracy: {percentage_matching}%")
 
+    if settings.model.should_log_metrics:
+        wandb.log({
+            "latent_classifier_acc": percentage_matching
+        })
+
     # Extract the probabilities of the correct classes
     correct_probs = prob_tensor.gather(
         1, correct_indices.unsqueeze(1)).squeeze()
 
-    # Generate random numbers for each sample in the range [0, 1 - correct_probs]
-    rand_nums = torch.rand_like(correct_probs) * (1 - correct_probs)
-    rand_nums = rand_nums.unsqueeze(1).to(device=settings.device.device)
+    # Generate random numbers for each sample in the range [0, 1]
+    rand_nums = torch.rand_like(correct_probs).unsqueeze(
+        1).to(device=settings.device.device)
 
     # Zero out the probabilities corresponding to the correct class
-    masked_prob_tensor = prob_tensor * (1 - correct_onehot_tensor)
+    # Make a copy to avoid in-place modifications
+    masked_prob_tensor = prob_tensor.clone() + settings.model.epsilon
+    masked_prob_tensor.scatter_(1, correct_indices.unsqueeze(1), 0)
+
+    # Normalize the masked probabilities such that they sum to 1 along the class dimension
+    normalized_masked_prob_tensor = masked_prob_tensor / \
+        masked_prob_tensor.sum(dim=1, keepdim=True)
 
     # Create a cumulative sum of the masked probabilities along the classes dimension
-    cumulative_prob = torch.cumsum(masked_prob_tensor, dim=1)
+    cumulative_prob = torch.cumsum(normalized_masked_prob_tensor, dim=1)
 
     # Expand random numbers to the same shape as cumulative_prob for comparison
     rand_nums_expanded = rand_nums.expand_as(cumulative_prob)
@@ -62,6 +74,19 @@ def formulate_incorrect_class(prob_tensor: torch.Tensor, correct_onehot_tensor: 
     logging.info("Optimization classifier accuracy: " +
                  str(correct / (correct + incorrect)))
 
+    if correct > 0:
+        for i in range(0, selected_indices.shape[0]):
+            if selected_indices[i] == max_indices_correct[i]:
+                print(correct_indices[i])
+                print(prob_tensor[i])
+                print(cumulative_prob[i])
+                print(rand_nums_expanded[i])
+                print(selected_indices[i])
+                print(max_indices_correct[i])
+                input()
+
+        print("----------------------BAD proceeding")
+
     return result_onehot_tensor
 
 
@@ -75,7 +100,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
             sum(self.settings.model.hidden_sizes), self.data_config.num_classes).to(device=self.settings.device.device)
 
         # TODO: do we need to explore what learning rate is best?
-        self.optimizer = Adam(
+        self.optimizer = RMSprop(
             self.classification_weights.parameters())
 
     def train_class_predictor_from_latents(self, latents: torch.Tensor, labels: torch.Tensor):
@@ -102,6 +127,11 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
         # Compute the cross-entropy loss between the predicted probabilities and the true labels
         loss = F.cross_entropy(
             class_logits, labels)
+
+        if self.settings.model.should_log_metrics:
+            wandb.log({
+                "latent_classifier_loss": loss
+            })
 
         # Perform backpropagation to compute the gradients
         loss.backward()

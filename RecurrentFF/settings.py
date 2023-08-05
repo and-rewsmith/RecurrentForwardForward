@@ -28,6 +28,7 @@ class Settings(metaclass=Singleton):
             self.epsilon = model_dict['epsilon']
             self.learning_rate = model_dict['learning_rate']
             self.skip_profiling = model_dict['skip_profiling']
+            self.should_log_metrics = model_dict["should_log_metrics"]
 
     class Device:
         def __init__(self, device_dict):
