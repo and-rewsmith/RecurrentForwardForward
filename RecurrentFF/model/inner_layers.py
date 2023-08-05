@@ -18,7 +18,7 @@ class InnerLayers(nn.Module):
 
         self.layers = layers
         self.optimizer = RMSprop(
-            self.parameters(), lr=self.settings.model.learning_rate, momentum=.5)
+            self.parameters(), lr=self.settings.model.learning_rate, momentum=0.25)
 
     def advance_layers_train(self, input_data, label_data, should_damp):
         """
