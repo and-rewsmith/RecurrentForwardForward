@@ -8,8 +8,8 @@ import wandb
 
 from RecurrentFF.model.data_scenario.processor import DataScenarioProcessor
 from RecurrentFF.model.inner_layers import InnerLayers
-from RecurrentFF.util import DataConfig, LatentAverager, TrainLabelData, layer_activations_to_goodness, ForwardMode
-from RecurrentFF.settings import Settings
+from RecurrentFF.util import LatentAverager, TrainLabelData, layer_activations_to_goodness, ForwardMode
+from RecurrentFF.settings import Settings, DataConfig
 
 
 class SingleStaticClassTestData:

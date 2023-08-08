@@ -1,5 +1,4 @@
 import toml
-import torch
 
 from pydantic import BaseModel
 
@@ -8,16 +7,14 @@ from RecurrentFF.benchmarks.arguments import get_arguments
 CONFIG_FILE = "./config.toml"
 
 
-# NOTE: No mutable state allowed. Everything should be static if using this, so
-# singleton ok.
-class Singleton:
-    _instances = {}
-
-    def __new__(cls, *args, **kwargs):
-        if cls not in cls._instances:
-            instance = super().__new__(cls)
-            cls._instances[cls] = instance
-        return cls._instances[cls]
+class DataConfig(BaseModel):
+    data_size: int
+    num_classes: int
+    train_batch_size: int
+    test_batch_size: int
+    iterations: int
+    focus_iteration_neg_offset: int
+    focus_iteration_pos_offset: int
 
 
 class FfRmsprop(BaseModel):
@@ -47,11 +44,14 @@ class Model(BaseModel):
     skip_profiling: bool
     should_log_metrics: bool
     should_replace_neg_data: bool
+
     ff_activation: str
+
     ff_optimizer: str
-    classifier_optimizer: str
     ff_rmsprop: FfRmsprop = None
     ff_adam: FfAdam = None
+
+    classifier_optimizer: str
     classifier_rmsprop: ClassifierRmsprop = None
     classifier_adam: ClassifierAdam = None
 
@@ -60,9 +60,10 @@ class Device(BaseModel):
     device: str  # You may wish to modify this to suit your needs
 
 
-class Settings(BaseModel, Singleton):
+class Settings(BaseModel):
     model: Model
     device: Device
+    data_config: DataConfig = None
 
     @classmethod
     def from_config_file(cls, path: str):

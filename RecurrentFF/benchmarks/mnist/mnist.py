@@ -5,11 +5,11 @@ from torchvision.transforms import Compose, ToTensor, Normalize, Lambda
 import wandb
 
 from RecurrentFF.model.data_scenario.static_single_class import SingleStaticClassTestData
-from RecurrentFF.util import DataConfig, TrainInputData, TrainLabelData, set_logging
+from RecurrentFF.util import TrainInputData, TrainLabelData, set_logging
 from RecurrentFF.model.model import RecurrentFFNet
-from RecurrentFF.settings import Settings
+from RecurrentFF.settings import Settings, DataConfig
 
-INPUT_SIZE = 784
+DATA_SIZE = 784
 NUM_CLASSES = 10
 TRAIN_BATCH_SIZE = 500
 TEST_BATCH_SIZE = 5000
@@ -196,14 +196,12 @@ def convert_to_timestep_dims(data):
 
 if __name__ == "__main__":
     settings = Settings.new()
-    data_config = DataConfig(
-        INPUT_SIZE,
-        NUM_CLASSES,
-        TRAIN_BATCH_SIZE,
-        TEST_BATCH_SIZE,
-        ITERATIONS,
-        FOCUS_ITERATION_NEG_OFFSET,
-        FOCUS_ITERATION_POS_OFFSET)
+
+    data_config = {"data_size": DATA_SIZE, "num_classes": NUM_CLASSES, "train_batch_size": TRAIN_BATCH_SIZE, "test_batch_size": TEST_BATCH_SIZE,
+                   "iterations": ITERATIONS, "focus_iteration_neg_offset": FOCUS_ITERATION_NEG_OFFSET, "focus_iteration_pos_offset": FOCUS_ITERATION_POS_OFFSET}
+
+    if settings.data_config is None:
+        settings.data_config = DataConfig(**data_config)
 
     set_logging()
 
@@ -219,15 +217,15 @@ if __name__ == "__main__":
         config={
             "architecture": "Recurrent-FF",
             "dataset": "MNIST",
-            "settings": settings.dict(),
+            "settings": settings.model_dump(),
         }
     )
 
     # Generate train data.
     train_loader, test_loader = MNIST_loaders(
-        data_config.train_batch_size, data_config.test_batch_size)
+        settings.data_config.train_batch_size, settings.data_config.test_batch_size)
 
     # Create and run model.
-    model = RecurrentFFNet(data_config).to(settings.device.device)
+    model = RecurrentFFNet(settings).to(settings.device.device)
 
     model.train(train_loader, test_loader)

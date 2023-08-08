@@ -44,6 +44,7 @@ class HiddenLayer(nn.Module):
 
     def __init__(
             self,
+            settings,
             train_batch_size,
             test_batch_size,
             prev_size,
@@ -51,7 +52,7 @@ class HiddenLayer(nn.Module):
             damping_factor):
         super(HiddenLayer, self).__init__()
 
-        self.settings = Settings.new()
+        self.settings = settings
 
         self.train_activations_dim = (train_batch_size, size)
         self.test_activations_dim = (test_batch_size, size)
@@ -163,8 +164,6 @@ class HiddenLayer(nn.Module):
         self.next_layer = next_layer
 
     def train(self, optimizer, input_data, label_data, should_damp):
-        settings = Settings.new()
-
         optimizer.zero_grad()
 
         pos_activations = None
@@ -200,8 +199,8 @@ class HiddenLayer(nn.Module):
         # Loss function equivelent to:
         # L = log(1 + exp(((-p + 2) + (n - 2))/2)
         layer_loss = F.softplus(torch.cat([
-            (-1 * pos_goodness) + settings.model.loss_threshold,
-            neg_goodness - settings.model.loss_threshold
+            (-1 * pos_goodness) + self.settings.model.loss_threshold,
+            neg_goodness - self.settings.model.loss_threshold
         ])).mean()
 
         layer_loss.backward()
@@ -284,9 +283,9 @@ class HiddenLayer(nn.Module):
             prev_act = prev_act.detach()
 
             prev_layer_stdized = standardize_layer_activations(
-                prev_layer_prev_timestep_activations)
+                prev_layer_prev_timestep_activations, self.settings.model.epsilon)
             next_layer_stdized = standardize_layer_activations(
-                next_layer_prev_timestep_activations)
+                next_layer_prev_timestep_activations, self.settings.model.epsilon)
 
             summation =  \
                 F.linear(
@@ -360,7 +359,7 @@ class HiddenLayer(nn.Module):
 
             # Apply standardization
             next_layer_stdized = standardize_layer_activations(
-                next_layer_prev_timestep_activations)
+                next_layer_prev_timestep_activations, self.settings.model.epsilon)
 
             summation = \
                 F.linear(
@@ -401,7 +400,7 @@ class HiddenLayer(nn.Module):
 
             # Apply standardization
             prev_layer_stdized = standardize_layer_activations(
-                prev_layer_prev_timestep_activations)
+                prev_layer_prev_timestep_activations, self.settings.model.epsilon)
 
             summation = \
                 F.linear(

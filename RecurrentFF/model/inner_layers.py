@@ -4,17 +4,13 @@ import logging
 from torch import nn
 from torch.optim import RMSprop, Adam
 
-from RecurrentFF.settings import (
-    Settings,
-)
-
 
 class InnerLayers(nn.Module):
 
-    def __init__(self, layers):
+    def __init__(self, settings, layers):
         super(InnerLayers, self).__init__()
 
-        self.settings = Settings.new()
+        self.settings = settings
 
         self.layers = layers
 
