@@ -193,8 +193,13 @@ class RecurrentFFNet(nn.Module):
             logging.debug("Average layer loss: " +
                           str(average_layer_loss))
 
-            if iteration >= self.settings.data_config.focus_iteration_neg_offset and \
-                    iteration <= self.settings.data_config.focus_iteration_pos_offset:
+            lower_iteration_threshold = iterations // 2 - \
+                iterations // 10
+            upper_iteration_threshold = iterations // 2 + \
+                iterations // 10
+
+            if iteration >= lower_iteration_threshold and \
+                    iteration <= upper_iteration_threshold:
                 pos_goodness_per_layer.append([layer_activations_to_goodness(
                     layer.pos_activations.current).mean() for layer in self.inner_layers])
                 neg_goodness_per_layer.append([layer_activations_to_goodness(

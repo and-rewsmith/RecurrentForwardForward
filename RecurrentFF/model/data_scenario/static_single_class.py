@@ -245,9 +245,9 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                             ForwardMode.PredictData, data[0], one_hot_labels, False)
 
                     lower_iteration_threshold = iterations // 2 - \
-                        self.data_config.focus_iteration_neg_offset
+                        iterations // 10
                     upper_iteration_threshold = iterations // 2 + \
-                        self.data_config.focus_iteration_pos_offset
+                        iterations // 10
                     goodnesses = []
                     for iteration in range(0, iterations):
                         self.inner_layers.advance_layers_forward(
@@ -311,9 +311,10 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                 ForwardMode.PositiveData, input_batch[0], equally_distributed_class_labels, False)
 
         lower_iteration_threshold = iterations // 2 - \
-            self.data_config.focus_iteration_neg_offset
+            iterations // 10
         upper_iteration_threshold = iterations // 2 + \
-            self.data_config.focus_iteration_pos_offset
+            iterations // 10
+
         target_latents = LatentAverager()
         for iteration in range(0, iterations):
             self.inner_layers.advance_layers_forward(

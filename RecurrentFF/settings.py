@@ -13,8 +13,6 @@ class DataConfig(BaseModel):
     train_batch_size: int
     test_batch_size: int
     iterations: int
-    focus_iteration_neg_offset: int
-    focus_iteration_pos_offset: int
 
 
 class FfRmsprop(BaseModel):

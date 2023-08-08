@@ -14,8 +14,6 @@ NUM_CLASSES = 10
 TRAIN_BATCH_SIZE = 500
 TEST_BATCH_SIZE = 5000
 ITERATIONS = 10
-FOCUS_ITERATION_NEG_OFFSET = 1
-FOCUS_ITERATION_POS_OFFSET = 1
 
 
 class CustomTrainDataset(Dataset):
@@ -198,7 +196,7 @@ if __name__ == "__main__":
     settings = Settings.new()
 
     data_config = {"data_size": DATA_SIZE, "num_classes": NUM_CLASSES, "train_batch_size": TRAIN_BATCH_SIZE, "test_batch_size": TEST_BATCH_SIZE,
-                   "iterations": ITERATIONS, "focus_iteration_neg_offset": FOCUS_ITERATION_NEG_OFFSET, "focus_iteration_pos_offset": FOCUS_ITERATION_POS_OFFSET}
+                   "iterations": ITERATIONS}
 
     if settings.data_config is None:
         settings.data_config = DataConfig(**data_config)
