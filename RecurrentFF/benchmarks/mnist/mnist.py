@@ -195,7 +195,7 @@ def convert_to_timestep_dims(data):
 
 
 if __name__ == "__main__":
-    settings = Settings()
+    settings = Settings.new()
     data_config = DataConfig(
         INPUT_SIZE,
         NUM_CLASSES,
