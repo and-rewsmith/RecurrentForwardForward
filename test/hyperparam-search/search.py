@@ -1,3 +1,5 @@
+import random
+
 from RecurrentFF.settings import Settings
 
 
@@ -25,34 +27,40 @@ ff_adam_learning_rates = [0.00001, 0.0001, 0.001]
 classifier_adam_learning_rates = [0.0001, 0.001, 0.01]
 
 seen = set()
-for hidden_sizes in hidden_sizes:
-    for act in ff_act:
-        for ff_opt in ff_optimizers:
-            for classifier_opt in classifier_optimizers:
-                for ff_rmsprop_momentum in ff_rmsprop_momentums:
-                    for ff_rmsprop_learning_rate in ff_rmsprop_learning_rates:
-                        for classifier_rmsprop_momentum in classifier_rmsprop_momentums:
-                            for classifier_rmsprop_learning_rate in classifier_rmsprop_learning_rates:
-                                for ff_adam_learning_rate in ff_adam_learning_rates:
-                                    for classifier_adam_learning_rate in classifier_adam_learning_rates:
-                                        entry = str(
-                                            hidden_sizes) + "," + str(act) + "," + str(ff_opt) + "," + str(classifier_opt)
 
-                                        if ff_opt == "rmsprop":
-                                            entry += "," + str(ff_rmsprop_learning_rate) + "," + \
-                                                str(ff_rmsprop_momentum)
-                                        elif ff_opt == "adam":
-                                            entry += "," + \
-                                                str(ff_adam_learning_rate)
+while True:
+    # generate random entry from ff_act
+    act = random.choice(ff_act)
+    ff_opt = random.choice(ff_optimizers)
+    classifier_opt = random.choice(classifier_optimizers)
+    ff_rmsprop_momentum = random.choice(ff_rmsprop_momentums)
+    ff_rmsprop_learning_rate = random.choice(ff_rmsprop_learning_rates)
+    classifier_rmsprop_momentum = random.choice(
+        classifier_rmsprop_momentums)
+    classifier_rmsprop_learning_rate = random.choice(
+        classifier_rmsprop_learning_rates)
+    ff_adam_learning_rate = random.choice(ff_adam_learning_rates)
+    classifier_adam_learning_rate = random.choice(
+        classifier_adam_learning_rates)
 
-                                        if classifier_opt == "rmsprop":
-                                            entry += "," + str(classifier_rmsprop_learning_rate) + "," + \
-                                                str(classifier_rmsprop_momentum)
-                                        elif classifier_opt == "adam":
-                                            entry += "," + \
-                                                str(classifier_adam_learning_rate)
+    entry = str(
+        hidden_sizes) + "," + str(act) + "," + str(ff_opt) + "," + str(classifier_opt)
 
-                                        if entry not in seen:
-                                            print(entry)
+    if ff_opt == "rmsprop":
+        entry += "," + str(ff_rmsprop_learning_rate) + "," + \
+            str(ff_rmsprop_momentum)
+    elif ff_opt == "adam":
+        entry += "," + \
+            str(ff_adam_learning_rate)
 
-                                        seen.add(entry)
+    if classifier_opt == "rmsprop":
+        entry += "," + str(classifier_rmsprop_learning_rate) + "," + \
+            str(classifier_rmsprop_momentum)
+    elif classifier_opt == "adam":
+        entry += "," + \
+            str(classifier_adam_learning_rate)
+
+    if entry not in seen:
+        print(entry)
+
+    seen.add(entry)
