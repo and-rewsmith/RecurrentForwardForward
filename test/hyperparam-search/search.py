@@ -1,10 +1,27 @@
 import random
 
-from RecurrentFF.settings import Settings
+import torch
+import wandb
+
+from RecurrentFF.benchmarks.mnist.mnist import MNIST_loaders
+from RecurrentFF.model.model import RecurrentFFNet
+from RecurrentFF.settings import DataConfig, Settings
+from RecurrentFF.util import set_logging
+
+DATA_SIZE = 784
+NUM_CLASSES = 10
+TRAIN_BATCH_SIZE = 500
+TEST_BATCH_SIZE = 5000
 
 
-def run(act, ff_opt, classifier_opt, ff_rmsprop_momentum, ff_rmsprop_learning_rate, classifier_rmsprop_momentum, classifier_rmsprop_learning_rate, ff_adam_learning_rate, classifier_adam_learning_rate):
+def run(iterations, hidden_sizes, act, ff_opt, classifier_opt, ff_rmsprop_momentum, ff_rmsprop_learning_rate, classifier_rmsprop_momentum, classifier_rmsprop_learning_rate, ff_adam_learning_rate, classifier_adam_learning_rate, train_batch_size):
+    # Pytorch utils.
+    torch.autograd.set_detect_anomaly(True)
+    torch.manual_seed(1234)
+
     settings = Settings.from_config_file("./config.toml")
+    settings.model.hidden_sizes = hidden_sizes
+
     settings.model.ff_activation = act
     settings.model.ff_optimizer = ff_opt
     settings.model.classifier_optimizer = classifier_opt
@@ -21,8 +38,38 @@ def run(act, ff_opt, classifier_opt, ff_rmsprop_momentum, ff_rmsprop_learning_ra
     elif classifier_opt == "adam":
         settings.model.classifier_adam.learning_rate = classifier_adam_learning_rate
 
+    data_config = {"data_size": DATA_SIZE, "num_classes": NUM_CLASSES, "train_batch_size": train_batch_size, "test_batch_size": TEST_BATCH_SIZE,
+                   "iterations": iterations}
+
+    if settings.data_config is None:
+        settings.data_config = DataConfig(**data_config)
+
     print(settings.model_dump())
-    input()
+
+    set_logging()
+
+    wandb.init(
+        # set the wandb project where this run will be logged
+        project="Recurrent-FF",
+
+        # track hyperparameters and run metadata
+        config={
+            "architecture": "Recurrent-FF",
+            "dataset": "MNIST",
+            "settings": settings.model_dump(),
+        }
+    )
+
+    # Generate train data.
+    train_loader, test_loader = MNIST_loaders(
+        settings.data_config.train_batch_size, settings.data_config.test_batch_size)
+
+    # Create and run model.
+    model = RecurrentFFNet(settings).to(settings.device.device)
+
+    model.train(train_loader, test_loader)
+
+    print("======================FINISHED RUN============================")
 
 
 if __name__ == "__main__":
@@ -46,10 +93,14 @@ if __name__ == "__main__":
 
     classifier_adam_learning_rates = [0.0001, 0.001, 0.01]
 
+    train_batch_sizes = [500, 1000]
+
     seen = set()
 
     while True:
-        # generate random entry from ff_act
+        iterations_ = random.choice(iterations)
+        hidden_sizes_ = random.choice(hidden_sizes)
+
         act = random.choice(ff_act)
         ff_opt = random.choice(ff_optimizers)
         classifier_opt = random.choice(classifier_optimizers)
@@ -62,6 +113,7 @@ if __name__ == "__main__":
         ff_adam_learning_rate = random.choice(ff_adam_learning_rates)
         classifier_adam_learning_rate = random.choice(
             classifier_adam_learning_rates)
+        train_batch_size = random.choice(train_batch_sizes)
 
         entry = str(
             hidden_sizes) + "," + str(act) + "," + str(ff_opt) + "," + str(classifier_opt)
@@ -81,7 +133,7 @@ if __name__ == "__main__":
                 str(classifier_adam_learning_rate)
 
         if entry not in seen:
-            run(act, ff_opt, classifier_opt, ff_rmsprop_momentum, ff_rmsprop_learning_rate, classifier_rmsprop_momentum,
-                classifier_rmsprop_learning_rate, ff_adam_learning_rate, classifier_adam_learning_rate)
+            run(iterations_, hidden_sizes_, act, ff_opt, classifier_opt, ff_rmsprop_momentum, ff_rmsprop_learning_rate, classifier_rmsprop_momentum,
+                classifier_rmsprop_learning_rate, ff_adam_learning_rate, classifier_adam_learning_rate, train_batch_size)
 
         seen.add(entry)

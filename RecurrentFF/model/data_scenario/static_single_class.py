@@ -95,13 +95,12 @@ def formulate_incorrect_class(prob_tensor: torch.Tensor,
 
 
 class StaticSingleClassProcessor(DataScenarioProcessor):
-    def __init__(self, inner_layers: InnerLayers, data_config: DataConfig):
+    def __init__(self, inner_layers: InnerLayers, settings: Settings):
+        self.settings = settings
         self.inner_layers = inner_layers
-        self.data_config = data_config
-        self.settings = Settings.new()
 
         self.classification_weights = nn.Linear(
-            sum(self.settings.model.hidden_sizes), self.data_config.num_classes).to(device=self.settings.device.device)
+            sum(self.settings.model.hidden_sizes), self.settings.data_config.num_classes).to(device=self.settings.device.device)
 
         if self.settings.model.classifier_optimizer == "rmsprop":
             self.optimizer = RMSprop(
@@ -167,6 +166,9 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                 be replaced.
         """
         latents = self.__retrieve_latents__(input_batch, input_labels)
+
+        print(latents.shape)
+        print(self.classification_weights.weight.shape)
 
         class_logits = F.linear(latents, self.classification_weights.weight)
         class_probabilities = F.softmax(class_logits, dim=-1)

@@ -99,7 +99,7 @@ class RecurrentFFNet(nn.Module):
         # when we eventually support changing/multiclass scenarios this will be
         # configurable
         self.processor = StaticSingleClassProcessor(
-            self.inner_layers, self.settings.data_config)
+            self.inner_layers, self.settings)
 
         logging.info("Finished initializing network")
 
