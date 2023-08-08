@@ -25,7 +25,7 @@ from RecurrentFF.settings import (
 # TODO: store activations
 # TODO: add conv layer at beginning to use receptive fields
 # TODO: try sigmoid activation function
-# TODO: use rms prop (emphasis on lateral connections)
+# TODO: use separate optimizer for lateral connections
 # TODO: plumb optimizer into `HiddenLayer`
 # TODO: different learning rates for lateral connections
 # TODO: initialize weights (division by n, number of inputs) (lora activation)
@@ -153,7 +153,7 @@ class RecurrentFFNet(nn.Module):
                 test_loader, 1)
 
             self.__log_metrics(accuracy, average_layer_loss,
-                               pos_goodness_per_layer, neg_goodness_per_layer)
+                               pos_goodness_per_layer, neg_goodness_per_layer, epoch)
 
     def __train_batch(self, batch_num, input_data, label_data):
         logging.info("Batch: " + str(batch_num))
@@ -230,7 +230,8 @@ class RecurrentFFNet(nn.Module):
             accuracy,
             average_layer_loss,
             pos_goodness_per_layer,
-            neg_goodness_per_layer):
+            neg_goodness_per_layer,
+            epoch):
         # Supports wandb tracking of max 3 layer goodnesses
         try:
             first_layer_pos_goodness = pos_goodness_per_layer[0]
@@ -251,16 +252,19 @@ class RecurrentFFNet(nn.Module):
                        "third_layer_pos_goodness": third_layer_pos_goodness,
                        "first_layer_neg_goodness": first_layer_neg_goodness,
                        "second_layer_neg_goodness": second_layer_neg_goodness,
-                       "third_layer_neg_goodness": third_layer_neg_goodness})
+                       "third_layer_neg_goodness": third_layer_neg_goodness,
+                       "epoch": epoch})
         elif len(self.inner_layers) == 2:
             wandb.log({"acc": accuracy,
                        "loss": average_layer_loss,
                        "first_layer_pos_goodness": first_layer_pos_goodness,
                        "second_layer_pos_goodness": second_layer_pos_goodness,
                        "first_layer_neg_goodness": first_layer_neg_goodness,
-                       "second_layer_neg_goodness": second_layer_neg_goodness})
+                       "second_layer_neg_goodness": second_layer_neg_goodness,
+                       "epoch": epoch})
         elif len(self.inner_layers) == 1:
             wandb.log({"acc": accuracy,
                        "loss": average_layer_loss,
                        "first_layer_pos_goodness": first_layer_pos_goodness,
-                       "first_layer_neg_goodness": first_layer_neg_goodness})
+                       "first_layer_neg_goodness": first_layer_neg_goodness,
+                       "epoch": epoch})

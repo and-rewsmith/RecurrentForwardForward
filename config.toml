@@ -1,5 +1,5 @@
 [model]
-hidden_sizes = [2000, 2000, 2000]
+hidden_sizes = [1000, 1000, 1000]
 epochs = 10000
 loss_threshold = 1
 damping_factor = 0.7
