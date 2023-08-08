@@ -195,8 +195,12 @@ def convert_to_timestep_dims(data):
 if __name__ == "__main__":
     settings = Settings.new()
 
-    data_config = {"data_size": DATA_SIZE, "num_classes": NUM_CLASSES, "train_batch_size": TRAIN_BATCH_SIZE, "test_batch_size": TEST_BATCH_SIZE,
-                   "iterations": ITERATIONS}
+    data_config = {
+        "data_size": DATA_SIZE,
+        "num_classes": NUM_CLASSES,
+        "train_batch_size": TRAIN_BATCH_SIZE,
+        "test_batch_size": TEST_BATCH_SIZE,
+        "iterations": ITERATIONS}
 
     if settings.data_config is None:
         settings.data_config = DataConfig(**data_config)

@@ -38,7 +38,7 @@ def move_images(images, frames, velocities):
         extended_images *= 0
         # Apply new positions
         for i, (x, y) in enumerate(positions):
-            extended_images[i, x:x+28, y:y+28] = images[i]
+            extended_images[i, x:x + 28, y:y + 28] = images[i]
 
         sequence[:, frame] = extended_images
 
@@ -68,8 +68,15 @@ if __name__ == "__main__":
 
     # ===========================TRAIN===========================
 
-    mnist_loader = DataLoader(MNIST('./data/', train=True, download=True, transform=transform),
-                              batch_size=BATCH_SIZE, shuffle=True, num_workers=0)
+    mnist_loader = DataLoader(
+        MNIST(
+            './data/',
+            train=True,
+            download=True,
+            transform=transform),
+        batch_size=BATCH_SIZE,
+        shuffle=True,
+        num_workers=0)
 
     # create directory for data if it doesn't exist
     os.makedirs(MOVING_MNIST_DATA_DIR, exist_ok=True)
@@ -87,22 +94,33 @@ if __name__ == "__main__":
         labels_build.append(labels)
 
         if i != 0 and i % 1000 == 0:
-            data = {'sequences': torch.cat(
-                sequences_build, dim=0), 'labels': torch.cat(labels_build, dim=0)}
+            data = {
+                'sequences': torch.cat(
+                    sequences_build, dim=0), 'labels': torch.cat(
+                    labels_build, dim=0)}
             torch.save(data, f'{MOVING_MNIST_DATA_DIR}/train_{i}.pt')
             sequences_build.clear()
             labels_build.clear()
             print(f"Saved {i} train sequences")
         elif i == len(mnist_loader) - 1:
-            data = {'sequences': torch.cat(
-                sequences_build, dim=0), 'labels': torch.cat(labels_build, dim=0)}
+            data = {
+                'sequences': torch.cat(
+                    sequences_build, dim=0), 'labels': torch.cat(
+                    labels_build, dim=0)}
             torch.save(
                 data, f'{MOVING_MNIST_DATA_DIR}/train_{len(mnist_loader)}.pt')
 
     # ===========================TEST===========================
 
-    mnist_loader = DataLoader(MNIST('./data/', train=False, download=True, transform=transform),
-                              batch_size=BATCH_SIZE, shuffle=True, num_workers=0)
+    mnist_loader = DataLoader(
+        MNIST(
+            './data/',
+            train=False,
+            download=True,
+            transform=transform),
+        batch_size=BATCH_SIZE,
+        shuffle=True,
+        num_workers=0)
 
     # Test on each batch
     sequences_build = []
@@ -117,14 +135,18 @@ if __name__ == "__main__":
         labels_build.append(labels)
 
         if i != 0 and i % 1000 == 0:
-            data = {'sequences': torch.cat(
-                sequences_build, dim=0), 'labels': torch.cat(labels_build, dim=0)}
+            data = {
+                'sequences': torch.cat(
+                    sequences_build, dim=0), 'labels': torch.cat(
+                    labels_build, dim=0)}
             torch.save(data, f'{MOVING_MNIST_DATA_DIR}/test_{i}.pt')
             sequences_build.clear()
             labels_build.clear()
             print(f"Saved {i} test sequences")
         elif i == len(mnist_loader) - 1:
-            data = {'sequences': torch.cat(
-                sequences_build, dim=0), 'labels': torch.cat(labels_build, dim=0)}
+            data = {
+                'sequences': torch.cat(
+                    sequences_build, dim=0), 'labels': torch.cat(
+                    labels_build, dim=0)}
             torch.save(
                 data, f'{MOVING_MNIST_DATA_DIR}/test_{len(mnist_loader)}.pt')

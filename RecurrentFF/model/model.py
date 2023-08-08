@@ -32,7 +32,8 @@ from RecurrentFF.settings import (
 # TODO: threshold a parameter?
 # TODO: average activation
 # TODO: look at Hinton norm
-# TODO: log activations (variance is much bigger than average, then relu is not good - maybe try leaky relu?)
+# TODO: log activations (variance is much bigger than average, then relu
+# is not good - maybe try leaky relu?)
 class RecurrentFFNet(nn.Module):
     """
     Implements a Recurrent Forward-Forward Network (RecurrentFFNet) based on
@@ -150,8 +151,12 @@ class RecurrentFFNet(nn.Module):
             accuracy = self.processor.brute_force_predict(
                 test_loader, 1)
 
-            self.__log_metrics(accuracy, average_layer_loss,
-                               pos_goodness_per_layer, neg_goodness_per_layer, epoch)
+            self.__log_metrics(
+                accuracy,
+                average_layer_loss,
+                pos_goodness_per_layer,
+                neg_goodness_per_layer,
+                epoch)
 
     def __train_batch(self, batch_num, input_data, label_data):
         logging.info("Batch: " + str(batch_num))

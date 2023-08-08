@@ -35,8 +35,11 @@ class TestFormulateIncorrectClass(unittest.TestCase):
             prob_tensor, correct_onehot_tensor, mock_settings)
 
         # Check that the result is not the same as the correct_onehot_tensor
-        self.assertFalse(torch.equal(result, correct_onehot_tensor),
-                         "The result should not match the correct classes when all probabilities are zero.")
+        self.assertFalse(
+            torch.equal(
+                result,
+                correct_onehot_tensor),
+            "The result should not match the correct classes when all probabilities are zero.")
 
     def test_masking_correct_class(self):
         mock_settings = Settings.from_config_file(

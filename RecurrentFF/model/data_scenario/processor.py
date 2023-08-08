@@ -11,9 +11,13 @@ class DataScenarioProcessor(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def train_class_predictor_from_latents(self, latents: torch.Tensor, labels: torch.Tensor):
+    def train_class_predictor_from_latents(
+            self, latents: torch.Tensor, labels: torch.Tensor):
         pass
 
     @abstractmethod
-    def replace_negative_data_inplace(self, input_batch: torch.Tensor, input_labels: TrainLabelData):
+    def replace_negative_data_inplace(
+            self,
+            input_batch: torch.Tensor,
+            input_labels: TrainLabelData):
         pass

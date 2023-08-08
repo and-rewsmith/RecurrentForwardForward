@@ -36,7 +36,8 @@ def formulate_incorrect_class(prob_tensor: torch.Tensor,
     # Compute the indices of the maximum probability for each sample
     max_prob_indices = prob_tensor.argmax(dim=1)
 
-    # Compute the percentage where the maximum probability index matches the correct class index
+    # Compute the percentage where the maximum probability index matches the
+    # correct class index
     percentage_matching = (
         max_prob_indices == correct_indices).float().mean().item() * 100
     logging.info(
@@ -60,17 +61,20 @@ def formulate_incorrect_class(prob_tensor: torch.Tensor,
     masked_prob_tensor = prob_tensor.clone() + settings.model.epsilon
     masked_prob_tensor.scatter_(1, correct_indices.unsqueeze(1), 0)
 
-    # Normalize the masked probabilities such that they sum to 1 along the class dimension
+    # Normalize the masked probabilities such that they sum to 1 along the
+    # class dimension
     normalized_masked_prob_tensor = masked_prob_tensor / \
         masked_prob_tensor.sum(dim=1, keepdim=True)
 
-    # Create a cumulative sum of the masked probabilities along the classes dimension
+    # Create a cumulative sum of the masked probabilities along the classes
+    # dimension
     cumulative_prob = torch.cumsum(normalized_masked_prob_tensor, dim=1)
 
     # Expand random numbers to the same shape as cumulative_prob for comparison
     rand_nums_expanded = rand_nums.expand_as(cumulative_prob)
 
-    # Create a mask that identifies where the random numbers are less than the cumulative probabilities
+    # Create a mask that identifies where the random numbers are less than the
+    # cumulative probabilities
     mask = (rand_nums_expanded < cumulative_prob).int()
 
     # Use argmax() to find the index of the first True value in each row
@@ -100,17 +104,23 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
         self.inner_layers = inner_layers
 
         self.classification_weights = nn.Linear(
-            sum(self.settings.model.hidden_sizes), self.settings.data_config.num_classes).to(device=self.settings.device.device)
+            sum(
+                self.settings.model.hidden_sizes),
+            self.settings.data_config.num_classes).to(
+            device=self.settings.device.device)
 
         if self.settings.model.classifier_optimizer == "rmsprop":
             self.optimizer = RMSprop(
-                self.classification_weights.parameters(), momentum=self.settings.model.classifier_rmsprop.momentum,
+                self.classification_weights.parameters(),
+                momentum=self.settings.model.classifier_rmsprop.momentum,
                 lr=self.settings.model.classifier_rmsprop.learning_rate)
         elif self.settings.model.classifier_optimizer == "adam":
             self.optimizer = torch.optim.Adam(
-                self.classification_weights.parameters(), lr=self.settings.model.classifier_adam.learning_rate)
+                self.classification_weights.parameters(),
+                lr=self.settings.model.classifier_adam.learning_rate)
 
-    def train_class_predictor_from_latents(self, latents: torch.Tensor, labels: torch.Tensor):
+    def train_class_predictor_from_latents(
+            self, latents: torch.Tensor, labels: torch.Tensor):
         """
         Trains the classification model using the given latent vectors and
         corresponding labels.
@@ -146,7 +156,10 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
         logging.info(
             f"loss for training optimization classifier: {loss.item()}")
 
-    def replace_negative_data_inplace(self, input_batch: torch.Tensor, input_labels: TrainLabelData):
+    def replace_negative_data_inplace(
+            self,
+            input_batch: torch.Tensor,
+            input_labels: TrainLabelData):
         """
         Replaces the negative labels in the given input labels with incorrect
         class labels, based on the latent representations of the input batch.
@@ -233,12 +246,12 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                 all_labels_goodness = []
 
                 # evaluate goodness for each possible label
-                for label in range(self.data_config.num_classes):
+                for label in range(self.settings.data_config.num_classes):
                     self.inner_layers.reset_activations(False)
 
                     one_hot_labels = torch.zeros(
                         data.shape[1],
-                        self.data_config.num_classes,
+                        self.settings.data_config.num_classes,
                         device=self.settings.device.device)
                     one_hot_labels[:, label] = 1.0
 
@@ -296,21 +309,31 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
 
         return accuracy
 
-    def __retrieve_latents__(self, input_batch: torch.Tensor, input_labels: TrainLabelData) -> torch.Tensor:
+    def __retrieve_latents__(
+            self,
+            input_batch: torch.Tensor,
+            input_labels: TrainLabelData) -> torch.Tensor:
         self.inner_layers.reset_activations(True)
 
         # assign equal probability to all labels
         batch_size = input_labels.pos_labels[0].shape[0]
         num_classes = input_labels.pos_labels[0].shape[1]
         equally_distributed_class_labels = torch.full(
-            (batch_size, num_classes), 1 / num_classes).to(device=self.settings.device.device)
+            (batch_size,
+             num_classes),
+            1 /
+            num_classes).to(
+            device=self.settings.device.device)
 
         iterations = input_batch.shape[0]
 
         # feed data through network and track latents
         for _preinit_iteration in range(0, len(self.inner_layers)):
             self.inner_layers.advance_layers_forward(
-                ForwardMode.PositiveData, input_batch[0], equally_distributed_class_labels, False)
+                ForwardMode.PositiveData,
+                input_batch[0],
+                equally_distributed_class_labels,
+                False)
 
         lower_iteration_threshold = iterations // 2 - \
             iterations // 10
@@ -320,7 +343,10 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
         target_latents = LatentAverager()
         for iteration in range(0, iterations):
             self.inner_layers.advance_layers_forward(
-                ForwardMode.PositiveData, input_batch[iteration], equally_distributed_class_labels, True)
+                ForwardMode.PositiveData,
+                input_batch[iteration],
+                equally_distributed_class_labels,
+                True)
 
             if iteration >= lower_iteration_threshold and iteration <= upper_iteration_threshold:
                 latents = [

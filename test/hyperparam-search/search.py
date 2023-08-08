@@ -14,7 +14,19 @@ TRAIN_BATCH_SIZE = 500
 TEST_BATCH_SIZE = 5000
 
 
-def run(iterations, hidden_sizes, act, ff_opt, classifier_opt, ff_rmsprop_momentum, ff_rmsprop_learning_rate, classifier_rmsprop_momentum, classifier_rmsprop_learning_rate, ff_adam_learning_rate, classifier_adam_learning_rate, train_batch_size):
+def run(
+        iterations,
+        hidden_sizes,
+        act,
+        ff_opt,
+        classifier_opt,
+        ff_rmsprop_momentum,
+        ff_rmsprop_learning_rate,
+        classifier_rmsprop_momentum,
+        classifier_rmsprop_learning_rate,
+        ff_adam_learning_rate,
+        classifier_adam_learning_rate,
+        train_batch_size):
     # Pytorch utils.
     torch.autograd.set_detect_anomaly(True)
     torch.manual_seed(1234)
@@ -38,8 +50,12 @@ def run(iterations, hidden_sizes, act, ff_opt, classifier_opt, ff_rmsprop_moment
     elif classifier_opt == "adam":
         settings.model.classifier_adam.learning_rate = classifier_adam_learning_rate
 
-    data_config = {"data_size": DATA_SIZE, "num_classes": NUM_CLASSES, "train_batch_size": train_batch_size, "test_batch_size": TEST_BATCH_SIZE,
-                   "iterations": iterations}
+    data_config = {
+        "data_size": DATA_SIZE,
+        "num_classes": NUM_CLASSES,
+        "train_batch_size": train_batch_size,
+        "test_batch_size": TEST_BATCH_SIZE,
+        "iterations": iterations}
 
     if settings.data_config is None:
         settings.data_config = DataConfig(**data_config)
@@ -115,8 +131,8 @@ if __name__ == "__main__":
             classifier_adam_learning_rates)
         train_batch_size = random.choice(train_batch_sizes)
 
-        entry = str(
-            hidden_sizes) + "," + str(act) + "," + str(ff_opt) + "," + str(classifier_opt)
+        entry = str(hidden_sizes) + "," + str(act) + "," + \
+            str(ff_opt) + "," + str(classifier_opt)
 
         if ff_opt == "rmsprop":
             entry += "," + str(ff_rmsprop_learning_rate) + "," + \
@@ -133,7 +149,17 @@ if __name__ == "__main__":
                 str(classifier_adam_learning_rate)
 
         if entry not in seen:
-            run(iterations_, hidden_sizes_, act, ff_opt, classifier_opt, ff_rmsprop_momentum, ff_rmsprop_learning_rate, classifier_rmsprop_momentum,
-                classifier_rmsprop_learning_rate, ff_adam_learning_rate, classifier_adam_learning_rate, train_batch_size)
+            run(iterations_,
+                hidden_sizes_,
+                act,
+                ff_opt,
+                classifier_opt,
+                ff_rmsprop_momentum,
+                ff_rmsprop_learning_rate,
+                classifier_rmsprop_momentum,
+                classifier_rmsprop_learning_rate,
+                ff_adam_learning_rate,
+                classifier_adam_learning_rate,
+                train_batch_size)
 
         seen.add(entry)
