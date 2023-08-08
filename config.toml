@@ -4,12 +4,25 @@ epochs = 10000
 loss_threshold = 1
 damping_factor = 0.7
 epsilon = 0.00000001
-learning_rate = 0.00001
 skip_profiling = 1
 should_log_metrics = true 
 should_replace_neg_data = true
-learning_momentum = 0.25
-classifier_learning_momentum = 0
+ff_optimizer = "rmsprop"
+classifier_optimizer = "rmsprop"
+
+[model.ff_rmsprop]
+momentum = 0.25
+learning_rate = 0.00001
+
+[model.classifier_rmsprop]
+momentum = 0
+learning_rate = 0.01
+
+[model.ff_adam]
+learning_rate = 0.00001
+
+[model.classifier_adam]
+learning_rate = 0.001
 
 [device]
 device = "mps"

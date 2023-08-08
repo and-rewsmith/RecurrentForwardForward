@@ -219,13 +219,7 @@ if __name__ == "__main__":
         config={
             "architecture": "Recurrent-FF",
             "dataset": "MNIST",
-            "epochs": settings.model.epochs,
-            "learning_rate": settings.model.learning_rate,
-            "layers": str(settings.model.hidden_sizes),
-            "iterations": ITERATIONS,
-            "loss_threshold": settings.model.loss_threshold,
-            "damping_factor": settings.model.damping_factor,
-            "epsilon": settings.model.epsilon,
+            "settings": settings.dict(),
         }
     )
 

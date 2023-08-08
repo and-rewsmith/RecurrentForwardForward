@@ -105,7 +105,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
 
         # TODO: do we need to explore what learning rate is best?
         self.optimizer = RMSprop(
-            self.classification_weights.parameters(), momentum=self.settings.model.classifier_learning_momentum)
+            self.classification_weights.parameters(), momentum=self.settings.model.classifier_rmsprop.momentum, lr=self.settings.model.classifier_rmsprop.learning_rate)
 
     def train_class_predictor_from_latents(self, latents: torch.Tensor, labels: torch.Tensor):
         """
