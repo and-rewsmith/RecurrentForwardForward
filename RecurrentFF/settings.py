@@ -30,6 +30,8 @@ class Settings(metaclass=Singleton):
             self.skip_profiling = model_dict['skip_profiling']
             self.should_log_metrics = model_dict["should_log_metrics"]
             self.should_replace_neg_data = model_dict["should_replace_neg_data"]
+            self.learning_momentum = model_dict["learning_momentum"]
+            self.classifier_learning_momentum = model_dict["classifier_learning_momentum"]
 
     class Device:
         def __init__(self, device_dict):

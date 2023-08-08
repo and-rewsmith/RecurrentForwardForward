@@ -8,6 +8,8 @@ learning_rate = 0.00001
 skip_profiling = 1
 should_log_metrics = true 
 should_replace_neg_data = true
+learning_momentum = 0.25
+classifier_learning_momentum = 0
 
 [device]
 device = "mps"
