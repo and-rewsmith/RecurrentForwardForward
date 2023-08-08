@@ -12,7 +12,7 @@ from RecurrentFF.model.model import RecurrentFFNet
 from RecurrentFF.benchmarks.moving_mnist.constants import MOVING_MNIST_DATA_DIR
 
 NUM_CLASSES = 10
-INPUT_SIZE = 4096
+DATA_SIZE = 4096
 TRAIN_BATCH_SIZE = 5000
 TEST_BATCH_SIZE = 5000
 ITERATIONS = 20
@@ -195,15 +195,13 @@ def MNIST_loaders(train_batch_size, test_batch_size):
 
 
 if __name__ == '__main__':
-    settings = Settings()
-    data_config = DataConfig(
-        INPUT_SIZE,
-        NUM_CLASSES,
-        TRAIN_BATCH_SIZE,
-        TEST_BATCH_SIZE,
-        ITERATIONS,
-        FOCUS_ITERATION_NEG_OFFSET,
-        FOCUS_ITERATION_POS_OFFSET)
+    settings = Settings.new()
+
+    data_config = {"data_size": DATA_SIZE, "num_classes": NUM_CLASSES, "train_batch_size": TRAIN_BATCH_SIZE, "test_batch_size": TEST_BATCH_SIZE,
+                   "iterations": ITERATIONS, "focus_iteration_neg_offset": FOCUS_ITERATION_NEG_OFFSET, "focus_iteration_pos_offset": FOCUS_ITERATION_POS_OFFSET}
+
+    if settings.data_config is None:
+        settings.data_config = DataConfig(**data_config)
 
     set_logging()
 
@@ -219,13 +217,7 @@ if __name__ == '__main__':
         config={
             "architecture": "Recurrent-FF",
             "dataset": "Moving-MNIST",
-            "epochs": settings.model.epochs,
-            "learning_rate": settings.model.learning_rate,
-            "layers": str(settings.model.hidden_sizes),
-            "iterations": ITERATIONS,
-            "loss_threshold": settings.model.loss_threshold,
-            "damping_factor": settings.model.damping_factor,
-            "epsilon": settings.model.epsilon,
+            "settings": settings.model_dump(),
         }
     )
 
@@ -234,7 +226,7 @@ if __name__ == '__main__':
         TRAIN_BATCH_SIZE, TEST_BATCH_SIZE)
 
     # Create and run model.
-    model = RecurrentFFNet(data_config).to(settings.device.device)
+    model = RecurrentFFNet(settings).to(settings.device.device)
 
     model.train(train_loader, test_loader)
 
