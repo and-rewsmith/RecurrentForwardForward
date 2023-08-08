@@ -288,16 +288,22 @@ class HiddenLayer(nn.Module):
             next_layer_stdized = standardize_layer_activations(
                 next_layer_prev_timestep_activations)
 
-            new_activation = F.relu(
+            summation =  \
                 F.linear(
                     prev_layer_stdized,
-                    self.forward_linear.weight) +
+                    self.forward_linear.weight) + \
                 F.linear(
                     next_layer_stdized,
-                    self.next_layer.backward_linear.weight) +
+                    self.next_layer.backward_linear.weight) + \
                 F.linear(
                     prev_act,
-                    self.lateral_linear.weight))
+                    self.lateral_linear.weight)
+
+            if self.settings.model.ff_activation == "relu":
+                new_activation = F.relu(summation)
+            elif self.settings.model.ff_activation == "leaky_relu":
+                new_activation = F.leaky_relu(summation)
+
             if should_damp:
                 old_activation = new_activation
                 new_activation = (1 - self.damping_factor) * \
@@ -315,16 +321,21 @@ class HiddenLayer(nn.Module):
                 prev_act = self.predict_activations.previous
             prev_act = prev_act.detach()
 
-            new_activation = F.relu(
+            summation = \
                 F.linear(
                     data,
-                    self.forward_linear.weight) +
+                    self.forward_linear.weight) + \
                 F.linear(
                     labels,
-                    self.next_layer.backward_linear.weight) +
+                    self.next_layer.backward_linear.weight) + \
                 F.linear(
                     prev_act,
-                    self.lateral_linear.weight))
+                    self.lateral_linear.weight)
+
+            if self.settings.model.ff_activation == "relu":
+                new_activation = F.relu(summation)
+            elif self.settings.model.ff_activation == "leaky_relu":
+                new_activation = F.leaky_relu(summation)
 
             if should_damp:
                 old_activation = new_activation
@@ -351,16 +362,21 @@ class HiddenLayer(nn.Module):
             next_layer_stdized = standardize_layer_activations(
                 next_layer_prev_timestep_activations)
 
-            new_activation = F.relu(
+            summation = \
                 F.linear(
                     data,
-                    self.forward_linear.weight) +
+                    self.forward_linear.weight) + \
                 F.linear(
                     next_layer_stdized,
-                    self.next_layer.backward_linear.weight) +
+                    self.next_layer.backward_linear.weight) + \
                 F.linear(
                     prev_act,
-                    self.lateral_linear.weight))
+                    self.lateral_linear.weight)
+
+            if self.settings.model.ff_activation == "relu":
+                new_activation = F.relu(summation)
+            elif self.settings.model.ff_activation == "leaky_relu":
+                new_activation = F.leaky_relu(summation)
 
             if should_damp:
                 old_activation = new_activation
@@ -387,16 +403,21 @@ class HiddenLayer(nn.Module):
             prev_layer_stdized = standardize_layer_activations(
                 prev_layer_prev_timestep_activations)
 
-            new_activation = F.relu(
+            summation = \
                 F.linear(
                     prev_layer_stdized,
-                    self.forward_linear.weight) +
+                    self.forward_linear.weight) + \
                 F.linear(
                     labels,
-                    self.next_layer.backward_linear.weight) +
+                    self.next_layer.backward_linear.weight) + \
                 F.linear(
                     prev_act,
-                    self.lateral_linear.weight))
+                    self.lateral_linear.weight)
+
+            if self.settings.model.ff_activation == "relu":
+                new_activation = F.relu(summation)
+            elif self.settings.model.ff_activation == "leaky_relu":
+                new_activation = F.leaky_relu(summation)
 
             if should_damp:
                 old_activation = new_activation

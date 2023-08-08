@@ -103,10 +103,13 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
         self.classification_weights = nn.Linear(
             sum(self.settings.model.hidden_sizes), self.data_config.num_classes).to(device=self.settings.device.device)
 
-        # TODO: do we need to explore what learning rate is best?
-        self.optimizer = RMSprop(
-            self.classification_weights.parameters(), momentum=self.settings.model.classifier_rmsprop.momentum,
-            lr=self.settings.model.classifier_rmsprop.learning_rate)
+        if self.settings.model.classifier_optimizer == "rmsprop":
+            self.optimizer = RMSprop(
+                self.classification_weights.parameters(), momentum=self.settings.model.classifier_rmsprop.momentum,
+                lr=self.settings.model.classifier_rmsprop.learning_rate)
+        elif self.settings.model.classifier_optimizer == "adam":
+            self.optimizer = torch.optim.Adam(
+                self.classification_weights.parameters(), lr=self.settings.model.classifier_adam.learning_rate)
 
     def train_class_predictor_from_latents(self, latents: torch.Tensor, labels: torch.Tensor):
         """

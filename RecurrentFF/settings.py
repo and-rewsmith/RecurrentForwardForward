@@ -47,6 +47,7 @@ class Model(BaseModel):
     skip_profiling: bool
     should_log_metrics: bool
     should_replace_neg_data: bool
+    ff_activation: str
     ff_optimizer: str
     classifier_optimizer: str
     ff_rmsprop: FfRmsprop = None
