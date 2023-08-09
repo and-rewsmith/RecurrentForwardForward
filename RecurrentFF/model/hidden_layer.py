@@ -4,11 +4,12 @@ import logging
 import torch
 from torch import nn
 from torch.nn import functional as F
+from torch.optim import RMSprop, Adam, Adadelta
 
 from RecurrentFF.util import (
     Activations,
     ForwardMode,
-    layer_activations_to_goodness,
+    layer_activations_to_badness,
     standardize_layer_activations,
 )
 from RecurrentFF.settings import (
@@ -70,6 +71,19 @@ class HiddenLayer(nn.Module):
 
         self.previous_layer = None
         self.next_layer = None
+
+        if self.settings.model.ff_optimizer == "adam":
+            self.optimizer = Adam(self.parameters(),
+                                  lr=self.settings.model.ff_adam.learning_rate)
+        elif self.settings.model.ff_optimizer == "rmsprop":
+            self.optimizer = RMSprop(
+                self.parameters(),
+                lr=self.settings.model.ff_rmsprop.learning_rate,
+                momentum=self.settings.model.ff_rmsprop.momentum)
+        elif self.settings.model.ff_optimizer == "adadelta":
+            self.optimizer = Adadelta(
+                self.parameters(),
+                lr=self.settings.model.ff_adadelta.learning_rate)
 
     def _apply(self, fn):
         """
@@ -163,8 +177,8 @@ class HiddenLayer(nn.Module):
     def set_next_layer(self, next_layer):
         self.next_layer = next_layer
 
-    def train(self, optimizer, input_data, label_data, should_damp):
-        optimizer.zero_grad()
+    def train(self, input_data, label_data, should_damp):
+        self.optimizer.zero_grad()
 
         pos_activations = None
         neg_activations = None
@@ -193,20 +207,20 @@ class HiddenLayer(nn.Module):
             neg_activations = self.forward(
                 ForwardMode.NegativeData, None, None, should_damp)
 
-        pos_goodness = layer_activations_to_goodness(pos_activations)
-        neg_goodness = layer_activations_to_goodness(neg_activations)
+        pos_badness = layer_activations_to_badness(pos_activations)
+        neg_badness = layer_activations_to_badness(neg_activations)
 
         # Loss function equivelent to:
         # L = log(1 + exp(((-p + 2) + (n - 2))/2)
         layer_loss = F.softplus(torch.cat([
-            (-1 * pos_goodness) + self.settings.model.loss_threshold,
-            neg_goodness - self.settings.model.loss_threshold
+            (-1 * neg_badness) + self.settings.model.loss_threshold,
+            pos_badness - self.settings.model.loss_threshold
         ])).mean()
 
         layer_loss.backward()
 
-        optimizer.step()
-        optimizer.zero_grad()
+        self.optimizer.step()
+        self.optimizer.zero_grad()
 
         return layer_loss
 
@@ -288,7 +302,7 @@ class HiddenLayer(nn.Module):
                 next_layer_prev_timestep_activations, self.settings.model.epsilon)
 
             summation =  \
-                F.linear(
+                -1 * F.linear(
                     prev_layer_stdized,
                     self.forward_linear.weight) + \
                 F.linear(
@@ -321,7 +335,7 @@ class HiddenLayer(nn.Module):
             prev_act = prev_act.detach()
 
             summation = \
-                F.linear(
+                -1 * F.linear(
                     data,
                     self.forward_linear.weight) + \
                 F.linear(
@@ -362,7 +376,7 @@ class HiddenLayer(nn.Module):
                 next_layer_prev_timestep_activations, self.settings.model.epsilon)
 
             summation = \
-                F.linear(
+                -1 * F.linear(
                     data,
                     self.forward_linear.weight) + \
                 F.linear(
@@ -403,7 +417,7 @@ class HiddenLayer(nn.Module):
                 prev_layer_prev_timestep_activations, self.settings.model.epsilon)
 
             summation = \
-                F.linear(
+                -1 * F.linear(
                     prev_layer_stdized,
                     self.forward_linear.weight) + \
                 F.linear(

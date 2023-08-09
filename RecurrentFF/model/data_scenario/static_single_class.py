@@ -8,7 +8,7 @@ import wandb
 
 from RecurrentFF.model.data_scenario.processor import DataScenarioProcessor
 from RecurrentFF.model.inner_layers import InnerLayers
-from RecurrentFF.util import LatentAverager, TrainLabelData, layer_activations_to_goodness, ForwardMode
+from RecurrentFF.util import LatentAverager, TrainLabelData, layer_activations_to_badness, ForwardMode
 from RecurrentFF.settings import Settings, DataConfig
 
 
@@ -244,9 +244,9 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
 
                 iterations = data.shape[0]
 
-                all_labels_goodness = []
+                all_labels_badness = []
 
-                # evaluate goodness for each possible label
+                # evaluate badness for each possible label
                 for label in range(self.settings.data_config.num_classes):
                     self.inner_layers.reset_activations(False)
 
@@ -264,36 +264,36 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                         iterations // 10
                     upper_iteration_threshold = iterations // 2 + \
                         iterations // 10
-                    goodnesses = []
+                    badnesses = []
                     for iteration in range(0, iterations):
                         self.inner_layers.advance_layers_forward(
                             ForwardMode.PredictData, data[iteration], one_hot_labels, True)
 
                         if iteration >= lower_iteration_threshold and iteration <= upper_iteration_threshold:
-                            layer_goodnesses = []
+                            layer_badnesses = []
                             for layer in self.inner_layers:
-                                layer_goodnesses.append(
-                                    layer_activations_to_goodness(
+                                layer_badnesses.append(
+                                    layer_activations_to_badness(
                                         layer.predict_activations.current))
 
-                            goodnesses.append(torch.stack(
-                                layer_goodnesses, dim=1))
+                            badnesses.append(torch.stack(
+                                layer_badnesses, dim=1))
 
                     # tensor of shape (batch_size, iterations, num_layers)
-                    goodnesses = torch.stack(goodnesses, dim=1)
+                    badnesses = torch.stack(badnesses, dim=1)
                     # average over iterations
-                    goodnesses = goodnesses.mean(dim=1)
+                    badnesses = badnesses.mean(dim=1)
                     # average over layers
-                    goodness = goodnesses.mean(dim=1)
+                    badness = badnesses.mean(dim=1)
 
-                    logging.debug("Goodness for prediction" + " " +
-                                  str(label) + ": " + str(goodness))
-                    all_labels_goodness.append(goodness)
+                    logging.debug("Badness for prediction" + " " +
+                                  str(label) + ": " + str(badness))
+                    all_labels_badness.append(badness)
 
-                all_labels_goodness = torch.stack(all_labels_goodness, dim=1)
+                all_labels_badness = torch.stack(all_labels_badness, dim=1)
 
-                # select the label with the maximum goodness
-                predicted_labels = torch.argmax(all_labels_goodness, dim=1)
+                # select the label with the maximum badness
+                predicted_labels = torch.argmin(all_labels_badness, dim=1)
                 logging.debug("Predicted labels: " + str(predicted_labels))
                 logging.debug("Actual labels: " + str(labels))
 

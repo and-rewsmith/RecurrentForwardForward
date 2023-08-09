@@ -2,7 +2,6 @@ import logging
 
 
 from torch import nn
-from torch.optim import RMSprop, Adam, Adadelta
 
 
 class InnerLayers(nn.Module):
@@ -13,19 +12,6 @@ class InnerLayers(nn.Module):
         self.settings = settings
 
         self.layers = layers
-
-        if self.settings.model.ff_optimizer == "adam":
-            self.optimizer = Adam(self.parameters(),
-                                  lr=self.settings.model.ff_adam.learning_rate)
-        elif self.settings.model.ff_optimizer == "rmsprop":
-            self.optimizer = RMSprop(
-                self.parameters(),
-                lr=self.settings.model.ff_rmsprop.learning_rate,
-                momentum=self.settings.model.ff_rmsprop.momentum)
-        elif self.settings.model.ff_optimizer == "adadelta":
-            self.optimizer = Adadelta(
-                self.parameters(),
-                lr=self.settings.model.ff_adadelta.learning_rate)
 
     def advance_layers_train(self, input_data, label_data, should_damp):
         """
@@ -61,16 +47,13 @@ class InnerLayers(nn.Module):
             logging.debug("Training layer " + str(i))
             loss = None
             if i == 0 and len(self.layers) == 1:
-                loss = layer.train(self.optimizer, input_data,
-                                   label_data, should_damp)
+                loss = layer.train(input_data, label_data, should_damp)
             elif i == 0:
-                loss = layer.train(
-                    self.optimizer, input_data, None, should_damp)
+                loss = layer.train(input_data, None, should_damp)
             elif i == len(self.layers) - 1:
-                loss = layer.train(self.optimizer, None,
-                                   label_data, should_damp)
+                loss = layer.train(None, label_data, should_damp)
             else:
-                loss = layer.train(self.optimizer, None, None, should_damp)
+                loss = layer.train(None, None, should_damp)
             total_loss += loss
             logging.debug("Loss for layer " + str(i) + ": " + str(loss))
 
