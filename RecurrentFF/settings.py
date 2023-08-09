@@ -14,22 +14,28 @@ class DataConfig(BaseModel):
     test_batch_size: int
     iterations: int
 
+
 class FfRmsprop(BaseModel):
     momentum: float
     learning_rate: float
+
 
 class ClassifierRmsprop(BaseModel):
     momentum: float
     learning_rate: float
 
+
 class FfAdam(BaseModel):
     learning_rate: float
+
 
 class ClassifierAdam(BaseModel):
     learning_rate: float
 
+
 class FfAdadelta(BaseModel):
     learning_rate: float
+
 
 class ClassifierAdadelta(BaseModel):
     learning_rate: float
@@ -78,7 +84,7 @@ class Settings(BaseModel):
             model['ff_adam'] = FfAdam(**model['ff_adam'])
         elif model['ff_optimizer'] == "adadelta":
             model['ff_adadelta'] = FfAdadelta(**model['ff_adadelta'])
-        
+
         if model['classifier_optimizer'] == "rmsprop":
             model['classifier_rmsprop'] = ClassifierRmsprop(
                 **model['classifier_rmsprop'])
@@ -86,7 +92,8 @@ class Settings(BaseModel):
             model['classifier_adam'] = ClassifierAdam(
                 **model['classifier_adam'])
         elif model['classifier_optimizer'] == "adadelta":
-            model['classifier_adadelta'] = FfAdadelta(**model['classifier_adadelta'])
+            model['classifier_adadelta'] = FfAdadelta(
+                **model['classifier_adadelta'])
 
         return cls(model=Model(**model), device=Device(**config['device']))
 
