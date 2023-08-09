@@ -27,6 +27,9 @@ def run(
         ff_adam_learning_rate,
         classifier_adam_learning_rate,
         train_batch_size):
+    # Needs to be done here as well because multiprocessing.
+    set_logging()
+
     # Pytorch utils.
     torch.autograd.set_detect_anomaly(True)
     torch.manual_seed(1234)
