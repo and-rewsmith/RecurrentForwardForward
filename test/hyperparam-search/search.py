@@ -1,4 +1,5 @@
 import random
+from multiprocessing import Process
 
 import torch
 import wandb
@@ -158,7 +159,8 @@ if __name__ == "__main__":
                 str(classifier_adadelta_learning_rate)
 
         if entry not in seen:
-            run(iterations_,
+            p = Process(target=run, args=(
+                iterations_,
                 hidden_sizes_,
                 act,
                 ff_opt,
@@ -169,6 +171,9 @@ if __name__ == "__main__":
                 classifier_rmsprop_learning_rate,
                 ff_adam_learning_rate,
                 classifier_adam_learning_rate,
-                train_batch_size)
+                train_batch_size,
+            ))
+            p.start()
+            p.join()
 
         seen.add(entry)

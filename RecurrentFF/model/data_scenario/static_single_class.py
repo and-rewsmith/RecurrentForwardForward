@@ -184,9 +184,6 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
         """
         latents = self.__retrieve_latents__(input_batch, input_labels)
 
-        print(latents.shape)
-        print(self.classification_weights.weight.shape)
-
         class_logits = F.linear(latents, self.classification_weights.weight)
         class_probabilities = F.softmax(class_logits, dim=-1)
         negative_labels = formulate_incorrect_class(
