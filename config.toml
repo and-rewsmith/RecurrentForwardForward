@@ -1,6 +1,6 @@
 [model]
 hidden_sizes = [1000, 1000, 1000]
-epochs = 275
+epochs = 1 
 loss_threshold = 1
 damping_factor = 0.7
 epsilon = 0.00000001
@@ -24,6 +24,12 @@ learning_rate = 0.00001
 
 [model.classifier_adam]
 learning_rate = 0.001
+
+[model.ff_adadelta]
+learning_rate = 0.0001
+
+[model.classifier_adadelta]
+learning_rate = 0.0001
 
 [device]
 device = "mps"

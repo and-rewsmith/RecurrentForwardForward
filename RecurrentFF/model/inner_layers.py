@@ -2,7 +2,7 @@ import logging
 
 
 from torch import nn
-from torch.optim import RMSprop, Adam
+from torch.optim import RMSprop, Adam, Adadelta
 
 
 class InnerLayers(nn.Module):
@@ -22,6 +22,10 @@ class InnerLayers(nn.Module):
                 self.parameters(),
                 lr=self.settings.model.ff_rmsprop.learning_rate,
                 momentum=self.settings.model.ff_rmsprop.momentum)
+        elif self.settings.model.ff_optimizer == "adadelta":
+            self.optimizer = Adadelta(
+                self.parameters(),
+                lr=self.settings.model.ff_adadelta.learning_rate)
 
     def advance_layers_train(self, input_data, label_data, should_damp):
         """

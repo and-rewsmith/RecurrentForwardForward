@@ -10,7 +10,6 @@ from RecurrentFF.util import set_logging
 
 DATA_SIZE = 784
 NUM_CLASSES = 10
-TRAIN_BATCH_SIZE = 500
 TEST_BATCH_SIZE = 5000
 
 
@@ -62,8 +61,6 @@ def run(
 
     print(settings.model_dump())
 
-    set_logging()
-
     wandb.init(
         # set the wandb project where this run will be logged
         project="Recurrent-FF",
@@ -89,27 +86,30 @@ def run(
 
 
 if __name__ == "__main__":
+    set_logging()
+
     iterations = [10, 20, 30]
 
-    hidden_sizes = [[1500, 1500, 1500], [2000, 2000, 2000],
-                    [2500, 2500, 2500], [2000, 2000, 2000, 2000]]
+    hidden_sizes = [[2000, 2000, 2000],
+                    [2500, 2500, 2500], [3000, 3000, 3000], [2000, 2000, 2000, 2000], [3000, 3000, 3000, 3000]]
 
-    ff_act = ["relu", "leaky_relu"]
+    ff_act = ["relu"]
 
-    ff_optimizers = ["rmsprop", "adam"]
-    classifier_optimizers = ["rmsprop", "adam"]
+    ff_optimizers = ["rmsprop", "adam", "adadelta"]
+    classifier_optimizers = ["rmsprop", "adam", "adadelta"]
 
     ff_rmsprop_momentums = [0.0, 0.2, 0.5, 0.9]
     ff_rmsprop_learning_rates = [0.00001, 0.0001, 0.001]
-
     classifier_rmsprop_momentums = [0.0, 0.2, 0.5, 0.9]
-    classifier_rmsprop_learning_rates = [0.0001, 0.001, 0.01]
+    classifier_rmsprop_learning_rates = [0.00001, 0.0001, 0.001, 0.01]
 
-    ff_adam_learning_rates = [0.00001, 0.0001, 0.001]
-
+    ff_adam_learning_rates = [0.00001, 0.0001, 0.001, 0.01]
     classifier_adam_learning_rates = [0.0001, 0.001, 0.01]
 
-    train_batch_sizes = [500, 1000]
+    ff_adadelta_learning_rates = [0.00001, 0.0001, 0.001, 0.01]
+    classifier_adadelta_learning_rates = [0.00001, 0.0001, 0.001, 0.01]
+
+    train_batch_sizes = [10, 20, 50, 100, 200, 500, 1000, 2000]
 
     seen = set()
 
@@ -130,6 +130,9 @@ if __name__ == "__main__":
         classifier_adam_learning_rate = random.choice(
             classifier_adam_learning_rates)
         train_batch_size = random.choice(train_batch_sizes)
+        ff_adadelta_learning_rate = random.choice(ff_adadelta_learning_rates)
+        classifier_adadelta_learning_rate = random.choice(
+            classifier_adadelta_learning_rates)
 
         entry = str(hidden_sizes) + "," + str(act) + "," + \
             str(ff_opt) + "," + str(classifier_opt)
@@ -140,6 +143,9 @@ if __name__ == "__main__":
         elif ff_opt == "adam":
             entry += "," + \
                 str(ff_adam_learning_rate)
+        elif ff_opt == "adadelta":
+            entry += "," + \
+                str(ff_adadelta_learning_rate)
 
         if classifier_opt == "rmsprop":
             entry += "," + str(classifier_rmsprop_learning_rate) + "," + \
@@ -147,6 +153,9 @@ if __name__ == "__main__":
         elif classifier_opt == "adam":
             entry += "," + \
                 str(classifier_adam_learning_rate)
+        elif classifier_opt == "adadelta":
+            entry += "," + \
+                str(classifier_adadelta_learning_rate)
 
         if entry not in seen:
             run(iterations_,

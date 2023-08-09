@@ -118,6 +118,10 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
             self.optimizer = torch.optim.Adam(
                 self.classification_weights.parameters(),
                 lr=self.settings.model.classifier_adam.learning_rate)
+        elif self.settings.model.classifier_optimizer == "adadelta":
+            self.optimizer = torch.optim.Adadelta(
+                self.classification_weights.parameters(),
+                lr=self.settings.model.classifier_adadelta.learning_rate)
 
     def train_class_predictor_from_latents(
             self, latents: torch.Tensor, labels: torch.Tensor):
