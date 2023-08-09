@@ -7,16 +7,14 @@ import numpy as np
 
 from RecurrentFF.model.model import RecurrentFFNet
 from RecurrentFF.model.data_scenario.static_single_class import SingleStaticClassTestData
-from RecurrentFF.settings import Settings
-from RecurrentFF.util import DataConfig, TrainInputData, TrainLabelData, set_logging
+from RecurrentFF.settings import Settings, DataConfig
+from RecurrentFF.util import TrainInputData, TrainLabelData, set_logging
 
 DATA_SIZE = 4
 NUM_CLASSES = 10
 TRAIN_BATCH_SIZE = 5000
 TEST_BATCH_SIZE = 5000
 ITERATIONS = 150
-FOCUS_ITERATION_NEG_OFFSET = 15
-FOCUS_ITERATION_POS_OFFSET = 15
 
 
 class SeqMnistTrainDataset(Dataset):
@@ -281,9 +279,7 @@ if __name__ == "__main__":
         "num_classes": NUM_CLASSES,
         "train_batch_size": TRAIN_BATCH_SIZE,
         "test_batch_size": TEST_BATCH_SIZE,
-        "iterations": ITERATIONS,
-        "focus_iteration_neg_offset": FOCUS_ITERATION_NEG_OFFSET,
-        "focus_iteration_pos_offset": FOCUS_ITERATION_POS_OFFSET}
+        "iterations": ITERATIONS}
 
     if settings.data_config is None:
         settings.data_config = DataConfig(**data_config)
