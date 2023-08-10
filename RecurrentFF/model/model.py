@@ -34,7 +34,6 @@ from RecurrentFF.settings import (
 # TODO: look at Hinton norm
 # TODO: log activations (variance is much bigger than average, then relu
 #       is not good - maybe try leaky relu?)
-# TODO: try applying optimizers to each term in the layer activity summation
 class RecurrentFFNet(nn.Module):
     """
     Implements a Recurrent Forward-Forward Network (RecurrentFFNet) based on
