@@ -1,7 +1,7 @@
 [model]
 hidden_sizes = [1000, 1000, 1000]
 epochs = 275
-loss_threshold = 2
+loss_threshold = 1
 damping_factor = 0.7
 epsilon = 0.00000001
 skip_profiling = 1
@@ -32,5 +32,5 @@ learning_rate = 0.0001
 learning_rate = 0.0001
 
 [device]
-device = "cuda"
+device = "mps"
 
