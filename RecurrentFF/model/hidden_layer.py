@@ -69,6 +69,11 @@ class HiddenLayer(nn.Module):
         self.backward_linear = nn.Linear(size, prev_size)
         self.lateral_linear = nn.Linear(size, size)
 
+        # Initialize the lateral weights to be the identity matrix
+        nn.init.eye_(self.lateral_linear.weight)
+        # Optionally, set the bias to zero
+        self.lateral_linear.bias.data.zero_()
+
         self.previous_layer = None
         self.next_layer = None
 

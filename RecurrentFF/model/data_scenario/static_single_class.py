@@ -251,7 +251,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                     self.inner_layers.reset_activations(False)
 
                     upper_clamped_tensor = self.get_preinit_upper_clamped_tensor(
-                        labels.shape)
+                        (data.shape[1], self.settings.data_config.num_classes))
 
                     for _preinit_iteration in range(0, len(self.inner_layers)):
                         self.inner_layers.advance_layers_forward(
