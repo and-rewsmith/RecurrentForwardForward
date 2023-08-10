@@ -14,19 +14,7 @@ NUM_CLASSES = 10
 TEST_BATCH_SIZE = 5000
 
 
-def run(
-        iterations,
-        hidden_sizes,
-        act,
-        ff_opt,
-        classifier_opt,
-        ff_rmsprop_momentum,
-        ff_rmsprop_learning_rate,
-        classifier_rmsprop_momentum,
-        classifier_rmsprop_learning_rate,
-        ff_adam_learning_rate,
-        classifier_adam_learning_rate,
-        train_batch_size):
+def run(settings: Settings):
     # Needs to be done here as well because multiprocessing.
     set_logging()
 
@@ -34,29 +22,10 @@ def run(
     torch.autograd.set_detect_anomaly(True)
     torch.manual_seed(1234)
 
-    settings = Settings.from_config_file("./config.toml")
-    settings.model.hidden_sizes = hidden_sizes
-
-    settings.model.ff_activation = act
-    settings.model.ff_optimizer = ff_opt
-    settings.model.classifier_optimizer = classifier_opt
-
-    if ff_opt == "rmsprop":
-        settings.model.ff_rmsprop.momentum = ff_rmsprop_momentum
-        settings.model.ff_rmsprop.learning_rate = ff_rmsprop_learning_rate
-    elif ff_opt == "adam":
-        settings.model.ff_adam.learning_rate = ff_adam_learning_rate
-
-    if classifier_opt == "rmsprop":
-        settings.model.classifier_rmsprop.momentum = classifier_rmsprop_momentum
-        settings.model.classifier_rmsprop.learning_rate = classifier_rmsprop_learning_rate
-    elif classifier_opt == "adam":
-        settings.model.classifier_adam.learning_rate = classifier_adam_learning_rate
-
     data_config = {
         "data_size": DATA_SIZE,
         "num_classes": NUM_CLASSES,
-        "train_batch_size": train_batch_size,
+        "train_batch_size": settings.data_config.train_batch_size,
         "test_batch_size": TEST_BATCH_SIZE,
         "iterations": iterations}
 
@@ -92,6 +61,8 @@ def run(
 if __name__ == "__main__":
     set_logging()
 
+    loss_thresholds = [1, 1.5, 2]
+
     iterations = [10, 20, 30]
 
     hidden_sizes = [[2000, 2000, 2000], [2500, 2500, 2500], [
@@ -118,6 +89,7 @@ if __name__ == "__main__":
     seen = set()
 
     while True:
+        loss_threshold = random.choice(loss_thresholds)
         iterations_ = random.choice(iterations)
         hidden_sizes_ = random.choice(hidden_sizes)
 
@@ -138,45 +110,51 @@ if __name__ == "__main__":
         classifier_adadelta_learning_rate = random.choice(
             classifier_adadelta_learning_rates)
 
-        entry = str(hidden_sizes) + "," + str(act) + "," + \
+        unique_run_id = str(loss_threshold) + str(hidden_sizes) + "," + str(act) + "," + \
             str(ff_opt) + "," + str(classifier_opt)
 
         if ff_opt == "rmsprop":
-            entry += "," + str(ff_rmsprop_learning_rate) + "," + \
+            unique_run_id += "," + str(ff_rmsprop_learning_rate) + "," + \
                 str(ff_rmsprop_momentum)
         elif ff_opt == "adam":
-            entry += "," + \
+            unique_run_id += "," + \
                 str(ff_adam_learning_rate)
         elif ff_opt == "adadelta":
-            entry += "," + \
+            unique_run_id += "," + \
                 str(ff_adadelta_learning_rate)
 
         if classifier_opt == "rmsprop":
-            entry += "," + str(classifier_rmsprop_learning_rate) + "," + \
+            unique_run_id += "," + str(classifier_rmsprop_learning_rate) + "," + \
                 str(classifier_rmsprop_momentum)
         elif classifier_opt == "adam":
-            entry += "," + \
+            unique_run_id += "," + \
                 str(classifier_adam_learning_rate)
         elif classifier_opt == "adadelta":
-            entry += "," + \
+            unique_run_id += "," + \
                 str(classifier_adadelta_learning_rate)
 
-        if entry not in seen:
+        settings = Settings.new()
+        settings.model.loss_threshold = loss_threshold
+        settings.model.iterations = iterations_
+        settings.model.hidden_sizes = hidden_sizes_
+        settings.model.ff_act = act
+        settings.model.ff_opt = ff_opt
+        settings.model.classifier_opt = classifier_opt
+        settings.model.ff_rmsprop_momentum = ff_rmsprop_momentum
+        settings.model.ff_rmsprop_learning_rate = ff_rmsprop_learning_rate
+        settings.model.classifier_rmsprop_momentum = classifier_rmsprop_momentum
+        settings.model.classifier_rmsprop_learning_rate = classifier_rmsprop_learning_rate
+        settings.model.ff_adam_learning_rate = ff_adam_learning_rate
+        settings.model.classifier_adam_learning_rate = classifier_adam_learning_rate
+        settings.model.train_batch_size = train_batch_size
+        settings.model.ff_adadelta_learning_rate = ff_adadelta_learning_rate
+        settings.model.classifier_adadelta_learning_rate = classifier_adadelta_learning_rate
+
+        if unique_run_id not in seen:
             p = Process(target=run, args=(
-                iterations_,
-                hidden_sizes_,
-                act,
-                ff_opt,
-                classifier_opt,
-                ff_rmsprop_momentum,
-                ff_rmsprop_learning_rate,
-                classifier_rmsprop_momentum,
-                classifier_rmsprop_learning_rate,
-                ff_adam_learning_rate,
-                classifier_adam_learning_rate,
-                train_batch_size,
+                settings
             ))
             p.start()
             p.join()
 
-        seen.add(entry)
+        seen.add(unique_run_id)
