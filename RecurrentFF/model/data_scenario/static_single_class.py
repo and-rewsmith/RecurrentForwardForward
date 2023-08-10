@@ -1,7 +1,7 @@
 import logging
 
 import torch
-from torch import nn
+from torch import Tensor, nn
 from torch.nn import functional as F
 from torch.optim import RMSprop
 import wandb
@@ -250,15 +250,18 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                 for label in range(self.settings.data_config.num_classes):
                     self.inner_layers.reset_activations(False)
 
+                    upper_clamped_tensor = self.get_preinit_upper_clamped_tensor(
+                        self.settings, labels.shape)
+
+                    for _preinit_iteration in range(0, len(self.inner_layers)):
+                        self.inner_layers.advance_layers_forward(
+                            ForwardMode.PredictData, data[0], upper_clamped_tensor, False)
+
                     one_hot_labels = torch.zeros(
                         data.shape[1],
                         self.settings.data_config.num_classes,
                         device=self.settings.device.device)
                     one_hot_labels[:, label] = 1.0
-
-                    for _preinit_iteration in range(0, len(self.inner_layers)):
-                        self.inner_layers.advance_layers_forward(
-                            ForwardMode.PredictData, data[0], one_hot_labels, False)
 
                     lower_iteration_threshold = iterations // 2 - \
                         iterations // 10
@@ -310,6 +313,11 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
 
         return accuracy
 
+    def get_preinit_upper_clamped_tensor(self, upper_clamped_tensor_shape: tuple):
+        labels = torch.full(upper_clamped_tensor_shape, 1.0 / self.settings.data_config.num_classes,
+                            device=self.settings.device.device)
+        return labels
+
     def __retrieve_latents__(
             self,
             input_batch: torch.Tensor,
@@ -318,12 +326,11 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
 
         # assign equal probability to all labels
         batch_size = input_labels.pos_labels[0].shape[0]
-        num_classes = input_labels.pos_labels[0].shape[1]
         equally_distributed_class_labels = torch.full(
             (batch_size,
-             num_classes),
+             self.settings.data_config.num_classes),
             1 /
-            num_classes).to(
+            self.settings.data_config.num_classes).to(
             device=self.settings.device.device)
 
         iterations = input_batch.shape[0]

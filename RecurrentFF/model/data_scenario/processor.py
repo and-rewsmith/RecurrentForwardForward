@@ -1,6 +1,7 @@
 from abc import ABCMeta, abstractmethod
 
 import torch
+from RecurrentFF.settings import Settings
 
 from RecurrentFF.util import TrainLabelData
 
@@ -20,4 +21,9 @@ class DataScenarioProcessor(metaclass=ABCMeta):
             self,
             input_batch: torch.Tensor,
             input_labels: TrainLabelData):
+        pass
+
+    @abstractmethod
+    def get_preinit_upper_clamped_tensor(
+            self, upper_clamed_tensor_shape: tuple):
         pass

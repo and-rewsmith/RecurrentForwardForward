@@ -164,20 +164,20 @@ class RecurrentFFNet(nn.Module):
 
         self.inner_layers.reset_activations(True)
 
-        # TODO: zero label
         for preinit_step in range(0, len(self.inner_layers)):
             logging.debug("Preinitialization step: " +
                           str(preinit_step))
 
             pos_input = input_data.pos_input[0]
             neg_input = input_data.neg_input[0]
-            pos_labels = label_data.pos_labels[0]
-            neg_labels = label_data.neg_labels[0]
+
+            preinit_upper_clamped_tensor = self.processor.get_preinit_upper_clamped_tensor(
+                label_data.pos_labels[0].shape)
 
             self.inner_layers.advance_layers_forward(
-                ForwardMode.PositiveData, pos_input, pos_labels, False)
+                ForwardMode.PositiveData, pos_input, preinit_upper_clamped_tensor, False)
             self.inner_layers.advance_layers_forward(
-                ForwardMode.NegativeData, neg_input, neg_labels, False)
+                ForwardMode.NegativeData, neg_input, preinit_upper_clamped_tensor, False)
 
         pos_badness_per_layer = []
         neg_badness_per_layer = []
@@ -253,7 +253,7 @@ class RecurrentFFNet(nn.Module):
             # No-op as there may not be 3 layers
             pass
 
-        if len(self.inner_layers) == 3:
+        if len(self.inner_layers) >= 3:
             wandb.log({"acc": accuracy,
                        "loss": average_layer_loss,
                        "first_layer_pos_badness": first_layer_pos_badness,

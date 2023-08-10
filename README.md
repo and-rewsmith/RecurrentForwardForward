@@ -19,7 +19,7 @@ python -m RecurrentFF.benchmarks.mnist.mnist
 - [x] Lateral connections
 - [x] Data and label inputs conducive to changing accross timesteps
 - [x] Dynamic negative data
-- [ ] Invert objective function: low activations for positive data
+- [x] Invert objective function: low activations for positive data
 - [ ] Fast weights
 - [ ] Receptive fields
 - [ ] Peer normalization
