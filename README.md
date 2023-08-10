@@ -1,6 +1,7 @@
 # Recurrent Forward Forward Network
 
 ![CI](https://github.com/and-rewsmith/RecurrentForwardForward/actions/workflows/ci.yaml/badge.svg?branch=main)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
 The implementation of the Recurrent Forward Forward Network is based on the [following paper](https://arxiv.org/abs/2212.13345). A three layer implementation of this network is benchmarked on MNIST achieving a ~94% test accuracy with < 1k neurons.
 
