@@ -1,5 +1,5 @@
 [model]
-hidden_sizes = [1000, 1000, 1000]
+hidden_sizes = [3000, 3000, 3000]
 epochs = 275
 loss_threshold = 1
 damping_factor = 0.7
@@ -9,10 +9,10 @@ should_log_metrics = true
 should_replace_neg_data = true
 ff_activation = "relu"
 ff_optimizer = "rmsprop"
-classifier_optimizer = "rmsprop"
+classifier_optimizer = "adadelta"
 
 [model.ff_rmsprop]
-momentum = 0.25
+momentum = 0.2
 learning_rate = 0.00001
 
 [model.classifier_rmsprop]
@@ -29,7 +29,7 @@ learning_rate = 0.001
 learning_rate = 0.0001
 
 [model.classifier_adadelta]
-learning_rate = 0.0001
+learning_rate = 0.00001
 
 [device]
 device = "mps"
