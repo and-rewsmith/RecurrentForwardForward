@@ -88,10 +88,10 @@ class ForwardMode(Enum):
 
 def layer_activations_to_badness(layer_activations):
     """
-    Computes the 'goodness' of activations for a given layer in a neural network
+    Computes the 'badness' of activations for a given layer in a neural network
     by taking the mean of the squared values.
 
-    'Goodness' in this context refers to the average squared activation value.
+    'Badness' in this context refers to the average squared activation value.
     This function is designed to work with PyTorch tensors, which represent the
     layer's activations.
 
@@ -102,7 +102,7 @@ def layer_activations_to_badness(layer_activations):
         together, and num_activations is the number of neurons in the layer.
 
     Returns:
-        torch.Tensor: A tensor corresponding to the 'goodness' (mean of the
+        torch.Tensor: A tensor corresponding to the 'badness' (mean of the
         squared activations) of the given layer. The output tensor has shape
         (batch_size,), since the mean is taken over the activation values for
         each sample in the batch.

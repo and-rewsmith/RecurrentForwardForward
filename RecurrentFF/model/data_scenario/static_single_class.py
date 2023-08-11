@@ -199,7 +199,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
         """
         This function predicts the class labels for the provided test data using
         the trained RecurrentFFNet model. It does so by enumerating all possible
-        class labels and choosing the one that produces the highest 'goodness'
+        class labels and choosing the one that produces the lowest 'badness'
         score. We cannot use this function for datasets with changing classes.
 
         Args:
@@ -211,19 +211,19 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
 
         Procedure:
             The function first moves the test data and labels to the appropriate
-            device. It then calculates the 'goodness' metric for each possible
+            device. It then calculates the 'badness' metric for each possible
             class label, using a two-step process:
 
                 1. Resetting the network's activations and forwarding the data
                    through the network with the current label.
                 2. For each iteration within a specified threshold, forwarding
                    the data again, but this time retaining the
-                activations, which are used to calculate the 'goodness' for each
+                activations, which are used to calculate the 'badness' for each
                 layer.
 
-            The 'goodness' values across iterations and layers are then averaged
-            to produce a single 'goodness' score for each class label. The class
-            with the highest 'goodness' score is chosen as the prediction for
+            The 'badness' values across iterations and layers are then averaged
+            to produce a single 'badness' score for each class label. The class
+            with the lowest 'badness' score is chosen as the prediction for
             each test sample.
 
             Finally, the function calculates the overall accuracy of the model's

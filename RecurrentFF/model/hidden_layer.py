@@ -23,9 +23,9 @@ class HiddenLayer(nn.Module):
     inspiration drawn from Boltzmann Machines and Noise Contrastive Estimation.
     This network design is characterized by two distinct forward passes, each
     with specific objectives: one is dedicated to processing positive ("real")
-    data with the aim of enhancing the 'goodness' across every hidden layer,
+    data with the aim of lowering the 'badness' across every hidden layer,
     while the other is tasked with processing negative data and adjusting the
-    weights to reduce the 'goodness' metric.
+    weights to increase the 'badness' metric.
 
     The HiddenLayer is essentially a node within this network, with possible
     connections to both preceding and succeeding layers, depending on its

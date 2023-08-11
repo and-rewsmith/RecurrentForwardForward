@@ -51,10 +51,10 @@ class RecurrentFFNet(nn.Module):
     passes operating on different data and with contrasting objectives.
 
     During training, a "positive" pass operates on real input data and adjusts
-    the weights to increase the 'goodness' in each hidden layer. The 'goodness'
+    the weights to decrease the 'badness' in each hidden layer. The 'badness'
     is calculated as the sum of squared activation values. On the other hand, a
     "negative" pass operates on "negative data" and adjusts the weights to
-    decrease the 'goodness' in each hidden layer.
+    increase the 'badness' in each hidden layer.
 
     The hidden layers and output layer are instances of the HiddenLayer and
     OutputLayer classes, respectively. The hidden layers are connected to each
@@ -120,17 +120,17 @@ class RecurrentFFNet(nn.Module):
             data through the network. It then runs a specified number of iterations, where it trains the network
             using the input and label data.
 
-            After each batch, the method calculates the 'goodness' metric for each layer in the network (for both
+            After each batch, the method calculates the 'badness' metric for each layer in the network (for both
             positive and negative data), averages the layer losses, and then calculates the prediction accuracy on
             the test data using test_loader.
 
-            Finally, the method logs these metrics (accuracy, average loss, and layer-wise 'goodness' scores)
+            Finally, the method logs these metrics (accuracy, average loss, and layer-wise 'badness' scores)
             for monitoring the training process. The metrics logged depend on the number of layers in the network.
 
         Note:
-            'Goodness' here refers to a metric that indicates how well the model's current activations represent
-            a given class. It's calculated by a function `layer_activations_to_goodness`, which transforms a
-            layer's activations into a 'goodness' score. This function operates on the RecurrentFFNet model level
+            'Badness' here refers to a metric that indicates how well the model's current activations represent
+            a given class. It's calculated by a function `layer_activations_to_badness`, which transforms a
+            layer's activations into a 'badness' score. This function operates on the RecurrentFFNet model level
             and is called during the training process.
         """
         for epoch in range(0, self.settings.model.epochs):
@@ -240,7 +240,7 @@ class RecurrentFFNet(nn.Module):
             pos_badness_per_layer,
             neg_badness_per_layer,
             epoch):
-        # Supports wandb tracking of max 3 layer goodnesses
+        # Supports wandb tracking of max 3 layer badnesses
         try:
             first_layer_pos_badness = pos_badness_per_layer[0]
             first_layer_neg_badness = neg_badness_per_layer[0]
