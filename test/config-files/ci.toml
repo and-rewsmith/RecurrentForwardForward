@@ -34,7 +34,7 @@ learning_rate = 0.00001
 [device]
 device = "cpu"
 
-[settings.data_config]
+[data_config]
 data_size = 784
 num_classes = 10
 train_batch_size = 10000

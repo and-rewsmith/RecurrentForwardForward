@@ -95,7 +95,10 @@ class Settings(BaseModel):
             model['classifier_adadelta'] = FfAdadelta(
                 **model['classifier_adadelta'])
 
-        return cls(model=Model(**model), device=Device(**config['device']))
+        if "data_config" in config:
+            data_config = DataConfig(**config["data_config"])
+
+        return cls(model=Model(**model), device=Device(**config['device']), data_config=data_config)
 
     @classmethod
     def new(cls):

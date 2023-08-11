@@ -52,9 +52,9 @@ def run(settings: Settings):
 if __name__ == "__main__":
     set_logging()
 
-    loss_thresholds = [1, 1.5, 2]
+    loss_thresholds = [0.75, 1, 1.25, 1.5, 1.75, 2]
 
-    iterations = [10, 20, 30]
+    iterations = [10, 20, 30, 40, 50]
 
     hidden_sizes = [[2000, 2000, 2000], [2500, 2500, 2500], [
         3000, 3000, 3000], [2000, 2000, 2000, 2000], [3000, 3000, 3000, 3000]]
@@ -67,15 +67,15 @@ if __name__ == "__main__":
     ff_rmsprop_momentums = [0.0, 0.2, 0.5, 0.9]
     ff_rmsprop_learning_rates = [0.00001, 0.0001, 0.001]
     classifier_rmsprop_momentums = [0.0, 0.2, 0.5, 0.9]
-    classifier_rmsprop_learning_rates = [0.00001, 0.0001, 0.001, 0.01]
+    classifier_rmsprop_learning_rates = [0.00001, 0.0001, 0.001]
 
     ff_adam_learning_rates = [0.00001, 0.0001, 0.001, 0.01]
     classifier_adam_learning_rates = [0.0001, 0.001, 0.01]
 
-    ff_adadelta_learning_rates = [0.00001, 0.0001, 0.001, 0.01]
-    classifier_adadelta_learning_rates = [0.00001, 0.0001, 0.001, 0.01]
+    ff_adadelta_learning_rates = [0.00001, 0.0001, 0.001]
+    classifier_adadelta_learning_rates = [0.00001, 0.0001, 0.001]
 
-    train_batch_sizes = [10, 20, 50, 100, 200, 500, 1000, 2000]
+    train_batch_sizes = [20, 50, 100, 200, 500, 1000, 2000]
 
     seen = set()
 
@@ -155,7 +155,6 @@ if __name__ == "__main__":
             settings.model.ff_adam.learning_rate = ff_adam_learning_rate
         elif ff_opt == "adadelta":
             settings.model.ff_adadelta.learning_rate = ff_adadelta_learning_rate
-
 
         if classifier_opt == "rmsprop":
             settings.model.classifier_rmsprop.momentum = classifier_rmsprop_momentum
