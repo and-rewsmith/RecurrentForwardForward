@@ -101,7 +101,6 @@ class Settings(BaseModel):
         else:
             return cls(model=Model(**model), device=Device(**config['device']))
 
-
     @classmethod
     def new(cls):
         args = get_arguments()
