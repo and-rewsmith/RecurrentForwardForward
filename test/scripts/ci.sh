@@ -15,4 +15,5 @@ if (( $(echo "$accuracy >= $threshold" | bc -l) )); then
     echo "Test passed. Accuracy ($accuracy%) is above the threshold ($threshold%)."
 else
     echo "Test failed. Accuracy ($accuracy%) is below the threshold ($threshold%)."
+    exit 1
 fi
