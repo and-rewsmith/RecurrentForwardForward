@@ -54,9 +54,9 @@ if __name__ == "__main__":
 
     loss_thresholds = [0.75, 1, 1.25, 1.5, 1.75, 2]
 
-    iterations = [10, 20, 30, 40, 50]
+    iterations = [10, 20, 30]
 
-    hidden_sizes = [[2000, 2000, 2000], [2500, 2500, 2500], [
+    hidden_sizes = [[2500, 2500, 2500], [
         3000, 3000, 3000], [2000, 2000, 2000, 2000], [3000, 3000, 3000, 3000]]
 
     ff_act = ["relu"]
@@ -75,7 +75,7 @@ if __name__ == "__main__":
     ff_adadelta_learning_rates = [0.00001, 0.0001, 0.001]
     classifier_adadelta_learning_rates = [0.00001, 0.0001, 0.001]
 
-    train_batch_sizes = [20, 50, 100, 200, 500, 1000, 2000]
+    train_batch_sizes = [100, 200, 500, 1000, 2000]
 
     seen = set()
 
