@@ -32,5 +32,5 @@ learning_rate = 0.0001
 learning_rate = 0.00001
 
 [device]
-device = "mps"
+device = "cuda"
 
