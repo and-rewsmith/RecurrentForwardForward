@@ -318,7 +318,7 @@ class HiddenLayer(nn.Module):
                     next_layer_stdized,
                     self.next_layer.backward_linear.weight)) + \
                 self.prelu(F.linear(
-                    prev_act,
+                    prev_act_stdized,
                     self.lateral_linear.weight))
 
             if should_damp:
@@ -349,7 +349,7 @@ class HiddenLayer(nn.Module):
                     labels,
                     self.next_layer.backward_linear.weight)) + \
                 self.prelu(F.linear(
-                    prev_act,
+                    prev_act_stdized,
                     self.lateral_linear.weight))
 
             if should_damp:
@@ -387,7 +387,7 @@ class HiddenLayer(nn.Module):
                     next_layer_stdized,
                     self.next_layer.backward_linear.weight)) + \
                 self.prelu(F.linear(
-                    prev_act,
+                    prev_act_stdized,
                     self.lateral_linear.weight))
 
             if should_damp:
