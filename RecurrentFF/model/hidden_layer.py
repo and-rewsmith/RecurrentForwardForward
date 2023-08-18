@@ -69,6 +69,8 @@ class HiddenLayer(nn.Module):
         self.backward_linear = nn.Linear(size, prev_size)
         self.lateral_linear = nn.Linear(size, size)
 
+        self.prelu = torch.nn.PReLU()
+
         # Initialize the lateral weights to be the identity matrix
         nn.init.eye_(self.lateral_linear.weight)
 
@@ -311,7 +313,7 @@ class HiddenLayer(nn.Module):
                 -1 * F.elu(F.linear(
                     next_layer_stdized,
                     self.next_layer.backward_linear.weight)) + \
-                F.prelu(F.linear(
+                self.prelu(F.linear(
                     prev_act,
                     self.lateral_linear.weight))
 
@@ -339,7 +341,7 @@ class HiddenLayer(nn.Module):
                 -1 * F.elu(F.linear(
                     labels,
                     self.next_layer.backward_linear.weight)) + \
-                F.prelu(F.linear(
+                self.prelu(F.linear(
                     prev_act,
                     self.lateral_linear.weight))
 
@@ -375,7 +377,7 @@ class HiddenLayer(nn.Module):
                 -1 * F.elu(F.linear(
                     next_layer_stdized,
                     self.next_layer.backward_linear.weight)) + \
-                F.prelu(F.linear(
+                self.prelu(F.linear(
                     prev_act,
                     self.lateral_linear.weight))
 
@@ -411,7 +413,7 @@ class HiddenLayer(nn.Module):
                 -1 * F.elu(F.linear(
                     labels,
                     self.next_layer.backward_linear.weight)) + \
-                F.prelu(F.linear(
+                self.prelu(F.linear(
                     prev_act,
                     self.lateral_linear.weight))
 
