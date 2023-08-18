@@ -69,8 +69,6 @@ class HiddenLayer(nn.Module):
         self.backward_linear = nn.Linear(size, prev_size)
         self.lateral_linear = nn.Linear(size, size)
 
-        self.prelu = torch.nn.PReLU()
-
         # Initialize the lateral weights to be the identity matrix
         nn.init.eye_(self.lateral_linear.weight)
 
@@ -297,14 +295,17 @@ class HiddenLayer(nn.Module):
                 next_layer_prev_timestep_activations = self.next_layer.predict_activations.previous
                 prev_layer_prev_timestep_activations = self.previous_layer.predict_activations.previous
                 prev_act = self.predict_activations.previous
-            next_layer_prev_timestep_activations = next_layer_prev_timestep_activations.detach()
-            prev_layer_prev_timestep_activations = prev_layer_prev_timestep_activations.detach()
-            prev_act = prev_act.detach()
 
+            prev_layer_prev_timestep_activations = prev_layer_prev_timestep_activations.detach()
             prev_layer_stdized = standardize_layer_activations(
                 prev_layer_prev_timestep_activations, self.settings.model.epsilon)
+
+            next_layer_prev_timestep_activations = next_layer_prev_timestep_activations.detach()
             next_layer_stdized = standardize_layer_activations(
                 next_layer_prev_timestep_activations, self.settings.model.epsilon)
+
+            prev_act = prev_act.detach()
+            prev_act_stdized = standardize_layer_activations(prev_act, self.settings.model.epsilon)
 
             new_activation =  \
                 F.elu(F.linear(
@@ -313,7 +314,7 @@ class HiddenLayer(nn.Module):
                 -1 * F.elu(F.linear(
                     next_layer_stdized,
                     self.next_layer.backward_linear.weight)) + \
-                self.prelu(F.linear(
+                F.prelu(F.linear(
                     prev_act,
                     self.lateral_linear.weight))
 
@@ -332,7 +333,9 @@ class HiddenLayer(nn.Module):
                 prev_act = self.neg_activations.previous
             elif mode == ForwardMode.PredictData:
                 prev_act = self.predict_activations.previous
+
             prev_act = prev_act.detach()
+            prev_act_stdized = standardize_layer_activations(prev_act, self.settings.model.epsilon)
 
             new_activation = \
                 F.elu(F.linear(
@@ -341,7 +344,7 @@ class HiddenLayer(nn.Module):
                 -1 * F.elu(F.linear(
                     labels,
                     self.next_layer.backward_linear.weight)) + \
-                self.prelu(F.linear(
+                F.prelu(F.linear(
                     prev_act,
                     self.lateral_linear.weight))
 
@@ -363,12 +366,14 @@ class HiddenLayer(nn.Module):
             elif mode == ForwardMode.PredictData:
                 next_layer_prev_timestep_activations = self.next_layer.predict_activations.previous
                 prev_act = self.predict_activations.previous
-            prev_act = prev_act.detach()
-            next_layer_prev_timestep_activations = next_layer_prev_timestep_activations.detach()
 
-            # Apply standardization
+
+            next_layer_prev_timestep_activations = next_layer_prev_timestep_activations.detach()
             next_layer_stdized = standardize_layer_activations(
                 next_layer_prev_timestep_activations, self.settings.model.epsilon)
+
+            prev_act = prev_act.detach()
+            prev_act_stdized = standardize_layer_activations(prev_act, self.settings.model.epsilon)
 
             new_activation = \
                 F.elu(F.linear(
@@ -377,7 +382,7 @@ class HiddenLayer(nn.Module):
                 -1 * F.elu(F.linear(
                     next_layer_stdized,
                     self.next_layer.backward_linear.weight)) + \
-                self.prelu(F.linear(
+                F.prelu(F.linear(
                     prev_act,
                     self.lateral_linear.weight))
 
@@ -399,12 +404,13 @@ class HiddenLayer(nn.Module):
             elif mode == ForwardMode.PredictData:
                 prev_layer_prev_timestep_activations = self.previous_layer.predict_activations.previous
                 prev_act = self.predict_activations.previous
-            prev_act = prev_act.detach()
-            prev_layer_prev_timestep_activations = prev_layer_prev_timestep_activations.detach()
 
-            # Apply standardization
+            prev_layer_prev_timestep_activations = prev_layer_prev_timestep_activations.detach()
             prev_layer_stdized = standardize_layer_activations(
                 prev_layer_prev_timestep_activations, self.settings.model.epsilon)
+
+            prev_act = prev_act.detach()
+            prev_act_stdized = standardize_layer_activations(prev_act, self.settings.model.epsilon)
 
             new_activation = \
                 F.elu(F.linear(
@@ -413,8 +419,8 @@ class HiddenLayer(nn.Module):
                 -1 * F.elu(F.linear(
                     labels,
                     self.next_layer.backward_linear.weight)) + \
-                self.prelu(F.linear(
-                    prev_act,
+                F.prelu(F.linear(
+                    prev_act_stdized,
                     self.lateral_linear.weight))
 
             if should_damp:

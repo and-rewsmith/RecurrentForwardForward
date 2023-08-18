@@ -1,14 +1,14 @@
 [model]
-hidden_sizes = [3000, 3000, 3000]
+hidden_sizes = [3000, 3000, 3000, 3000]
 epochs = 275
-loss_threshold = 1
+loss_threshold = 2.6
 damping_factor = 0.7
 epsilon = 0.00000001
 skip_profiling = 1
 should_log_metrics = true 
 should_replace_neg_data = true
 ff_activation = "relu"
-ff_optimizer = "rmsprop"
+ff_optimizer = "adadelta"
 classifier_optimizer = "adadelta"
 
 [model.ff_rmsprop]
@@ -20,16 +20,17 @@ momentum = 0
 learning_rate = 0.01
 
 [model.ff_adam]
-learning_rate = 0.00001
+learning_rate = 0.0001
 
 [model.classifier_adam]
 learning_rate = 0.001
 
 [model.ff_adadelta]
-learning_rate = 0.0001
+learning_rate = 0.075
 
 [model.classifier_adadelta]
-learning_rate = 0.00001
+learning_rate = 0.00005
+
 
 [device]
 device = "cuda"
