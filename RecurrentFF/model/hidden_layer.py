@@ -312,10 +312,10 @@ class HiddenLayer(nn.Module):
 
             new_activation =  \
                 F.elu(F.linear(
-                    prev_layer_prev_timestep_activations,
+                    prev_layer_stdized,
                     self.forward_linear.weight)) + \
                 -1 * F.elu(F.linear(
-                    next_layer_prev_timestep_activations,
+                    next_layer_stdized,
                     self.next_layer.backward_linear.weight)) + \
                 self.prelu(F.linear(
                     prev_act,
@@ -384,7 +384,7 @@ class HiddenLayer(nn.Module):
                     data,
                     self.forward_linear.weight)) + \
                 -1 * F.elu(F.linear(
-                    next_layer_prev_timestep_activations,
+                    next_layer_stdized,
                     self.next_layer.backward_linear.weight)) + \
                 self.prelu(F.linear(
                     prev_act,
@@ -419,13 +419,13 @@ class HiddenLayer(nn.Module):
 
             new_activation = \
                 F.elu(F.linear(
-                    prev_layer_prev_timestep_activations,
+                    prev_layer_stdized,
                     self.forward_linear.weight)) + \
                 -1 * F.elu(F.linear(
                     labels,
                     self.next_layer.backward_linear.weight)) + \
                 self.prelu(F.linear(
-                    prev_act,
+                    prev_act_stdized,
                     self.lateral_linear.weight))
 
             if should_damp:
