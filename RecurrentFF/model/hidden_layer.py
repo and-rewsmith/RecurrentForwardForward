@@ -214,7 +214,7 @@ class HiddenLayer(nn.Module):
         neg_badness = layer_activations_to_badness(neg_activations)
 
         # Loss function equivelent to:
-        # L = log(1 + exp(((-p + 2) + (n - 2))/2)
+        # L = log(1 + exp(((-n + 2) + (p - 2))/2)
         layer_loss = F.softplus(torch.cat([
             (-1 * neg_badness) + self.settings.model.loss_threshold,
             pos_badness - self.settings.model.loss_threshold
@@ -305,13 +305,13 @@ class HiddenLayer(nn.Module):
                 next_layer_prev_timestep_activations, self.settings.model.epsilon)
 
             new_activation =  \
-                F.relu(F.linear(
+                F.elu(F.linear(
                     prev_layer_stdized,
                     self.forward_linear.weight)) + \
-                -1 * F.relu(F.linear(
+                -1 * F.elu(F.linear(
                     next_layer_stdized,
                     self.next_layer.backward_linear.weight)) + \
-                F.leaky_relu(F.linear(
+                F.prelu(F.linear(
                     prev_act,
                     self.lateral_linear.weight))
 
@@ -333,13 +333,13 @@ class HiddenLayer(nn.Module):
             prev_act = prev_act.detach()
 
             new_activation = \
-                F.relu(F.linear(
+                F.elu(F.linear(
                     data,
                     self.forward_linear.weight)) + \
-                -1 * F.relu(F.linear(
+                -1 * F.elu(F.linear(
                     labels,
                     self.next_layer.backward_linear.weight)) + \
-                F.leaky_relu(F.linear(
+                F.prelu(F.linear(
                     prev_act,
                     self.lateral_linear.weight))
 
@@ -369,13 +369,13 @@ class HiddenLayer(nn.Module):
                 next_layer_prev_timestep_activations, self.settings.model.epsilon)
 
             new_activation = \
-                F.relu(F.linear(
+                F.elu(F.linear(
                     data,
                     self.forward_linear.weight)) + \
-                -1 * F.relu(F.linear(
+                -1 * F.elu(F.linear(
                     next_layer_stdized,
                     self.next_layer.backward_linear.weight)) + \
-                F.leaky_relu(F.linear(
+                F.prelu(F.linear(
                     prev_act,
                     self.lateral_linear.weight))
 
@@ -405,13 +405,13 @@ class HiddenLayer(nn.Module):
                 prev_layer_prev_timestep_activations, self.settings.model.epsilon)
 
             new_activation = \
-                F.relu(F.linear(
+                F.elu(F.linear(
                     prev_layer_stdized,
                     self.forward_linear.weight)) + \
-                -1 * F.relu(F.linear(
+                -1 * F.elu(F.linear(
                     labels,
                     self.next_layer.backward_linear.weight)) + \
-                F.leaky_relu(F.linear(
+                F.prelu(F.linear(
                     prev_act,
                     self.lateral_linear.weight))
 
