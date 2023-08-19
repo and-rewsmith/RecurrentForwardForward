@@ -66,17 +66,20 @@ class HiddenLayer(nn.Module):
         self.reset_activations(True)
 
         self.forward_linear = nn.Linear(prev_size, size)
-        self.mask = (torch.rand_like(self.forward_linear.weight) <
-                     self.settings.model.interconnect_density).float()
-        self.forward_linear.weight.data.mul_(self.mask)
-        self.forward_linear.weight.register_hook(lambda grad: grad * self.mask)
+        forward_mask = (torch.rand_like(self.forward_linear.weight) <
+                        self.settings.model.interconnect_density).float()
+        self.register_buffer('forward_mask', forward_mask)
+        self.forward_linear.weight.data.mul_(self.forward_mask)
+        self.forward_linear.weight.register_hook(
+            lambda grad: grad * self.forward_mask)
 
         self.backward_linear = nn.Linear(size, prev_size)
-        self.mask = (torch.rand_like(self.backward_linear.weight) <
-                     self.settings.model.interconnect_density).float()
-        self.backward_linear.weight.data.mul_(self.mask)
+        backward_mask = (torch.rand_like(self.backward_linear.weight) <
+                         self.settings.model.interconnect_density).float()
+        self.register_buffer('backward_mask', backward_mask)
+        self.backward_linear.weight.data.mul_(self.backward_mask)
         self.backward_linear.weight.register_hook(
-            lambda grad: grad * self.mask)
+            lambda grad: grad * self.backward_mask)
 
         # Initialize the lateral weights to be the identity matrix
         self.lateral_linear = nn.Linear(size, size)
