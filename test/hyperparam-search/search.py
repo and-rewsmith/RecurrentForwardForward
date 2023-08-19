@@ -44,9 +44,12 @@ def run(settings: Settings):
     # Create and run model.
     model = RecurrentFFNet(settings).to(settings.device.device)
 
-    model.train(train_loader, test_loader)
-
-    print("======================FINISHED RUN============================")
+    try:
+        model.train(train_loader, test_loader)
+        print("======================FINISHED RUN============================")
+    except KeyboardInterrupt:
+        print("======================FINISHED RUN============================")
+        exit(0)
 
 
 if __name__ == "__main__":
@@ -171,5 +174,8 @@ if __name__ == "__main__":
             ))
             p.start()
             p.join()
+            print("-----------", str(p.exitcode))
+            if p.exitcode != 0:
+                exit(1)
 
         seen.add(unique_run_id)
