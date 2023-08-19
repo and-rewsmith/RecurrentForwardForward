@@ -45,7 +45,7 @@ class HiddenLayer(nn.Module):
 
     def __init__(
             self,
-            settings,
+            settings: Settings,
             train_batch_size,
             test_batch_size,
             prev_size,
@@ -66,10 +66,20 @@ class HiddenLayer(nn.Module):
         self.reset_activations(True)
 
         self.forward_linear = nn.Linear(prev_size, size)
+        self.mask = (torch.rand_like(self.linear.weight) <
+                     self.settings.model.interconnect_density).float()
+        self.forward_linear.weight.data.mul_(self.mask)
+        self.forward_linear.weight.register_hook(lambda grad: grad * self.mask)
+
         self.backward_linear = nn.Linear(size, prev_size)
-        self.lateral_linear = nn.Linear(size, size)
+        self.mask = (torch.rand_like(self.linear.weight) <
+                     self.settings.model.interconnect_density).float()
+        self.backward_linear.weight.data.mul_(self.mask)
+        self.backward_linear.weight.register_hook(
+            lambda grad: grad * self.mask)
 
         # Initialize the lateral weights to be the identity matrix
+        self.lateral_linear = nn.Linear(size, size)
         nn.init.eye_(self.lateral_linear.weight)
 
         self.previous_layer = None

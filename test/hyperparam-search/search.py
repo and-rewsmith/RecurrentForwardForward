@@ -14,6 +14,8 @@ NUM_CLASSES = 10
 TRAIN_BATCH_SIZE = 500
 TEST_BATCH_SIZE = 5000
 
+DEVICE = "mps"
+
 
 def run(settings: Settings):
     # Needs to be done here as well because multiprocessing.
@@ -79,6 +81,7 @@ if __name__ == "__main__":
     classifier_adadelta_learning_rates = [0.00001, 0.0001, 0.001]
 
     train_batch_sizes = [100, 200, 500, 1000, 2000]
+    densities = [0.2, 0.3, 0.5, 0.75, 1]
 
     seen = set()
 
@@ -103,6 +106,7 @@ if __name__ == "__main__":
         ff_adadelta_learning_rate = random.choice(ff_adadelta_learning_rates)
         classifier_adadelta_learning_rate = random.choice(
             classifier_adadelta_learning_rates)
+        density = random.choice(densities)
 
         # track id so no dup runs
         unique_run_id = str(loss_threshold) + str(hidden_sizes) + "," + str(act) + "," + \
@@ -131,6 +135,8 @@ if __name__ == "__main__":
         # construct settings
         settings = Settings.new()
 
+        settings.device.device = DEVICE
+
         data_config = {
             "data_size": DATA_SIZE,
             "num_classes": NUM_CLASSES,
@@ -150,6 +156,7 @@ if __name__ == "__main__":
         settings.model.ff_activation = act
         settings.model.ff_optimizer = ff_opt
         settings.model.classifier_optimizer = classifier_opt
+        settings.model.interconnect_density = density
 
         if ff_opt == "rmsprop":
             settings.model.ff_rmsprop.momentum = ff_rmsprop_momentum
