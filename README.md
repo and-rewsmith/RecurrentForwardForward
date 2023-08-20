@@ -11,7 +11,7 @@ This network differs from the paper in that:
 3. Supports sparse connectivity between layers, playing into concept of modularity / biological plausibility.
 4. It was unclear if Hinton actually implemented the recurrent connections, as the network diagram he provided was copied from his GLOM paper. But I did implement these connections here.
 
-Here is the architecture diagram from the original paper, which is what I have implemented here:
+Here is the architecture diagram from the original paper, which is what I have implemented:
 ![Recurrent Forward Forward Network](img/Fig3.png "Recurrent Forward Forward")
 
 ## Usage
