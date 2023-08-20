@@ -1,4 +1,4 @@
-t# Recurrent Forward Forward Network
+# Recurrent Forward Forward Network
 
 ![CI](https://github.com/and-rewsmith/RecurrentForwardForward/actions/workflows/ci.yaml/badge.svg?branch=main)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
