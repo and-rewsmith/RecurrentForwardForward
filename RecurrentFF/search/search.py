@@ -58,19 +58,19 @@ if __name__ == "__main__":
 
     loss_thresholds = [0.75, 1, 1.25, 1.5, 1.75, 2]
 
-    iterations = [10, 20, 30]
+    iterations = [10, 20]
 
     hidden_sizes = [[2500, 2500, 2500], [
         3000, 3000, 3000], [2000, 2000, 2000, 2000], [3000, 3000, 3000, 3000]]
 
     ff_act = ["relu"]
 
-    ff_optimizers = ["rmsprop", "adam", "adadelta"]
-    classifier_optimizers = ["rmsprop", "adam", "adadelta"]
+    ff_optimizers = ["rmsprop", "adam"]
+    classifier_optimizers = ["rmsprop", "adam"]
 
-    ff_rmsprop_momentums = [0.0, 0.2, 0.5, 0.9]
+    ff_rmsprop_momentums = [0.0, 0.2, 0.5, 0.7, 0.9]
     ff_rmsprop_learning_rates = [0.00001, 0.0001, 0.001]
-    classifier_rmsprop_momentums = [0.0, 0.2, 0.5, 0.9]
+    classifier_rmsprop_momentums = [0.0, 0.2, 0.5, 0.7, 0.9]
     classifier_rmsprop_learning_rates = [0.00001, 0.0001, 0.001]
 
     ff_adam_learning_rates = [0.00001, 0.0001, 0.001, 0.01]
@@ -79,7 +79,7 @@ if __name__ == "__main__":
     ff_adadelta_learning_rates = [0.00001, 0.0001, 0.001]
     classifier_adadelta_learning_rates = [0.00001, 0.0001, 0.001]
 
-    train_batch_sizes = [100, 200, 500, 1000, 2000]
+    train_batch_sizes = [200, 500, 1000, 2000]
     densities = [1]
 
     seen = set()
