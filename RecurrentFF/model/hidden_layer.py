@@ -1,6 +1,5 @@
 import logging
 
-
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -15,23 +14,6 @@ from RecurrentFF.util import (
 from RecurrentFF.settings import (
     Settings,
 )
-
-
-def loss(pos_badness, neg_badness):
-    """
-    Plot on wolfram:
-    L =1/(n^2 + 0.08) + (p)^2 for p=0 to 4, n=0 to 4
-    """
-    # Term 1: High loss for when n is 0, that slopes downward in convex shape as
-    # abs(n) increases
-    L1 = 1 / (neg_badness** 2 + 0.08)
-
-    # Term 2: High loss for when abs(p) is high.
-    L2 = (pos_badness) ** 2
-
-    loss = L1 + L2
-    return loss.mean()
-
 
 class HiddenLayer(nn.Module):
     """
@@ -244,7 +226,12 @@ class HiddenLayer(nn.Module):
         pos_badness = layer_activations_to_badness(pos_activations)
         neg_badness = layer_activations_to_badness(neg_activations)
 
-        layer_loss = loss(pos_badness, neg_badness)
+        # Loss function equivelent to:
+        # L = log(1 + exp(((-n + 2) + (p - 2))/2)
+        layer_loss = F.softplus(torch.cat([
+            (-1 * neg_badness) + self.settings.model.loss_threshold,
+            pos_badness - self.settings.model.loss_threshold
+        ])).mean()
         layer_loss.backward()
 
         self.optimizer.step()
