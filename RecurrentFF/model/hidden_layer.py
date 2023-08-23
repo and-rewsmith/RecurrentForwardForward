@@ -15,6 +15,7 @@ from RecurrentFF.settings import (
     Settings,
 )
 
+
 class HiddenLayer(nn.Module):
     """
     A HiddenLayer class for a novel Forward-Forward Recurrent Network, with
