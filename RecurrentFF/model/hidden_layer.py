@@ -17,18 +17,17 @@ from RecurrentFF.settings import (
 )
 
 
-def loss(pos_badness, neg_badness, delta=1e-2, alpha=1.0):
+def loss(pos_badness, neg_badness):
     """
     Plot on wolfram:
-    L =1/(abs(n)^1.01+0.3) + abs(p/2)^3 for p=-3 to 3, n=-3 to 3
+    L =1/(n^2 + 0.08) + (p)^2 for p=0 to 4, n=0 to 4
     """
     # Term 1: High loss for when n is 0, that slopes downward in convex shape as
     # abs(n) increases
-    L1 = 1 / (torch.abs(neg_badness) ** 1.01 + 0.3)
+    L1 = 1 / (neg_badness** 2 + 0.08)
 
-    # Term 2: High loss for when abs(p) is high. Divide by 2 to avoid trough
-    # that can cause optimizer thrashing between sides of trough.
-    L2 = (torch.abs(pos_badness) / 2) ** 3
+    # Term 2: High loss for when abs(p) is high.
+    L2 = (pos_badness) ** 2
 
     loss = L1 + L2
     return loss.mean()
@@ -443,7 +442,7 @@ class HiddenLayer(nn.Module):
 
             prev_act = prev_act.detach()
             prev_act_stdized = standardize_layer_activations(
-                prev_act, self.settings.model.epsilon)
+                prev_act)
 
             new_activation = \
                 F.elu(F.linear(
