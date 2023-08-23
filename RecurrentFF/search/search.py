@@ -1,6 +1,3 @@
-import sys
-print(sys.executable)
-
 import random
 from multiprocessing import Process
 
