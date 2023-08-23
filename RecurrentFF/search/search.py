@@ -1,3 +1,6 @@
+import sys
+print(sys.executable)
+
 import random
 from multiprocessing import Process
 
@@ -15,7 +18,6 @@ TRAIN_BATCH_SIZE = 500
 TEST_BATCH_SIZE = 5000
 
 DEVICE = "mps"
-
 
 def run(settings: Settings):
     # Needs to be done here as well because multiprocessing.
