@@ -283,9 +283,6 @@ class HiddenLayer(nn.Module):
             damping, update the current layer's activations, and return the new
             activations.
         """
-        if self.settings.data_config.num_classes == self.test_activations_dim[1]:
-            print("Prelu weight:", self.prelu.weight)
-
         # Make sure assumptions aren't violated regarding layer connectivity.
         if data is None:
             assert self.previous_layer is not None

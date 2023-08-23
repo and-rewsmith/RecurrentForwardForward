@@ -296,8 +296,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                 all_labels_badness = torch.stack(all_labels_badness, dim=1)
 
                 # select the label with the maximum badness
-                predicted_labels = torch.argmin(
-                    torch.abs(all_labels_badness), dim=1)
+                predicted_labels = torch.argmin(all_labels_badness, dim=1)
                 logging.debug("Predicted labels: " + str(predicted_labels))
                 logging.debug("Actual labels: " + str(labels))
 
