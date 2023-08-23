@@ -244,8 +244,7 @@ class HiddenLayer(nn.Module):
         pos_badness = layer_activations_to_badness(pos_activations)
         neg_badness = layer_activations_to_badness(neg_activations)
 
-        layer_loss = loss(pos_badness, neg_badness,
-                          self.settings.model.epsilon)
+        layer_loss = loss(pos_badness, neg_badness)
         layer_loss.backward()
 
         self.optimizer.step()
@@ -442,7 +441,7 @@ class HiddenLayer(nn.Module):
 
             prev_act = prev_act.detach()
             prev_act_stdized = standardize_layer_activations(
-                prev_act)
+                prev_act, self.settings.model.epsilon)
 
             new_activation = \
                 F.elu(F.linear(
