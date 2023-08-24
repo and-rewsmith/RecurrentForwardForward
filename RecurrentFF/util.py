@@ -6,6 +6,31 @@ from torch import nn
 from RecurrentFF.settings import Settings
 
 
+# NOTE: Square images only
+def calculate_conv_output_dimensions(data_size,
+                                     output_channels,
+                                     kernel_size,
+                                     conv_stride,
+                                     conv_padding,
+                                     max_pool_kernel_size,
+                                     max_pool_stride):
+
+    square_image_width = int(data_size**0.5)
+    H_in = square_image_width
+    W_in = square_image_width
+
+    # Output dimensions after the convolutional layer
+    H_out = ((H_in - kernel_size + 2 * conv_padding) // conv_stride) + 1
+    W_out = ((W_in - kernel_size + 2 * conv_padding) // conv_stride) + 1
+
+    # Output dimensions after the max pooling layer
+    H_out_pool = ((H_out - max_pool_kernel_size) // max_pool_stride) + 1
+    W_out_pool = ((W_out - max_pool_kernel_size) // max_pool_stride) + 1
+
+    # Multiply spatial dimensions by output channels
+    return output_channels * H_out_pool * W_out_pool
+
+
 def set_logging():
     """
     Must be called after argparse.
