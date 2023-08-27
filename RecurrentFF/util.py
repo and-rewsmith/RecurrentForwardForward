@@ -160,12 +160,12 @@ class Activations:
         self.previous = self.current
 
 
-class OutputLayer(nn.Module):
-    def __init__(self, prev_size, label_size) -> None:
-        super(OutputLayer, self).__init__()
+# class OutputLayer(nn.Module):
+#     def __init__(self, prev_size, label_size) -> None:
+#         super(OutputLayer, self).__init__()
 
-        self.backward_linear = nn.Linear(
-            label_size, prev_size)
+#         self.backward_linear = nn.Linear(
+#             label_size, prev_size)
 
 
 class ForwardMode(Enum):

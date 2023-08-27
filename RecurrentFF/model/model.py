@@ -13,7 +13,6 @@ from RecurrentFF.model.hidden_layer import HiddenLayer
 from RecurrentFF.model.inner_layers import InnerLayers
 from RecurrentFF.util import (
     ForwardMode,
-    OutputLayer,
     LatentAverager,
     layer_activations_to_badness,
 )
@@ -70,30 +69,28 @@ class RecurrentFFNet(nn.Module):
 
         inner_layers = nn.ModuleList()
         prev_size = self.settings.data_config.data_size
-        for size in self.settings.model.hidden_sizes:
+        for i, size in enumerate(self.settings.model.hidden_sizes):
+            next_size = self.settings.model.hidden_sizes[i + 1] if i < len(self.settings.model.hidden_sizes) - 1 else self.settings.data_config.num_classes
+
             hidden_layer = HiddenLayer(
                 self.settings,
                 self.settings.data_config.train_batch_size,
                 self.settings.data_config.test_batch_size,
                 prev_size,
                 size,
+                next_size,
                 self.settings.model.damping_factor)
             inner_layers.append(hidden_layer)
             prev_size = size
 
-        self.output_layer = OutputLayer(
-            self.settings.model.hidden_sizes[-1], self.settings.data_config.num_classes)
-
         # attach layers to each other
-        for i, hidden_layer in enumerate(inner_layers):
-            if i != 0:
-                hidden_layer.set_previous_layer(inner_layers[i - 1])
+        for i in range(1, len(inner_layers)):
+            hidden_layer = inner_layers[i]
+            hidden_layer.set_previous_layer(inner_layers[i - 1])
 
-        for i, hidden_layer in enumerate(inner_layers):
-            if i != len(inner_layers) - 1:
-                hidden_layer.set_next_layer(inner_layers[i + 1])
-            else:
-                hidden_layer.set_next_layer(self.output_layer)
+        for i in range(0, len(inner_layers) - 1):
+            hidden_layer = inner_layers[i]
+            hidden_layer.set_next_layer(inner_layers[i + 1])
 
         self.inner_layers = InnerLayers(self.settings, inner_layers)
 

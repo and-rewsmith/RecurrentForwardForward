@@ -49,6 +49,7 @@ class HiddenLayer(nn.Module):
             test_batch_size,
             prev_size,
             size,
+            next_size,
             damping_factor):
         super(HiddenLayer, self).__init__()
 
@@ -74,17 +75,17 @@ class HiddenLayer(nn.Module):
         nn.init.kaiming_uniform_(self.forward_linear.weight, nonlinearity='relu')
 
 
-        self.backward_linear = nn.Linear(size, prev_size)
+        self.backward_linear = nn.Linear(next_size, size)
         # backward_mask = (torch.rand_like(self.backward_linear.weight) <
         #                  self.settings.model.interconnect_density).float()
         # self.register_buffer('backward_mask', backward_mask)
         # self.backward_linear.weight.data.mul_(self.backward_mask)
         # self.backward_linear.weight.register_hook(
         #     lambda grad: grad * self.backward_mask)
-        self.backward_linear.weight.data = self.forward_linear.weight.data.T * .3  # e.g., scaling_factor = 0.9
+        # self.backward_linear.weight.data = self.forward_linear.weight.data.T * .3  # e.g., scaling_factor = 0.9
         # nn.init.sparse_(self.backward_linear.weight, sparsity=0.9)  # 90% of the weights will be set to zero
 
-        # nn.init.uniform_(self.backward_linear.weight, -0.05, 0.05)
+        nn.init.uniform_(self.backward_linear.weight, -0.05, 0.05)
 
 
 
@@ -362,7 +363,7 @@ class HiddenLayer(nn.Module):
                     self.forward_linear.weight)) + \
                 -1 * F.leaky_relu(F.linear(
                     next_layer_stdized,
-                    self.next_layer.backward_linear.weight)) + \
+                    self.backward_linear.weight)) + \
                 F.leaky_relu(F.linear(
                     prev_act_stdized,
                     self.lateral_linear.weight))
@@ -393,7 +394,7 @@ class HiddenLayer(nn.Module):
                     self.forward_linear.weight)) + \
                 -1 * F.leaky_relu(F.linear(
                     labels,
-                    self.next_layer.backward_linear.weight)) + \
+                    self.backward_linear.weight)) + \
                 F.leaky_relu(F.linear(
                     prev_act_stdized,
                     self.lateral_linear.weight))
@@ -431,7 +432,7 @@ class HiddenLayer(nn.Module):
                     self.forward_linear.weight)) + \
                 -1 * F.leaky_relu(F.linear(
                     next_layer_stdized,
-                    self.next_layer.backward_linear.weight)) + \
+                    self.backward_linear.weight)) + \
                 F.leaky_relu(F.linear(
                     prev_act_stdized,
                     self.lateral_linear.weight))
@@ -469,7 +470,7 @@ class HiddenLayer(nn.Module):
                     self.forward_linear.weight)) + \
                 -1 * F.leaky_relu(F.linear(
                     labels,
-                    self.next_layer.backward_linear.weight)) + \
+                    self.backward_linear.weight)) + \
                 F.leaky_relu(F.linear(
                     prev_act_stdized,
                     self.lateral_linear.weight))
