@@ -2,7 +2,10 @@ import logging
 
 
 from torch import nn
+import torch
 import wandb
+
+from RecurrentFF.util import LayerMetrics
 
 
 class InnerLayers(nn.Module):
@@ -43,7 +46,16 @@ class InnerLayers(nn.Module):
             training each layer, their stored activations are advanced by
             calling the 'advance_stored_activations' method.
         """
+        pos_activation_norms = [0 for _ in self.layers]
+        neg_activation_norms = [0 for _ in self.layers]
+        forward_weight_norms = [0 for _ in self.layers]
+        forward_grad_norms = [0 for _ in self.layers]
+        backward_weight_norms = [0 for _ in self.layers]
+        backward_grad_norms = [0 for _ in self.layers]
+        lateral_weight_norms = [0 for _ in self.layers]
+        lateral_grad_norms = [0 for _ in self.layers]
         losses_per_layer = [0 for _ in self.layers]
+
         for i, layer in enumerate(self.layers):
             logging.debug("Training layer " + str(i))
             loss = None
@@ -63,7 +75,35 @@ class InnerLayers(nn.Module):
             metric_name = "granular_loss (layer " + str(layer_num) + ")"
             wandb.log({metric_name: loss})
 
+            pos_activations_norm = torch.norm(layer.pos_activations.current, p=2)
+            neg_activations_norm = torch.norm(layer.neg_activations.current, p=2)
+            forward_weights_norm = torch.norm(layer.forward_linear.weight, p=2)
+            backward_weights_norm = torch.norm(layer.backward_linear.weight, p=2)
+            lateral_weights_norm = torch.norm(layer.lateral_linear.weight, p=2)
+
+            try:
+                forward_grad_norm = torch.norm(layer.forward_linear.weight.grad, p=2)
+            except AttributeError:
+                forward_grad_norm = torch.tensor(0.0)
+            try:
+                backward_grad_norm = torch.norm(layer.backward_linear.weight.grad, p=2)
+            except AttributeError:
+                backward_grad_norm = torch.tensor(0.0)
+            try:
+                lateral_grad_norm = torch.norm(layer.lateral_linear.weight.grad, p=2)
+            except AttributeError:
+                lateral_grad_norm = torch.tensor(0.0)
+
             losses_per_layer[i] += loss
+            pos_activation_norms[i] += pos_activations_norm
+            neg_activation_norms[i] += neg_activations_norm
+            forward_weight_norms[i] += forward_weights_norm
+            forward_grad_norms[i] += forward_grad_norm
+            backward_weight_norms[i] += backward_weights_norm
+            backward_grad_norms[i] += backward_grad_norm
+            lateral_weight_norms[i] += lateral_weights_norm
+            lateral_grad_norms[i] += lateral_grad_norm
+
 
         logging.debug("Trained activations for layer " +
                       str(i))
@@ -71,7 +111,9 @@ class InnerLayers(nn.Module):
         for layer in self.layers:
             layer.advance_stored_activations()
 
-        return losses_per_layer
+        raw_layer_metrics = LayerMetrics(pos_activation_norms, neg_activation_norms, forward_weight_norms, forward_grad_norms, backward_weight_norms, backward_grad_norms, lateral_weight_norms, lateral_grad_norms, losses_per_layer)
+
+        return raw_layer_metrics 
 
     def advance_layers_forward(
             self,

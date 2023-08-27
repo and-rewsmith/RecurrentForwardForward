@@ -1,6 +1,8 @@
 from enum import Enum
 import logging
 
+import wandb
+
 from RecurrentFF.settings import Settings
 from torchvision import transforms
 from torch import nn
@@ -39,6 +41,71 @@ def standardize_layer_activations(layer_activations, epsilon):
     return normalized_activations
 
     # return layer_activations
+
+class LayerMetrics:
+    def __init__(self, pos_activations_norms, neg_activations_norms, forward_weights_norms, forward_grad_norms, backward_weights_norms, backward_grad_norms, lateral_weights_norms, lateral_grad_norms, layer_losses):
+        self.pos_activations_norms = pos_activations_norms
+        self.neg_activations_norms = neg_activations_norms
+        self.forward_weights_norms = forward_weights_norms
+        self.forward_grad_norms = forward_grad_norms
+        self.backward_weights_norms = backward_weights_norms
+        self.backward_grad_norms = backward_grad_norms
+        self.lateral_weights_norms = lateral_weights_norms
+        self.lateral_grad_norms = lateral_grad_norms
+        self.layer_losses = layer_losses
+
+        self.data_points = 1
+    
+    def ingest_layer_metrics(self, raw_layer_metrics):
+        for i in range(0, len(self.pos_activations_norms)):
+            self.pos_activations_norms[i] += raw_layer_metrics.pos_activations_norms[i]
+            self.neg_activations_norms[i] += raw_layer_metrics.neg_activations_norms[i]
+            self.forward_weights_norms[i] += raw_layer_metrics.forward_weights_norms[i]
+            self.forward_grad_norms[i] += raw_layer_metrics.forward_grad_norms[i]
+            self.backward_weights_norms[i] += raw_layer_metrics.backward_weights_norms[i]
+            self.backward_grad_norms[i] += raw_layer_metrics.backward_grad_norms[i]
+            self.lateral_weights_norms[i] += raw_layer_metrics.lateral_weights_norms[i]
+            self.lateral_grad_norms[i] += raw_layer_metrics.lateral_grad_norms[i]
+            self.layer_losses[i] += raw_layer_metrics.layer_losses[i]
+
+            self.data_points += 1
+    
+    def collapse(self):
+        self.pos_activations_norms = [x / self.data_points for x in self.pos_activations_norms]
+        self.neg_activations_norms = [x / self.data_points for x in self.neg_activations_norms]
+        self.forward_weights_norms = [x / self.data_points for x in self.forward_weights_norms]
+        self.forward_grad_norms = [x / self.data_points for x in self.forward_grad_norms]
+        self.backward_weights_norms = [x / self.data_points for x in self.backward_weights_norms]
+        self.backward_grad_norms = [x / self.data_points for x in self.backward_grad_norms]
+        self.lateral_weights_norms = [x / self.data_points for x in self.lateral_weights_norms] 
+        self.lateral_grad_norms = [x / self.data_points for x in self.lateral_grad_norms]
+        self.layer_losses = [x / self.data_points for x in self.layer_losses]
+    
+    def log_metrics(self, epoch):
+        for i in range(0, len(self.pos_activations_norms)):
+            layer_num = i+1
+
+            metric_name = "pos_activations_norms (layer " + str(layer_num) + ")"
+            metric_name = "neg_activations_norms (layer " + str(layer_num) + ")"
+            metric_name = "forward_weights_norms (layer " + str(layer_num) + ")"
+            metric_name = "forward_grad_norms (layer " + str(layer_num) + ")"
+            metric_name = "backward_weights_norms (layer " + str(layer_num) + ")"
+            metric_name = "backward_grad_norms (layer " + str(layer_num) + ")"
+            metric_name = "lateral_weights_norms (layer " + str(layer_num) + ")"
+            metric_name = "lateral_grad_norms (layer " + str(layer_num) + ")"
+            metric_name = "loss (layer " + str(layer_num) + ")"
+
+            wandb.log({metric_name: self.pos_activations_norms[i]}, step=epoch)
+            wandb.log({metric_name: self.neg_activations_norms[i]}, step=epoch)
+            wandb.log({metric_name: self.forward_weights_norms[i]}, step=epoch)
+            wandb.log({metric_name: self.forward_grad_norms[i]}, step=epoch)
+            wandb.log({metric_name: self.backward_weights_norms[i]}, step=epoch)
+            wandb.log({metric_name: self.backward_grad_norms[i]}, step=epoch)
+            wandb.log({metric_name: self.lateral_weights_norms[i]}, step=epoch)
+            wandb.log({metric_name: self.lateral_grad_norms[i]}, step=epoch)
+            wandb.log({metric_name: self.layer_losses[i]}, step=epoch)
+
+
 
 
 # input of dims (frames, batch size, input size)

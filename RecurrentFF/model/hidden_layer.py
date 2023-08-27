@@ -65,24 +65,30 @@ class HiddenLayer(nn.Module):
         self.reset_activations(True)
 
         self.forward_linear = nn.Linear(prev_size, size)
-        forward_mask = (torch.rand_like(self.forward_linear.weight) <
-                        self.settings.model.interconnect_density).float()
-        self.register_buffer('forward_mask', forward_mask)
-        self.forward_linear.weight.data.mul_(self.forward_mask)
-        self.forward_linear.weight.register_hook(
-            lambda grad: grad * self.forward_mask)
+        # forward_mask = (torch.rand_like(self.forward_linear.weight) <
+        #                 self.settings.model.interconnect_density).float()
+        # self.register_buffer('forward_mask', forward_mask)
+        # self.forward_linear.weight.data.mul_(self.forward_mask)
+        # self.forward_linear.weight.register_hook(
+        #     lambda grad: grad * self.forward_mask)
+        nn.init.kaiming_uniform_(self.forward_linear.weight, nonlinearity='relu')
+
 
         self.backward_linear = nn.Linear(size, prev_size)
-        backward_mask = (torch.rand_like(self.backward_linear.weight) <
-                         self.settings.model.interconnect_density).float()
-        self.register_buffer('backward_mask', backward_mask)
-        self.backward_linear.weight.data.mul_(self.backward_mask)
-        self.backward_linear.weight.register_hook(
-            lambda grad: grad * self.backward_mask)
+        # backward_mask = (torch.rand_like(self.backward_linear.weight) <
+        #                  self.settings.model.interconnect_density).float()
+        # self.register_buffer('backward_mask', backward_mask)
+        # self.backward_linear.weight.data.mul_(self.backward_mask)
+        # self.backward_linear.weight.register_hook(
+        #     lambda grad: grad * self.backward_mask)
+        self.backward_linear.weight.data = self.forward_linear.weight.data.T * .3  # e.g., scaling_factor = 0.9
+        nn.init.sparse_(self.backward_linear.weight, sparsity=0.9)  # 90% of the weights will be set to zero
+
+
 
         # Initialize the lateral weights to be the identity matrix
         self.lateral_linear = nn.Linear(size, size)
-        nn.init.eye_(self.lateral_linear.weight)
+        nn.init.orthogonal_(self.lateral_linear.weight)
 
         self.previous_layer = None
         self.next_layer = None
@@ -235,30 +241,28 @@ class HiddenLayer(nn.Module):
         ])).mean()
         layer_loss.backward()
 
-        if self.train_activations_dim[1] == 5:
-            # print the gradients of all weights
-            print("previous layer weights: ", self.forward_linear.weight)
-            print()
-            print("previous layer weights grad: ",
-                  self.forward_linear.weight.grad)
-            print()
-            print("next layer weights: ",
-                  self.next_layer.backward_linear.weight)
-            print()
-            print("next layer weights grad: ",
-                  self.next_layer.backward_linear.weight.grad)
-            print()
-            print("lateral layer weights: ", self.lateral_linear.weight)
-            print()
-            print("lateral layer weights grad: ",
-                  self.lateral_linear.weight.grad)
-            # print a line of equals
-            print("=" * 100)
-            input()
+        # if self.train_activations_dim[1] == 5:
+        #     # print the gradients of all weights
+        #     print("previous layer weights: ", self.forward_linear.weight)
+        #     print()
+        #     print("previous layer weights grad: ",
+        #           self.forward_linear.weight.grad)
+        #     print()
+        #     print("next layer weights: ",
+        #           self.next_layer.backward_linear.weight)
+        #     print()
+        #     print("next layer weights grad: ",
+        #           self.next_layer.backward_linear.weight.grad)
+        #     print()
+        #     print("lateral layer weights: ", self.lateral_linear.weight)
+        #     print()
+        #     print("lateral layer weights grad: ",
+        #           self.lateral_linear.weight.grad)
+        #     # print a line of equals
+        #     print("=" * 100)
+        #     input()
 
         self.optimizer.step()
-        self.optimizer.zero_grad()
-
         return layer_loss
 
     def forward(self, mode, data, labels, should_damp):
