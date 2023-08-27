@@ -72,9 +72,6 @@ class InnerLayers(nn.Module):
             logging.debug("Loss for layer " +
                           str(layer_num) + ": " + str(loss))
 
-            metric_name = "granular_loss (layer " + str(layer_num) + ")"
-            wandb.log({metric_name: loss}, step=epoch)
-
             pos_activations_norm = torch.norm(layer.pos_activations.current, p=2)
             neg_activations_norm = torch.norm(layer.neg_activations.current, p=2)
             forward_weights_norm = torch.norm(layer.forward_linear.weight, p=2)
