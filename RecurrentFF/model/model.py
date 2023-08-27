@@ -145,7 +145,7 @@ class RecurrentFFNet(nn.Module):
                         input_data.pos_input, label_data)
 
                 layer_metrics, pos_badness_per_layer, neg_badness_per_layer = self.__train_batch(
-                    batch_num, input_data, label_data)
+                    batch_num, input_data, label_data, epoch)
 
             # Get some observability into prediction while training.
             accuracy = self.processor.brute_force_predict(
@@ -158,7 +158,7 @@ class RecurrentFFNet(nn.Module):
                 neg_badness_per_layer,
                 epoch)
 
-    def __train_batch(self, batch_num, input_data, label_data):
+    def __train_batch(self, batch_num, input_data, label_data, epoch):
         logging.info("Batch: " + str(batch_num))
 
         self.inner_layers.reset_activations(True)
@@ -195,7 +195,7 @@ class RecurrentFFNet(nn.Module):
                 label_data.neg_labels[iteration])
 
             layer_metrics_ = self.inner_layers.advance_layers_train(
-                input_data_sample, label_data_sample, True)
+                input_data_sample, label_data_sample, True, epoch=epoch)
             if layer_metrics is None:
                 layer_metrics = layer_metrics_
             else:
@@ -274,7 +274,8 @@ class RecurrentFFNet(nn.Module):
                        "first_layer_neg_badness": first_layer_neg_badness,
                        "second_layer_neg_badness": second_layer_neg_badness,
                        "third_layer_neg_badness": third_layer_neg_badness,
-                       "epoch": epoch})
+                       "epoch": epoch},
+                       step=epoch)
         elif len(self.inner_layers) == 2:
             wandb.log({"acc": accuracy,
                        "loss": average_layer_loss,
@@ -282,10 +283,14 @@ class RecurrentFFNet(nn.Module):
                        "second_layer_pos_badness": second_layer_pos_badness,
                        "first_layer_neg_badness": first_layer_neg_badness,
                        "second_layer_neg_badness": second_layer_neg_badness,
-                       "epoch": epoch})
+                       "epoch": epoch},
+                       step=epoch)
+
         elif len(self.inner_layers) == 1:
             wandb.log({"acc": accuracy,
                        "loss": average_layer_loss,
                        "first_layer_pos_badness": first_layer_pos_badness,
                        "first_layer_neg_badness": first_layer_neg_badness,
-                       "epoch": epoch})
+                       "epoch": epoch},
+                       step=epoch)
+

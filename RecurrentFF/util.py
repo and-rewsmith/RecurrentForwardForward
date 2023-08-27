@@ -86,24 +86,32 @@ class LayerMetrics:
             layer_num = i+1
 
             metric_name = "pos_activations_norms (layer " + str(layer_num) + ")"
-            metric_name = "neg_activations_norms (layer " + str(layer_num) + ")"
-            metric_name = "forward_weights_norms (layer " + str(layer_num) + ")"
-            metric_name = "forward_grad_norms (layer " + str(layer_num) + ")"
-            metric_name = "backward_weights_norms (layer " + str(layer_num) + ")"
-            metric_name = "backward_grad_norms (layer " + str(layer_num) + ")"
-            metric_name = "lateral_weights_norms (layer " + str(layer_num) + ")"
-            metric_name = "lateral_grad_norms (layer " + str(layer_num) + ")"
-            metric_name = "loss (layer " + str(layer_num) + ")"
-
             wandb.log({metric_name: self.pos_activations_norms[i]}, step=epoch)
+
+            metric_name = "neg_activations_norms (layer " + str(layer_num) + ")"
             wandb.log({metric_name: self.neg_activations_norms[i]}, step=epoch)
+
+            metric_name = "forward_weights_norms (layer " + str(layer_num) + ")"
             wandb.log({metric_name: self.forward_weights_norms[i]}, step=epoch)
+
+            metric_name = "forward_grad_norms (layer " + str(layer_num) + ")"
             wandb.log({metric_name: self.forward_grad_norms[i]}, step=epoch)
+
+            metric_name = "backward_weights_norms (layer " + str(layer_num) + ")"
             wandb.log({metric_name: self.backward_weights_norms[i]}, step=epoch)
+
+            metric_name = "backward_grad_norms (layer " + str(layer_num) + ")"
             wandb.log({metric_name: self.backward_grad_norms[i]}, step=epoch)
+
+            metric_name = "lateral_weights_norms (layer " + str(layer_num) + ")"
             wandb.log({metric_name: self.lateral_weights_norms[i]}, step=epoch)
+
+            metric_name = "lateral_grad_norms (layer " + str(layer_num) + ")"
             wandb.log({metric_name: self.lateral_grad_norms[i]}, step=epoch)
+
+            metric_name = "loss (layer " + str(layer_num) + ")"
             wandb.log({metric_name: self.layer_losses[i]}, step=epoch)
+
 
 
 

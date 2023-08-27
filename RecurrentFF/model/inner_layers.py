@@ -17,7 +17,7 @@ class InnerLayers(nn.Module):
 
         self.layers = layers
 
-    def advance_layers_train(self, input_data, label_data, should_damp):
+    def advance_layers_train(self, input_data, label_data, should_damp, epoch):
         """
         Advances the training process for all layers in the network by computing
         the loss for each layer and updating their activations.
@@ -73,7 +73,7 @@ class InnerLayers(nn.Module):
                           str(layer_num) + ": " + str(loss))
 
             metric_name = "granular_loss (layer " + str(layer_num) + ")"
-            wandb.log({metric_name: loss})
+            wandb.log({metric_name: loss}, step=epoch)
 
             pos_activations_norm = torch.norm(layer.pos_activations.current, p=2)
             neg_activations_norm = torch.norm(layer.neg_activations.current, p=2)

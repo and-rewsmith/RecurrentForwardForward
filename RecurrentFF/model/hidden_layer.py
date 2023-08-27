@@ -82,7 +82,9 @@ class HiddenLayer(nn.Module):
         # self.backward_linear.weight.register_hook(
         #     lambda grad: grad * self.backward_mask)
         self.backward_linear.weight.data = self.forward_linear.weight.data.T * .3  # e.g., scaling_factor = 0.9
-        nn.init.sparse_(self.backward_linear.weight, sparsity=0.9)  # 90% of the weights will be set to zero
+        # nn.init.sparse_(self.backward_linear.weight, sparsity=0.9)  # 90% of the weights will be set to zero
+
+        # nn.init.uniform_(self.backward_linear.weight, -0.05, 0.05)
 
 
 
