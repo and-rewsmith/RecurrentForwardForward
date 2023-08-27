@@ -275,9 +275,6 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                         if iteration >= lower_iteration_threshold and iteration <= upper_iteration_threshold:
                             layer_badnesses = []
                             for i, layer in enumerate(self.inner_layers):
-                                if i == 0:
-                                    pass
-
                                 layer_badnesses.append(
                                     layer_activations_to_badness(
                                         layer.predict_activations.current))
