@@ -2,7 +2,6 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 from torchvision.datasets import MNIST
 from torchvision.transforms import Compose, ToTensor, Normalize, Lambda
-from torchvision import transforms
 import wandb
 
 from RecurrentFF.model.data_scenario.static_single_class import SingleStaticClassTestData

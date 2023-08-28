@@ -10,7 +10,7 @@ from RecurrentFF.model.data_scenario.static_single_class import (
     StaticSingleClassProcessor,
 )
 from RecurrentFF.model.hidden_layer import HiddenLayer
-from RecurrentFF.model.inner_layers import InnerLayers
+from RecurrentFF.model.inner_layers import InnerLayers, LayerMetrics
 from RecurrentFF.util import (
     ForwardMode,
     LatentAverager,
@@ -176,11 +176,13 @@ class RecurrentFFNet(nn.Module):
             self.inner_layers.advance_layers_forward(
                 ForwardMode.NegativeData, neg_input, preinit_upper_clamped_tensor, False)
 
+        num_layers = len(self.settings.model.hidden_sizes)
+        layer_metrics = LayerMetrics(num_layers)
+
         pos_badness_per_layer = []
         neg_badness_per_layer = []
-        pos_target_latents = LatentAverager()
         iterations = input_data.pos_input.shape[0]
-        layer_metrics = None
+        pos_target_latents = LatentAverager()
         for iteration in range(0, iterations):
             logging.debug("Iteration: " + str(iteration))
 
@@ -191,17 +193,8 @@ class RecurrentFFNet(nn.Module):
                 label_data.pos_labels[iteration],
                 label_data.neg_labels[iteration])
 
-            layer_metrics_ = self.inner_layers.advance_layers_train(
-                input_data_sample, label_data_sample, True, epoch)
-            if layer_metrics is None:
-                layer_metrics = layer_metrics_
-            else:
-                layer_metrics.ingest_layer_metrics(layer_metrics_)
-
-            average_layer_loss_one_iteration = (
-                sum(layer_metrics_.layer_losses) / len(self.inner_layers)).item()
-            logging.debug("Average layer loss: " +
-                          str(average_layer_loss_one_iteration))
+            self.inner_layers.advance_layers_train(
+                input_data_sample, label_data_sample, True, layer_metrics)
 
             lower_iteration_threshold = iterations // 2 - \
                 iterations // 10
@@ -241,7 +234,7 @@ class RecurrentFFNet(nn.Module):
     def __log_metrics(
             self,
             accuracy,
-            layer_metrics,
+            layer_metrics: LayerMetrics,
             pos_badness_per_layer,
             neg_badness_per_layer,
             epoch):
@@ -257,10 +250,8 @@ class RecurrentFFNet(nn.Module):
             # No-op as there may not be 3 layers
             pass
 
-        layer_metrics.collapse()
         layer_metrics.log_metrics(epoch)
-
-        average_layer_loss = sum(layer_metrics.layer_losses) / len(layer_metrics.layer_losses)
+        average_layer_loss = layer_metrics.average_layer_loss()
 
         if len(self.inner_layers) >= 3:
             wandb.log({"acc": accuracy,

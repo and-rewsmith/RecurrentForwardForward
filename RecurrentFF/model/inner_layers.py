@@ -5,7 +5,7 @@ from torch import nn
 import torch
 import wandb
 
-from RecurrentFF.util import LayerMetrics
+from RecurrentFF.model.hidden_layer import HiddenLayer
 
 
 class InnerLayers(nn.Module):
@@ -17,7 +17,7 @@ class InnerLayers(nn.Module):
 
         self.layers = layers
 
-    def advance_layers_train(self, input_data, label_data, should_damp, epoch):
+    def advance_layers_train(self, input_data, label_data, should_damp, layer_metrics):
         """
         Advances the training process for all layers in the network by computing
         the loss for each layer and updating their activations.
@@ -46,16 +46,6 @@ class InnerLayers(nn.Module):
             training each layer, their stored activations are advanced by
             calling the 'advance_stored_activations' method.
         """
-        pos_activation_norms = [0 for _ in self.layers]
-        neg_activation_norms = [0 for _ in self.layers]
-        forward_weight_norms = [0 for _ in self.layers]
-        forward_grad_norms = [0 for _ in self.layers]
-        backward_weight_norms = [0 for _ in self.layers]
-        backward_grad_norms = [0 for _ in self.layers]
-        lateral_weight_norms = [0 for _ in self.layers]
-        lateral_grad_norms = [0 for _ in self.layers]
-        losses_per_layer = [0 for _ in self.layers]
-
         for i, layer in enumerate(self.layers):
             logging.debug("Training layer " + str(i))
             loss = None
@@ -72,45 +62,15 @@ class InnerLayers(nn.Module):
             logging.debug("Loss for layer " +
                           str(layer_num) + ": " + str(loss))
 
-            pos_activations_norm = torch.norm(layer.pos_activations.current, p=2)
-            neg_activations_norm = torch.norm(layer.neg_activations.current, p=2)
-            forward_weights_norm = torch.norm(layer.forward_linear.weight, p=2)
-            backward_weights_norm = torch.norm(layer.backward_linear.weight, p=2)
-            lateral_weights_norm = torch.norm(layer.lateral_linear.weight, p=2)
-
-            try:
-                forward_grad_norm = torch.norm(layer.forward_linear.weight.grad, p=2)
-            except AttributeError:
-                forward_grad_norm = torch.tensor(0.0)
-            try:
-                backward_grad_norm = torch.norm(layer.backward_linear.weight.grad, p=2)
-            except AttributeError:
-                backward_grad_norm = torch.tensor(0.0)
-            try:
-                lateral_grad_norm = torch.norm(layer.lateral_linear.weight.grad, p=2)
-            except AttributeError:
-                lateral_grad_norm = torch.tensor(0.0)
-
-            losses_per_layer[i] += loss
-            pos_activation_norms[i] += pos_activations_norm
-            neg_activation_norms[i] += neg_activations_norm
-            forward_weight_norms[i] += forward_weights_norm
-            forward_grad_norms[i] += forward_grad_norm
-            backward_weight_norms[i] += backward_weights_norm
-            backward_grad_norms[i] += backward_grad_norm
-            lateral_weight_norms[i] += lateral_weights_norm
-            lateral_grad_norms[i] += lateral_grad_norm
-
+            layer_metrics.ingest_layer_metrics(i, layer, loss)
+        
+        layer_metrics.increment_samples_seen()
 
         logging.debug("Trained activations for layer " +
                       str(i))
 
         for layer in self.layers:
             layer.advance_stored_activations()
-
-        raw_layer_metrics = LayerMetrics(pos_activation_norms, neg_activation_norms, forward_weight_norms, forward_grad_norms, backward_weight_norms, backward_grad_norms, lateral_weight_norms, lateral_grad_norms, losses_per_layer)
-
-        return raw_layer_metrics 
 
     def advance_layers_forward(
             self,
@@ -173,3 +133,75 @@ class InnerLayers(nn.Module):
 
     def __iter__(self):
         return (layer for layer in self.layers)
+
+class LayerMetrics:
+    def __init__(self, num_layers: int):
+        self.pos_activations_norms = [0 for _ in range(0, num_layers)]
+        self.neg_activations_norms = [0 for _ in range(0, num_layers)]
+        self.forward_weights_norms = [0 for _ in range(0, num_layers)]
+        self.forward_grads_norms = [0 for _ in range(0, num_layers)]
+        self.backward_weights_norms = [0 for _ in range(0, num_layers)]
+        self.backward_grads_norms = [0 for _ in range(0, num_layers)]
+        self.lateral_weights_norms = [0 for _ in range(0, num_layers)]
+        self.lateral_grads_norms = [0 for _ in range(0, num_layers)]
+        self.losses_per_layer = [0 for _ in range(0, num_layers)]
+
+        self.num_data_points = 0
+    
+    def ingest_layer_metrics(self, layer_num: int, layer: HiddenLayer, loss: int):
+        pos_activations_norm = torch.norm(layer.pos_activations.current, p=2)
+        neg_activations_norm = torch.norm(layer.neg_activations.current, p=2)
+        forward_weights_norm = torch.norm(layer.forward_linear.weight, p=2)
+        backward_weights_norm = torch.norm(layer.backward_linear.weight, p=2)
+        lateral_weights_norm = torch.norm(layer.lateral_linear.weight, p=2)
+
+        forward_grad_norm = torch.norm(layer.forward_linear.weight.grad, p=2)
+        backward_grads_norm = torch.norm(layer.backward_linear.weight.grad, p=2)
+        lateral_grads_norm = torch.norm(layer.lateral_linear.weight.grad, p=2)
+
+        self.pos_activations_norms[layer_num] += pos_activations_norm
+        self.neg_activations_norms[layer_num] += neg_activations_norm
+        self.forward_weights_norms[layer_num] += forward_weights_norm
+        self.forward_grads_norms[layer_num] += forward_grad_norm
+        self.backward_weights_norms[layer_num] += backward_weights_norm
+        self.backward_grads_norms[layer_num] += backward_grads_norm
+        self.lateral_weights_norms[layer_num] += lateral_weights_norm
+        self.lateral_grads_norms[layer_num] += lateral_grads_norm
+        self.losses_per_layer[layer_num] += loss
+
+    def increment_samples_seen(self):
+        self.num_data_points += 1
+
+    def average_layer_loss(self):
+        return sum(self.losses_per_layer) / self.num_data_points
+
+    def log_metrics(self, epoch):
+        for i in range(0, len(self.pos_activations_norms)):
+            layer_num = i+1
+
+            metric_name = "pos_activations_norms (layer " + str(layer_num) + ")"
+            wandb.log({metric_name: self.pos_activations_norms[i] / self.num_data_points}, step=epoch)
+
+            metric_name = "neg_activations_norms (layer " + str(layer_num) + ")"
+            wandb.log({metric_name: self.neg_activations_norms[i] / self.num_data_points}, step=epoch)
+
+            metric_name = "forward_weights_norms (layer " + str(layer_num) + ")"
+            wandb.log({metric_name: self.forward_weights_norms[i] / self.num_data_points}, step=epoch)
+
+            metric_name = "forward_grad_norms (layer " + str(layer_num) + ")"
+            wandb.log({metric_name: self.forward_grads_norms[i] / self.num_data_points}, step=epoch)
+
+            metric_name = "backward_weights_norms (layer " + str(layer_num) + ")"
+            wandb.log({metric_name: self.backward_weights_norms[i] / self.num_data_points}, step=epoch)
+
+            metric_name = "backward_grad_norms (layer " + str(layer_num) + ")"
+            wandb.log({metric_name: self.backward_grads_norms[i] / self.num_data_points}, step=epoch)
+
+            metric_name = "lateral_weights_norms (layer " + str(layer_num) + ")"
+            wandb.log({metric_name: self.lateral_weights_norms[i] / self.num_data_points}, step=epoch)
+
+            metric_name = "lateral_grad_norms (layer " + str(layer_num) + ")"
+            wandb.log({metric_name: self.lateral_grads_norms[i] / self.num_data_points}, step=epoch)
+
+            metric_name = "loss (layer " + str(layer_num) + ")"
+            wandb.log({metric_name: self.losses_per_layer[i] / self.num_data_points}, step=epoch)

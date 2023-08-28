@@ -325,14 +325,6 @@ class HiddenLayer(nn.Module):
             prev_act_stdized = standardize_layer_activations(
                 prev_act, self.settings.model.epsilon)
 
-            if self.train_activations_dim[1] == 5 and mode == ForwardMode.PositiveData:
-                # print("previous activation shape: ", prev_act.shape)
-                # print("previous activations: ", prev_act)
-                # print()
-                # print("previous activations standardized: ", prev_act_stdized)
-                # input()
-                pass
-
             new_activation =  \
                 F.leaky_relu(F.linear(
                     prev_layer_stdized,
