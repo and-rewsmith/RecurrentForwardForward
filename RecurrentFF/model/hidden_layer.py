@@ -1,4 +1,3 @@
-import logging
 import math
 
 import torch
@@ -78,38 +77,18 @@ class HiddenLayer(nn.Module):
         self.reset_activations(True)
 
         self.forward_linear = nn.Linear(prev_size, size)
-        # forward_mask = (torch.rand_like(self.forward_linear.weight) <
-        #                 self.settings.model.interconnect_density).float()
-        # self.register_buffer('forward_mask', forward_mask)
-        # self.forward_linear.weight.data.mul_(self.forward_mask)
-        # self.forward_linear.weight.register_hook(
-        #     lambda grad: grad * self.forward_mask)
         nn.init.kaiming_uniform_(self.forward_linear.weight, nonlinearity='relu')
 
-
         self.backward_linear = nn.Linear(next_size, size)
-        # backward_mask = (torch.rand_like(self.backward_linear.weight) <
-        #                  self.settings.model.interconnect_density).float()
-        # self.register_buffer('backward_mask', backward_mask)
-        # self.backward_linear.weight.data.mul_(self.backward_mask)
-        # self.backward_linear.weight.register_hook(
-        #     lambda grad: grad * self.backward_mask)
-        # self.backward_linear.weight.data = self.forward_linear.weight.data.T * .3  # e.g., scaling_factor = 0.9
-        # nn.init.sparse_(self.backward_linear.weight, sparsity=0.9)  # 90% of the weights will be set to zero
 
         if next_size == self.settings.data_config.num_classes:
             amplified_initialization(self.backward_linear, 3.0)
         else:
             nn.init.uniform_(self.backward_linear.weight, -0.05, 0.05)
 
-
-
         # Initialize the lateral weights to be the identity matrix
         self.lateral_linear = nn.Linear(size, size)
-        if next_size == self.settings.data_config.num_classes:
-            nn.init.orthogonal_(self.lateral_linear.weight, gain=3*math.sqrt(2))
-        else:
-            nn.init.orthogonal_(self.lateral_linear.weight, gain=math.sqrt(2))
+        nn.init.orthogonal_(self.lateral_linear.weight, gain=math.sqrt(2))
 
         self.previous_layer = None
         self.next_layer = None
@@ -261,27 +240,6 @@ class HiddenLayer(nn.Module):
             pos_badness - self.settings.model.loss_threshold
         ])).mean()
         layer_loss.backward()
-
-        # if self.train_activations_dim[1] == 5:
-        #     # print the gradients of all weights
-        #     print("previous layer weights: ", self.forward_linear.weight)
-        #     print()
-        #     print("previous layer weights grad: ",
-        #           self.forward_linear.weight.grad)
-        #     print()
-        #     print("next layer weights: ",
-        #           self.next_layer.backward_linear.weight)
-        #     print()
-        #     print("next layer weights grad: ",
-        #           self.next_layer.backward_linear.weight.grad)
-        #     print()
-        #     print("lateral layer weights: ", self.lateral_linear.weight)
-        #     print()
-        #     print("lateral layer weights grad: ",
-        #           self.lateral_linear.weight.grad)
-        #     # print a line of equals
-        #     print("=" * 100)
-        #     input()
 
         self.optimizer.step()
         return layer_loss

@@ -2,14 +2,7 @@ from enum import Enum
 import logging
 
 import wandb
-
-from RecurrentFF.settings import Settings
-from torchvision import transforms
-from torch import nn
 import torch
-
-import matplotlib
-from matplotlib import pyplot as plt
 
 
 def set_logging():
@@ -21,25 +14,12 @@ def set_logging():
 
 
 def standardize_layer_activations(layer_activations, epsilon):
-
-    # # Compute mean and standard deviation for prev_layer
-    # prev_layer_mean = layer_activations.mean(
-    #     dim=1, keepdim=True)
-    # prev_layer_std = layer_activations.std(
-    #     dim=1, keepdim=True)
-    # # Apply standardization
-    # prev_layer_stdized = (layer_activations - prev_layer_mean) / \
-    #     (prev_layer_std + epsilon)
-    # return prev_layer_stdized
-
     squared_activations = layer_activations ** 2
     mean_squared = torch.mean(squared_activations, dim=1, keepdim=True)
     l2_norm = torch.sqrt(mean_squared + epsilon)
 
     normalized_activations = layer_activations / l2_norm
     return normalized_activations
-
-    # return layer_activations
 
 class LayerMetrics:
     def __init__(self, pos_activations_norms, neg_activations_norms, forward_weights_norms, forward_grad_norms, backward_weights_norms, backward_grad_norms, lateral_weights_norms, lateral_grad_norms, layer_losses):
@@ -155,15 +135,6 @@ class Activations:
 
     def advance(self):
         self.previous = self.current
-
-
-# class OutputLayer(nn.Module):
-#     def __init__(self, prev_size, label_size) -> None:
-#         super(OutputLayer, self).__init__()
-
-#         self.backward_linear = nn.Linear(
-#             label_size, prev_size)
-
 
 class ForwardMode(Enum):
     PositiveData = 1

@@ -1,7 +1,7 @@
 import logging
 
 import torch
-from torch import Tensor, nn
+from torch import nn
 from torch.nn import functional as F
 from torch.optim import RMSprop
 import wandb
@@ -9,7 +9,7 @@ import wandb
 from RecurrentFF.model.data_scenario.processor import DataScenarioProcessor
 from RecurrentFF.model.inner_layers import InnerLayers
 from RecurrentFF.util import LatentAverager, TrainLabelData, layer_activations_to_badness, ForwardMode
-from RecurrentFF.settings import Settings, DataConfig
+from RecurrentFF.settings import Settings 
 
 
 class SingleStaticClassTestData:
