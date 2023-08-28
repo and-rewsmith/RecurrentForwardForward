@@ -154,8 +154,6 @@ def test_collate_fn(batch):
 def MNIST_loaders(train_batch_size, test_batch_size):
     transform = Compose([
         ToTensor(),
-        # transforms.RandomAffine(
-        #     degrees=10, translate=(0.1, 0.1), scale=(0.9, 1.1), shear=5),
         Normalize((0.1307,), (0.3081,)),
         Lambda(lambda x: torch.flatten(x))])
 
