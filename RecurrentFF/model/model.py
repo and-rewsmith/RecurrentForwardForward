@@ -70,7 +70,8 @@ class RecurrentFFNet(nn.Module):
         inner_layers = nn.ModuleList()
         prev_size = self.settings.data_config.data_size
         for i, size in enumerate(self.settings.model.hidden_sizes):
-            next_size = self.settings.model.hidden_sizes[i + 1] if i < len(self.settings.model.hidden_sizes) - 1 else self.settings.data_config.num_classes
+            next_size = self.settings.model.hidden_sizes[i + 1] if i < len(
+                self.settings.model.hidden_sizes) - 1 else self.settings.data_config.num_classes
 
             hidden_layer = HiddenLayer(
                 self.settings,
@@ -263,7 +264,7 @@ class RecurrentFFNet(nn.Module):
                        "second_layer_neg_badness": second_layer_neg_badness,
                        "third_layer_neg_badness": third_layer_neg_badness,
                        "epoch": epoch},
-                       step=epoch)
+                      step=epoch)
         elif len(self.inner_layers) == 2:
             wandb.log({"acc": accuracy,
                        "loss": average_layer_loss,
@@ -272,7 +273,7 @@ class RecurrentFFNet(nn.Module):
                        "first_layer_neg_badness": first_layer_neg_badness,
                        "second_layer_neg_badness": second_layer_neg_badness,
                        "epoch": epoch},
-                       step=epoch)
+                      step=epoch)
 
         elif len(self.inner_layers) == 1:
             wandb.log({"acc": accuracy,
@@ -280,4 +281,4 @@ class RecurrentFFNet(nn.Module):
                        "first_layer_pos_badness": first_layer_pos_badness,
                        "first_layer_neg_badness": first_layer_neg_badness,
                        "epoch": epoch},
-                       step=epoch)
+                      step=epoch)

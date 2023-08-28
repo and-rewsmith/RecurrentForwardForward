@@ -27,6 +27,7 @@ def amplified_initialization(layer: nn.Linear, amplification_factor=3.0):
     # Initialize weights with amplified standard deviation
     nn.init.normal_(layer.weight, mean=0, std=amplified_std)
 
+
 class HiddenLayer(nn.Module):
     """
     A HiddenLayer class for a novel Forward-Forward Recurrent Network, with
@@ -77,7 +78,8 @@ class HiddenLayer(nn.Module):
         self.reset_activations(True)
 
         self.forward_linear = nn.Linear(prev_size, size)
-        nn.init.kaiming_uniform_(self.forward_linear.weight, nonlinearity='relu')
+        nn.init.kaiming_uniform_(
+            self.forward_linear.weight, nonlinearity='relu')
 
         self.backward_linear = nn.Linear(next_size, size)
 

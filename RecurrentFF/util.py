@@ -20,10 +20,12 @@ def standardize_layer_activations(layer_activations, epsilon):
     normalized_activations = layer_activations / l2_norm
     return normalized_activations
 
+
 class TrainInputData:
     """
     input of dims (frames, batch size, input size)
     """
+
     def __init__(self, pos_input, neg_input):
         self.pos_input = pos_input
         self.neg_input = neg_input
@@ -63,6 +65,7 @@ class Activations:
 
     def advance(self):
         self.previous = self.current
+
 
 class ForwardMode(Enum):
     PositiveData = 1
