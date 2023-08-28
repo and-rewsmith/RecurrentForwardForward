@@ -2,14 +2,14 @@
 device = "mps"
 
 [model]
-hidden_sizes = [500, 500, 500]
+hidden_sizes = [500]
 epochs = 30000
 loss_threshold = 1.5
 damping_factor = 0.7
 epsilon = 0.00000001
 skip_profiling = 1
 should_log_metrics = true 
-should_replace_neg_data = false 
+should_replace_neg_data = true 
 ff_activation = "relu"
 ff_optimizer = "rmsprop"
 classifier_optimizer = "adam"

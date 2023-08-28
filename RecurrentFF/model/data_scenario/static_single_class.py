@@ -29,7 +29,8 @@ class SingleStaticClassTestData:
 
 def formulate_incorrect_class(prob_tensor: torch.Tensor,
                               correct_onehot_tensor: torch.Tensor,
-                              settings: Settings) -> torch.Tensor:
+                              settings: Settings,
+                              epoch: int) -> torch.Tensor:
     # Compute the indices of the correct class for each sample
     correct_indices = correct_onehot_tensor.argmax(dim=1)
 
@@ -46,7 +47,7 @@ def formulate_incorrect_class(prob_tensor: torch.Tensor,
     if settings.model.should_log_metrics:
         wandb.log({
             "latent_classifier_acc": percentage_matching
-        })
+        }, step=epoch)
 
     # Extract the probabilities of the correct classes
     correct_probs = prob_tensor.gather(
@@ -124,7 +125,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                 lr=self.settings.model.classifier_adadelta.learning_rate)
 
     def train_class_predictor_from_latents(
-            self, latents: torch.Tensor, labels: torch.Tensor):
+            self, latents: torch.Tensor, labels: torch.Tensor, epoch: int):
         """
         Trains the classification model using the given latent vectors and
         corresponding labels.
@@ -151,7 +152,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
         if self.settings.model.should_log_metrics:
             wandb.log({
                 "latent_classifier_loss": loss
-            })
+            }, step=epoch)
 
         loss.backward()
 
@@ -163,7 +164,8 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
     def replace_negative_data_inplace(
             self,
             input_batch: torch.Tensor,
-            input_labels: TrainLabelData):
+            input_labels: TrainLabelData,
+            epoch: int):
         """
         Replaces the negative labels in the given input labels with incorrect
         class labels, based on the latent representations of the input batch.
@@ -187,7 +189,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
         class_logits = F.linear(latents, self.classification_weights.weight)
         class_probabilities = F.softmax(class_logits, dim=-1)
         negative_labels = formulate_incorrect_class(
-            class_probabilities, input_labels.pos_labels[0], self.settings)
+            class_probabilities, input_labels.pos_labels[0], self.settings, epoch)
 
         frames = input_labels.pos_labels.shape[0]
         negative_labels = negative_labels.unsqueeze(

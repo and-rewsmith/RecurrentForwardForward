@@ -114,8 +114,6 @@ class LayerMetrics:
 
 
 
-
-
 # input of dims (frames, batch size, input size)
 
 class TrainInputData:

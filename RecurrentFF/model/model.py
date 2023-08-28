@@ -139,7 +139,7 @@ class RecurrentFFNet(nn.Module):
 
                 if self.settings.model.should_replace_neg_data:
                     self.processor.replace_negative_data_inplace(
-                        input_data.pos_input, label_data)
+                        input_data.pos_input, label_data, epoch)
 
                 layer_metrics, pos_badness_per_layer, neg_badness_per_layer = self.__train_batch(
                     batch_num, input_data, label_data, epoch)
@@ -192,7 +192,7 @@ class RecurrentFFNet(nn.Module):
                 label_data.neg_labels[iteration])
 
             layer_metrics_ = self.inner_layers.advance_layers_train(
-                input_data_sample, label_data_sample, True, epoch=epoch)
+                input_data_sample, label_data_sample, True, epoch)
             if layer_metrics is None:
                 layer_metrics = layer_metrics_
             else:
@@ -223,7 +223,7 @@ class RecurrentFFNet(nn.Module):
         if self.settings.model.should_replace_neg_data:
             pos_target_latents = pos_target_latents.retrieve()
             self.processor.train_class_predictor_from_latents(
-                pos_target_latents, label_data.pos_labels[0])
+                pos_target_latents, label_data.pos_labels[0], epoch)
 
         pos_badness_per_layer = [
             sum(layer_badnesses) /
@@ -290,4 +290,3 @@ class RecurrentFFNet(nn.Module):
                        "first_layer_neg_badness": first_layer_neg_badness,
                        "epoch": epoch},
                        step=epoch)
-
