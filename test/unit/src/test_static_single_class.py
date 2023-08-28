@@ -9,6 +9,7 @@ from RecurrentFF.settings import Settings
 
 
 TEST_CONFIG_FILE = "./test/config-files/smoke.toml"
+EPOCH = 0
 
 
 class TestFormulateIncorrectClass(unittest.TestCase):
@@ -20,7 +21,7 @@ class TestFormulateIncorrectClass(unittest.TestCase):
         correct_onehot_tensor = torch.tensor([[0, 0, 1], [1, 0, 0]])
 
         result = formulate_incorrect_class(
-            prob_tensor, correct_onehot_tensor, mock_settings)
+            prob_tensor, correct_onehot_tensor, mock_settings, EPOCH)
         self.assertEqual(result.shape, prob_tensor.shape,
                          "The result shape should match the input shape.")
 
@@ -32,7 +33,7 @@ class TestFormulateIncorrectClass(unittest.TestCase):
         correct_onehot_tensor = torch.tensor([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
 
         result = formulate_incorrect_class(
-            prob_tensor, correct_onehot_tensor, mock_settings)
+            prob_tensor, correct_onehot_tensor, mock_settings, EPOCH)
 
         # Check that the result is not the same as the correct_onehot_tensor
         self.assertFalse(
@@ -49,7 +50,7 @@ class TestFormulateIncorrectClass(unittest.TestCase):
         correct_onehot_tensor = torch.tensor([[0, 0, 1], [0, 1, 0]])
 
         result = formulate_incorrect_class(
-            prob_tensor, correct_onehot_tensor, mock_settings)
+            prob_tensor, correct_onehot_tensor, mock_settings, EPOCH)
         correct_indices = correct_onehot_tensor.argmax(dim=1)
         selected_indices = result.argmax(dim=1)
 
@@ -65,7 +66,7 @@ class TestFormulateIncorrectClass(unittest.TestCase):
         correct_onehot_tensor = torch.tensor([[1, 0, 0], [0, 1, 0]])
 
         result = formulate_incorrect_class(
-            prob_tensor, correct_onehot_tensor, mock_settings)
+            prob_tensor, correct_onehot_tensor, mock_settings, EPOCH)
         correct_indices = correct_onehot_tensor.argmax(dim=1)
         selected_indices = result.argmax(dim=1)
         self.assertFalse(torch.any(selected_indices == correct_indices),
