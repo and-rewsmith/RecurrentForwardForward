@@ -1,4 +1,5 @@
 import logging
+import math
 
 import torch
 from torch import nn
@@ -15,6 +16,17 @@ from RecurrentFF.settings import (
     Settings,
 )
 
+
+def amplified_initialization(layer: nn.Linear, amplification_factor=3.0):
+    """Amplified initialization for Linear layers."""
+    # Get the number of input features
+    n = layer.in_features
+    # Compute the standard deviation for He initialization
+    std = (2.0 / n) ** 0.5
+    # Amplify the standard deviation
+    amplified_std = std * amplification_factor
+    # Initialize weights with amplified standard deviation
+    nn.init.normal_(layer.weight, mean=0, std=amplified_std)
 
 class HiddenLayer(nn.Module):
     """
@@ -85,13 +97,19 @@ class HiddenLayer(nn.Module):
         # self.backward_linear.weight.data = self.forward_linear.weight.data.T * .3  # e.g., scaling_factor = 0.9
         # nn.init.sparse_(self.backward_linear.weight, sparsity=0.9)  # 90% of the weights will be set to zero
 
-        nn.init.uniform_(self.backward_linear.weight, -0.05, 0.05)
+        if next_size == self.settings.data_config.num_classes:
+            amplified_initialization(self.backward_linear, 3.0)
+        else:
+            nn.init.uniform_(self.backward_linear.weight, -0.05, 0.05)
 
 
 
         # Initialize the lateral weights to be the identity matrix
         self.lateral_linear = nn.Linear(size, size)
-        nn.init.orthogonal_(self.lateral_linear.weight)
+        if next_size == self.settings.data_config.num_classes:
+            nn.init.orthogonal_(self.lateral_linear.weight, gain=3*math.sqrt(2))
+        else:
+            nn.init.orthogonal_(self.lateral_linear.weight, gain=math.sqrt(2))
 
         self.previous_layer = None
         self.next_layer = None
