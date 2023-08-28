@@ -10,7 +10,6 @@ import torch
 
 import matplotlib
 from matplotlib import pyplot as plt
-matplotlib.use('TkAgg')
 
 
 def set_logging():
