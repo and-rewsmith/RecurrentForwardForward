@@ -110,6 +110,9 @@ class HiddenLayer(nn.Module):
                 self.parameters(),
                 lr=self.settings.model.ff_adadelta.learning_rate)
 
+        self.param_name_dict = {param: name for name,
+                                param in self.named_parameters()}
+
     def _apply(self, fn):
         """
         Override apply, but we don't want to apply to sibling layers as that

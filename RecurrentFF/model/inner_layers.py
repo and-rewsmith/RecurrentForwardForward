@@ -1,4 +1,5 @@
 import logging
+import math
 
 
 from torch import nn
@@ -149,6 +150,10 @@ class LayerMetrics:
 
         self.num_data_points = 0
 
+        self.update_norms = {}
+        self.momentum_norms = {}
+        self.update_angles = {}
+
     def ingest_layer_metrics(self, layer_num: int, layer: HiddenLayer, loss: int):
         pos_activations_norm = torch.norm(layer.pos_activations.current, p=2)
         neg_activations_norm = torch.norm(layer.neg_activations.current, p=2)
@@ -170,6 +175,47 @@ class LayerMetrics:
         self.lateral_weights_norms[layer_num] += lateral_weights_norm
         self.lateral_grads_norms[layer_num] += lateral_grads_norm
         self.losses_per_layer[layer_num] += loss
+
+        for group in layer.optimizer.param_groups:
+            for param in group['params']:
+                if param.grad is not None:
+                    # compute update norm
+                    update = -group['lr'] * param.grad
+                    update_norm = torch.norm(update, p=2)
+                    param_name = layer.param_name_dict[param]
+
+                    if layer_num not in self.update_norms:
+                        self.update_norms[layer_num] = {}
+                    if param_name not in self.update_norms[layer_num]:
+                        self.update_norms[layer_num][param_name] = 0
+
+                    self.update_norms[layer_num][param_name] += update_norm
+
+                    # compute momentum norm
+                    try:
+                        momentum_norm = torch.norm(
+                            layer.optimizer.state[param]['momentum_buffer'])
+                        if layer_num not in self.momentum_norms:
+                            self.momentum_norms[layer_num] = {}
+                        if param_name not in self.momentum_norms[layer_num]:
+                            self.momentum_norms[layer_num][param_name] = 0
+
+                        self.momentum_norms[layer_num][param_name] += momentum_norm
+                    except:
+                        print("----------_FAILED")
+                        input()
+
+                    # compute angle
+                    cosine_similarity = torch.nn.functional.cosine_similarity(
+                        param.grad.view(-1), update.view(-1), dim=0)
+                    angle_in_degrees = torch.acos(
+                        cosine_similarity) * (180 / math.pi)
+                    if layer_num not in self.update_angles:
+                        self.update_angles[layer_num] = {}
+                    if param_name not in self.update_angles[layer_num]:
+                        self.update_angles[layer_num][param_name] = 0
+
+                    self.update_angles[layer_num][param_name] += angle_in_degrees
 
     def increment_samples_seen(self):
         self.num_data_points += 1
@@ -221,3 +267,21 @@ class LayerMetrics:
             metric_name = "loss (layer " + str(layer_num) + ")"
             wandb.log(
                 {metric_name: self.losses_per_layer[i] / self.num_data_points}, step=epoch)
+
+        for _layer in self.update_norms:
+            for param_name in self.update_norms[_layer]:
+                metric_name = f"{param_name} norm (layer {str(_layer)})"
+                wandb.log(
+                    {metric_name: self.update_norms[_layer][param_name] / self.num_data_points}, step=epoch)
+
+        for _layer in self.momentum_norms:
+            for param_name in self.momentum_norms[_layer]:
+                metric_name = f"{param_name} momentum (layer {str(_layer)})"
+                wandb.log(
+                    {metric_name: self.momentum_norms[_layer][param_name] / self.num_data_points}, step=epoch)
+
+        for _layer in self.update_angles:
+            for param_name in self.update_angles[_layer]:
+                metric_name = f"{param_name} update angle (layer {str(_layer)})"
+                wandb.log(
+                    {metric_name: self.update_angles[_layer][param_name] / self.num_data_points}, step=epoch)
