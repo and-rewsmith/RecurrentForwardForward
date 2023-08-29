@@ -1,8 +1,8 @@
 [device]
-device = "cuda"
+device = "mps"
 
 [model]
-hidden_sizes = [2000, 2000, 2000]
+hidden_sizes = [500, 500, 500]
 epochs = 30000
 loss_threshold = 1.5
 damping_factor = 0.7
@@ -17,7 +17,7 @@ interconnect_density = 1
 
 [model.ff_rmsprop]
 momentum = 0.4
-learning_rate = 0.000005
+learning_rate = 0.00005
 
 [model.classifier_rmsprop]
 momentum = 0
