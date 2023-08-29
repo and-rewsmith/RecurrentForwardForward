@@ -208,8 +208,13 @@ class LayerMetrics:
                     # compute angle
                     cosine_similarity = torch.nn.functional.cosine_similarity(
                         param.grad.view(-1), update.view(-1), dim=0)
+                    cosine_similarity = torch.clamp(cosine_similarity, -1, 1)
                     angle_in_degrees = torch.acos(
                         cosine_similarity) * (180 / math.pi)
+                    if torch.isnan(angle_in_degrees):
+                        print("---------cosine_similarity")
+                        print(param.grad.view(-1))
+                        print(update.view(-1))
                     if layer_num not in self.update_angles:
                         self.update_angles[layer_num] = {}
                     if param_name not in self.update_angles[layer_num]:
