@@ -201,9 +201,9 @@ class LayerMetrics:
                             self.momentum_norms[layer_num][param_name] = 0
 
                         self.momentum_norms[layer_num][param_name] += momentum_norm
-                    except:
-                        print("----------_FAILED")
-                        input()
+                    except KeyError:
+                        logging.debug(
+                            "No momentum buffer for param. Assume using non-momentum optimizer.")
 
                     # compute angle
                     cosine_similarity = torch.nn.functional.cosine_similarity(
