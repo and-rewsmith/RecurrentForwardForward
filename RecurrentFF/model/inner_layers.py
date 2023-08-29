@@ -270,7 +270,7 @@ class LayerMetrics:
 
         for _layer in self.update_norms:
             for param_name in self.update_norms[_layer]:
-                metric_name = f"{param_name} norm (layer {str(_layer)})"
+                metric_name = f"{param_name} update norm (layer {str(_layer)})"
                 wandb.log(
                     {metric_name: self.update_norms[_layer][param_name] / self.num_data_points}, step=epoch)
 
