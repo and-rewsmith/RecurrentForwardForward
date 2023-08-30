@@ -8,7 +8,6 @@ loss_threshold = 1.5
 damping_factor = 0.7
 epsilon = 0.00000001
 skip_profiling = 1
-should_log_metrics = true 
 should_replace_neg_data = false
 ff_activation = "relu"
 ff_optimizer = "rmsprop"

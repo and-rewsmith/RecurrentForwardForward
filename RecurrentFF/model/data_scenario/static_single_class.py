@@ -44,10 +44,9 @@ def formulate_incorrect_class(prob_tensor: torch.Tensor,
     logging.info(
         f"Latent classifier accuracy: {percentage_matching}%")
 
-    if settings.model.should_log_metrics:
-        wandb.log({
-            "latent_classifier_acc": percentage_matching
-        }, step=epoch)
+    wandb.log({
+        "latent_classifier_acc": percentage_matching
+    }, step=epoch)
 
     # Extract the probabilities of the correct classes
     correct_probs = prob_tensor.gather(
@@ -149,10 +148,9 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
         loss = F.cross_entropy(
             class_logits, labels)
 
-        if self.settings.model.should_log_metrics:
-            wandb.log({
-                "latent_classifier_loss": loss
-            }, step=epoch)
+        wandb.log({
+            "latent_classifier_loss": loss
+        }, step=epoch)
 
         loss.backward()
 

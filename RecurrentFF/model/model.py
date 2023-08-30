@@ -146,18 +146,21 @@ class RecurrentFFNet(nn.Module):
                 layer_metrics, pos_badness_per_layer, neg_badness_per_layer = self.__train_batch(
                     batch_num, input_data, label_data, epoch)
 
+                self.__log_batch_metrics(
+                    layer_metrics,
+                    pos_badness_per_layer,
+                    neg_badness_per_layer,
+                    epoch)
+
             # TODO: make train batches equal to however much a single test batch is w.r.t. total samples
             train_accuracy = self.processor.brute_force_predict(
                 ValidationLoader(train_loader), 10, False)
             test_accuracy = self.processor.brute_force_predict(
                 test_loader, 1, True)
 
-            self.__log_metrics(
+            self.__log_epoch_metrics(
                 train_accuracy,
                 test_accuracy,
-                layer_metrics,
-                pos_badness_per_layer,
-                neg_badness_per_layer,
                 epoch)
 
     def __train_batch(self, batch_num, input_data, label_data, epoch):
@@ -235,10 +238,12 @@ class RecurrentFFNet(nn.Module):
 
         return layer_metrics, pos_badness_per_layer, neg_badness_per_layer
 
-    def __log_metrics(
+    def __log_epoch_metrics(self, train_accuracy, test_accuracy, epoch):
+        wandb.log({"train_acc": train_accuracy,
+                  "test_acc": test_accuracy}, step=epoch)
+
+    def __log_batch_metrics(
             self,
-            train_accuracy,
-            test_accuracy,
             layer_metrics: LayerMetrics,
             pos_badness_per_layer,
             neg_badness_per_layer,
@@ -259,9 +264,7 @@ class RecurrentFFNet(nn.Module):
         average_layer_loss = layer_metrics.average_layer_loss()
 
         if len(self.inner_layers) >= 3:
-            wandb.log({"train_acc": train_accuracy,
-                       "test_acc": test_accuracy,
-                       "loss": average_layer_loss,
+            wandb.log({"loss": average_layer_loss,
                        "first_layer_pos_badness": first_layer_pos_badness,
                        "second_layer_pos_badness": second_layer_pos_badness,
                        "third_layer_pos_badness": third_layer_pos_badness,
@@ -271,21 +274,19 @@ class RecurrentFFNet(nn.Module):
                        "epoch": epoch},
                       step=epoch)
         elif len(self.inner_layers) == 2:
-            wandb.log({"train_acc": train_accuracy,
-                       "test_acc": test_accuracy,
-                       "loss": average_layer_loss,
-                       "first_layer_pos_badness": first_layer_pos_badness,
-                       "second_layer_pos_badness": second_layer_pos_badness,
-                       "first_layer_neg_badness": first_layer_neg_badness,
-                       "second_layer_neg_badness": second_layer_neg_badness,
-                       "epoch": epoch},
-                      step=epoch)
+            wandb.log({
+                "loss": average_layer_loss,
+                "first_layer_pos_badness": first_layer_pos_badness,
+                "second_layer_pos_badness": second_layer_pos_badness,
+                "first_layer_neg_badness": first_layer_neg_badness,
+                "second_layer_neg_badness": second_layer_neg_badness,
+                "epoch": epoch},
+                step=epoch)
 
         elif len(self.inner_layers) == 1:
-            wandb.log({"train_acc": train_accuracy,
-                       "test_acc": test_accuracy,
-                       "loss": average_layer_loss,
-                       "first_layer_pos_badness": first_layer_pos_badness,
-                       "first_layer_neg_badness": first_layer_neg_badness,
-                       "epoch": epoch},
-                      step=epoch)
+            wandb.log({
+                "loss": average_layer_loss,
+                "first_layer_pos_badness": first_layer_pos_badness,
+                "first_layer_neg_badness": first_layer_neg_badness,
+                "epoch": epoch},
+                step=epoch)

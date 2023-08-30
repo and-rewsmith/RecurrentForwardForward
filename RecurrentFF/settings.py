@@ -48,7 +48,6 @@ class Model(BaseModel):
     damping_factor: float
     epsilon: float
     skip_profiling: bool
-    should_log_metrics: bool
     should_replace_neg_data: bool
     interconnect_density: float
 
