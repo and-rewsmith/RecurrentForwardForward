@@ -132,6 +132,7 @@ class RecurrentFFNet(nn.Module):
             layer's activations into a 'badness' score. This function operates on the RecurrentFFNet model level
             and is called during the training process.
         """
+        total_batch_count = 0
         for epoch in range(0, self.settings.model.epochs):
             logging.info("Epoch: " + str(epoch))
 
@@ -150,7 +151,9 @@ class RecurrentFFNet(nn.Module):
                     layer_metrics,
                     pos_badness_per_layer,
                     neg_badness_per_layer,
-                    epoch)
+                    total_batch_count)
+
+                total_batch_count += 1
 
             # TODO: make train batches equal to however much a single test batch is w.r.t. total samples
             train_accuracy = self.processor.brute_force_predict(
@@ -247,7 +250,7 @@ class RecurrentFFNet(nn.Module):
             layer_metrics: LayerMetrics,
             pos_badness_per_layer,
             neg_badness_per_layer,
-            epoch):
+            total_batch_count):
         # Supports wandb tracking of max 3 layer badnesses
         try:
             first_layer_pos_badness = pos_badness_per_layer[0]
@@ -260,7 +263,7 @@ class RecurrentFFNet(nn.Module):
             # No-op as there may not be 3 layers
             pass
 
-        layer_metrics.log_metrics(epoch)
+        layer_metrics.log_metrics(total_batch_count)
         average_layer_loss = layer_metrics.average_layer_loss()
 
         if len(self.inner_layers) >= 3:
@@ -271,8 +274,8 @@ class RecurrentFFNet(nn.Module):
                        "first_layer_neg_badness": first_layer_neg_badness,
                        "second_layer_neg_badness": second_layer_neg_badness,
                        "third_layer_neg_badness": third_layer_neg_badness,
-                       "epoch": epoch},
-                      step=epoch)
+                       "batch": total_batch_count},
+                      step=total_batch_count)
         elif len(self.inner_layers) == 2:
             wandb.log({
                 "loss": average_layer_loss,
@@ -280,13 +283,13 @@ class RecurrentFFNet(nn.Module):
                 "second_layer_pos_badness": second_layer_pos_badness,
                 "first_layer_neg_badness": first_layer_neg_badness,
                 "second_layer_neg_badness": second_layer_neg_badness,
-                "epoch": epoch},
-                step=epoch)
+                "batch": total_batch_count},
+                step=total_batch_count)
 
         elif len(self.inner_layers) == 1:
             wandb.log({
                 "loss": average_layer_loss,
                 "first_layer_pos_badness": first_layer_pos_badness,
                 "first_layer_neg_badness": first_layer_neg_badness,
-                "epoch": epoch},
-                step=epoch)
+                "batch": total_batch_count},
+                step=total_batch_count)
