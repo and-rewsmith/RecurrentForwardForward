@@ -243,7 +243,8 @@ class RecurrentFFNet(nn.Module):
 
     def __log_epoch_metrics(self, train_accuracy, test_accuracy, epoch):
         wandb.log({"train_acc": train_accuracy,
-                  "test_acc": test_accuracy}, step=epoch)
+                   "test_acc": test_accuracy,
+                   "epoch": epoch}, step=epoch)
 
     def __log_batch_metrics(
             self,
