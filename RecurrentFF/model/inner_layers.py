@@ -274,16 +274,22 @@ class LayerMetrics:
             for param_name in self.update_norms[layer_index]:
                 metric_name = f"{param_name} update norm (layer {str(layer_index_display)})"
                 wandb.log(
-                    {metric_name: self.update_norms[layer_index][param_name] / self.num_data_points}, step=total_batch_count)
+                    {metric_name: self.update_norms[layer_index]
+                        [param_name] / self.num_data_points},
+                    step=total_batch_count)
 
         for layer_index in self.momentum_norms:
             for param_name in self.momentum_norms[layer_index]:
                 metric_name = f"{param_name} momentum (layer {str(layer_index_display)})"
                 wandb.log(
-                    {metric_name: self.momentum_norms[layer_index][param_name] / self.num_data_points}, step=total_batch_count)
+                    {metric_name: self.momentum_norms[layer_index]
+                        [param_name] / self.num_data_points},
+                    step=total_batch_count)
 
         for layer_index in self.update_angles:
             for param_name in self.update_angles[layer_index]:
                 metric_name = f"{param_name} update angle (layer {str(layer_index_display)})"
                 wandb.log(
-                    {metric_name: self.update_angles[layer_index][param_name] / self.num_data_points}, step=total_batch_count)
+                    {metric_name: self.update_angles[layer_index]
+                        [param_name] / self.num_data_points},
+                    step=total_batch_count)
