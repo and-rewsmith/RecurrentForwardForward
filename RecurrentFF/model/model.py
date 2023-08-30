@@ -142,10 +142,10 @@ class RecurrentFFNet(nn.Module):
 
                 if self.settings.model.should_replace_neg_data:
                     self.processor.replace_negative_data_inplace(
-                        input_data.pos_input, label_data, epoch)
+                        input_data.pos_input, label_data, total_batch_count)
 
                 layer_metrics, pos_badness_per_layer, neg_badness_per_layer = self.__train_batch(
-                    batch_num, input_data, label_data, epoch)
+                    batch_num, input_data, label_data, total_batch_count)
 
                 if self.settings.model.should_log_batch_metrics:
                     self.__log_batch_metrics(
@@ -166,9 +166,11 @@ class RecurrentFFNet(nn.Module):
                 self.__log_epoch_metrics(
                     train_accuracy,
                     test_accuracy,
-                    epoch)
+                    epoch,
+                    total_batch_count
+                )
 
-    def __train_batch(self, batch_num, input_data, label_data, epoch):
+    def __train_batch(self, batch_num, input_data, label_data, total_batch_count):
         logging.info("Batch: " + str(batch_num))
 
         self.inner_layers.reset_activations(True)
@@ -228,7 +230,7 @@ class RecurrentFFNet(nn.Module):
         if self.settings.model.should_replace_neg_data:
             pos_target_latents = pos_target_latents.retrieve()
             self.processor.train_class_predictor_from_latents(
-                pos_target_latents, label_data.pos_labels[0], epoch)
+                pos_target_latents, label_data.pos_labels[0], total_batch_count)
 
         pos_badness_per_layer = [
             sum(layer_badnesses) /
@@ -243,10 +245,10 @@ class RecurrentFFNet(nn.Module):
 
         return layer_metrics, pos_badness_per_layer, neg_badness_per_layer
 
-    def __log_epoch_metrics(self, train_accuracy, test_accuracy, epoch):
+    def __log_epoch_metrics(self, train_accuracy, test_accuracy, epoch, total_batch_count):
         wandb.log({"train_acc": train_accuracy,
                    "test_acc": test_accuracy,
-                   "epoch": epoch}, step=epoch)
+                   "epoch": epoch}, step=total_batch_count)
 
     def __log_batch_metrics(
             self,
