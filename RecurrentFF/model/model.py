@@ -147,7 +147,7 @@ class RecurrentFFNet(nn.Module):
                 layer_metrics, pos_badness_per_layer, neg_badness_per_layer = self.__train_batch(
                     batch_num, input_data, label_data, total_batch_count)
 
-                if self.settings.model.should_log_batch_metrics:
+                if self.settings.model.should_log_metrics:
                     self.__log_batch_metrics(
                         layer_metrics,
                         pos_badness_per_layer,
@@ -162,7 +162,7 @@ class RecurrentFFNet(nn.Module):
             test_accuracy = self.processor.brute_force_predict(
                 test_loader, 1, True)
 
-            if self.settings.model.should_log_epoch_metrics:
+            if self.settings.model.should_log_metrics:
                 self.__log_epoch_metrics(
                     train_accuracy,
                     test_accuracy,
