@@ -3,7 +3,7 @@ import math
 import torch
 from torch import nn
 from torch.nn import functional as F
-from torch.optim import RMSprop, Adam, Adadelta
+from torch.optim import RMSprop, Adam, Adadelta, SGD
 
 from RecurrentFF.util import (
     Activations,
@@ -95,8 +95,6 @@ class HiddenLayer(nn.Module):
         self.previous_layer = None
         self.next_layer = None
 
-        self.prelu = torch.nn.PReLU()
-
         if self.settings.model.ff_optimizer == "adam":
             self.optimizer = Adam(self.parameters(),
                                   lr=self.settings.model.ff_adam.learning_rate)
@@ -105,6 +103,8 @@ class HiddenLayer(nn.Module):
                 self.parameters(),
                 lr=self.settings.model.ff_rmsprop.learning_rate,
                 momentum=self.settings.model.ff_rmsprop.momentum)
+            # self.optimizer = SGD(
+            #     self.parameters(), lr=self.settings.model.ff_rmsprop.learning_rate)
         elif self.settings.model.ff_optimizer == "adadelta":
             self.optimizer = Adadelta(
                 self.parameters(),

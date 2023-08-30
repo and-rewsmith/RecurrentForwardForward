@@ -14,6 +14,7 @@ from RecurrentFF.model.inner_layers import InnerLayers, LayerMetrics
 from RecurrentFF.util import (
     ForwardMode,
     LatentAverager,
+    ValidationLoader,
     layer_activations_to_badness,
 )
 from RecurrentFF.settings import (
@@ -145,13 +146,14 @@ class RecurrentFFNet(nn.Module):
                 layer_metrics, pos_badness_per_layer, neg_badness_per_layer = self.__train_batch(
                     batch_num, input_data, label_data, epoch)
 
-            validation_accuracy = self.processor.brute_force_predict(
-                train_loader, 1)
+            # TODO: make train batches equal to however much a single test batch is w.r.t. total samples
+            train_accuracy = self.processor.brute_force_predict(
+                ValidationLoader(train_loader), 10, False)
             test_accuracy = self.processor.brute_force_predict(
-                test_loader, 1)
+                test_loader, 1, True)
 
             self.__log_metrics(
-                validation_accuracy,
+                train_accuracy,
                 test_accuracy,
                 layer_metrics,
                 pos_badness_per_layer,
@@ -166,7 +168,6 @@ class RecurrentFFNet(nn.Module):
         for preinit_step in range(0, len(self.inner_layers)):
             logging.debug("Preinitialization step: " +
                           str(preinit_step))
-            # print("------preinit step: " + str(preinit_step) + "------")
 
             pos_input = input_data.pos_input[0]
             neg_input = input_data.neg_input[0]
@@ -236,7 +237,7 @@ class RecurrentFFNet(nn.Module):
 
     def __log_metrics(
             self,
-            validation_accuracy,
+            train_accuracy,
             test_accuracy,
             layer_metrics: LayerMetrics,
             pos_badness_per_layer,
@@ -258,7 +259,7 @@ class RecurrentFFNet(nn.Module):
         average_layer_loss = layer_metrics.average_layer_loss()
 
         if len(self.inner_layers) >= 3:
-            wandb.log({"validation_acc": validation_accuracy,
+            wandb.log({"train_acc": train_accuracy,
                        "test_acc": test_accuracy,
                        "loss": average_layer_loss,
                        "first_layer_pos_badness": first_layer_pos_badness,
@@ -270,7 +271,7 @@ class RecurrentFFNet(nn.Module):
                        "epoch": epoch},
                       step=epoch)
         elif len(self.inner_layers) == 2:
-            wandb.log({"validation_acc": validation_accuracy,
+            wandb.log({"train_acc": train_accuracy,
                        "test_acc": test_accuracy,
                        "loss": average_layer_loss,
                        "first_layer_pos_badness": first_layer_pos_badness,
@@ -281,7 +282,7 @@ class RecurrentFFNet(nn.Module):
                       step=epoch)
 
         elif len(self.inner_layers) == 1:
-            wandb.log({"validation_acc": validation_accuracy,
+            wandb.log({"train_acc": train_accuracy,
                        "test_acc": test_accuracy,
                        "loss": average_layer_loss,
                        "first_layer_pos_badness": first_layer_pos_badness,

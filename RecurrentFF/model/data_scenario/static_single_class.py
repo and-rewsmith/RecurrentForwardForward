@@ -197,7 +197,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
         input_labels.neg_labels = negative_labels.repeat(
             frames, 1, 1)  # Repeat along the new dimension
 
-    def brute_force_predict(self, test_loader, limit_batches=None):
+    def brute_force_predict(self, loader, limit_batches=None, isTestSet=False):
         """
         This function predicts the class labels for the provided test data using
         the trained RecurrentFFNet model. It does so by enumerating all possible
@@ -232,7 +232,9 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
             predictions by comparing them to the actual labels and returns this
             accuracy.
         """
-        for batch, test_data in enumerate(test_loader):
+        forward_mode = ForwardMode.PredictData if isTestSet else ForwardMode.PositiveData
+
+        for batch, test_data in enumerate(loader):
             if limit_batches is not None and batch == limit_batches:
                 break
 
@@ -244,20 +246,23 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                 data = data.to(self.settings.device.device)
                 labels = labels.to(self.settings.device.device)
 
+                # since this is static singleclass we can use the first frame for the label
+                labels = labels[0]
+
                 iterations = data.shape[0]
 
                 all_labels_badness = []
 
                 # evaluate badness for each possible label
                 for label in range(self.settings.data_config.num_classes):
-                    self.inner_layers.reset_activations(False)
+                    self.inner_layers.reset_activations(not isTestSet)
 
                     upper_clamped_tensor = self.get_preinit_upper_clamped_tensor(
                         (data.shape[1], self.settings.data_config.num_classes))
 
                     for _preinit_iteration in range(0, len(self.inner_layers)):
                         self.inner_layers.advance_layers_forward(
-                            ForwardMode.PredictData, data[0], upper_clamped_tensor, False)
+                            forward_mode, data[0], upper_clamped_tensor, False)
 
                     one_hot_labels = torch.zeros(
                         data.shape[1],
@@ -272,14 +277,16 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                     badnesses = []
                     for iteration in range(0, iterations):
                         self.inner_layers.advance_layers_forward(
-                            ForwardMode.PredictData, data[iteration], one_hot_labels, True)
+                            forward_mode, data[iteration], one_hot_labels, True)
 
                         if iteration >= lower_iteration_threshold and iteration <= upper_iteration_threshold:
                             layer_badnesses = []
                             for i, layer in enumerate(self.inner_layers):
+                                activations = layer.pos_activations.current if forward_mode == ForwardMode.PositiveData else layer.predict_activations.current
+
                                 layer_badnesses.append(
                                     layer_activations_to_badness(
-                                        layer.predict_activations.current))
+                                        activations))
 
                             badnesses.append(torch.stack(
                                 layer_badnesses, dim=1))
@@ -299,6 +306,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
 
                 # select the label with the maximum badness
                 predicted_labels = torch.argmin(all_labels_badness, dim=1)
+
                 logging.debug("Predicted labels: " + str(predicted_labels))
                 logging.debug("Actual labels: " + str(labels))
 
@@ -311,7 +319,11 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
         total_submissions = sum(
             total for _correct, total in accuracy_contexts)
         accuracy = total_correct / total_submissions * 100 if total_submissions else 0
-        logging.info(f'Test accuracy: {accuracy}%')
+
+        if isTestSet:
+            logging.info(f'Test accuracy: {accuracy}%')
+        else:
+            logging.info(f'Train accuracy: {accuracy}%')
 
         return accuracy
 

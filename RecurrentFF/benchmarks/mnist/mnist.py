@@ -12,7 +12,7 @@ from RecurrentFF.settings import Settings, DataConfig
 DATA_SIZE = 784
 NUM_CLASSES = 10
 TRAIN_BATCH_SIZE = 500
-TEST_BATCH_SIZE = 5000
+TEST_BATCH_SIZE = 10000
 ITERATIONS = 10
 
 
@@ -146,6 +146,7 @@ def test_collate_fn(batch):
 
     # 3. Repeat along a new dimension for ITERATIONS times
     data = data.unsqueeze(0).repeat(ITERATIONS, 1, 1)
+    labels = labels.unsqueeze(0).repeat(ITERATIONS, 1)
 
     # 4. Return as a custom object
     return SingleStaticClassTestData(data, labels)

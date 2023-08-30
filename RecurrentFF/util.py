@@ -21,6 +21,18 @@ def standardize_layer_activations(layer_activations, epsilon):
     return normalized_activations
 
 
+class ValidationLoader:
+    def __init__(self, train_loader):
+        self.train_loader = train_loader
+
+    def __iter__(self):
+        for input_data, label_data in self.train_loader:
+            pos_input = input_data.pos_input
+            pos_labels = label_data.pos_labels
+            pos_labels = pos_labels.argmax(dim=2)
+            yield pos_input, pos_labels
+
+
 class TrainInputData:
     """
     input of dims (frames, batch size, input size)
