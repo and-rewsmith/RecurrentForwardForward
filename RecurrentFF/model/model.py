@@ -12,6 +12,7 @@ from RecurrentFF.model.data_scenario.static_single_class import (
 from RecurrentFF.model.hidden_layer import HiddenLayer
 from RecurrentFF.model.inner_layers import InnerLayers, LayerMetrics
 from RecurrentFF.util import (
+    WEIGHTS_PATH,
     ForwardMode,
     LatentAverager,
     ValidationLoader,
@@ -133,6 +134,7 @@ class RecurrentFFNet(nn.Module):
             and is called during the training process.
         """
         total_batch_count = 0
+        best_test_accuracy = 0
         for epoch in range(0, self.settings.model.epochs):
             logging.info("Epoch: " + str(epoch))
 
@@ -161,6 +163,10 @@ class RecurrentFFNet(nn.Module):
                 ValidationLoader(train_loader), 10, False)
             test_accuracy = self.processor.brute_force_predict(
                 test_loader, 1, True)
+
+            if test_accuracy > best_test_accuracy:
+                best_test_accuracy = test_accuracy
+                torch.save(self.state_dict(), WEIGHTS_PATH)
 
             if self.settings.model.should_log_metrics:
                 self.__log_epoch_metrics(

@@ -5,12 +5,13 @@ loss_threshold = 1
 damping_factor = 0.7
 epsilon = 0.00000001
 skip_profiling = 1
-should_log_metrics = false 
-should_replace_neg_data = true
 ff_activation = "relu"
 ff_optimizer = "rmsprop"
 classifier_optimizer = "rmsprop"
 interconnect_density = 1
+should_load_weights = false
+should_log_metrics = false 
+should_replace_neg_data = false 
 
 [model.ff_rmsprop]
 momentum = 0.25

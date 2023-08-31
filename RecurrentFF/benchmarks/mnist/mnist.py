@@ -5,14 +5,14 @@ from torchvision.transforms import Compose, ToTensor, Normalize, Lambda
 import wandb
 
 from RecurrentFF.model.data_scenario.static_single_class import SingleStaticClassTestData
-from RecurrentFF.util import TrainInputData, TrainLabelData, set_logging
+from RecurrentFF.util import WEIGHTS_PATH, TrainInputData, TrainLabelData, set_logging
 from RecurrentFF.model.model import RecurrentFFNet
 from RecurrentFF.settings import Settings, DataConfig
 
 DATA_SIZE = 784
 NUM_CLASSES = 10
-TRAIN_BATCH_SIZE = 500
-TEST_BATCH_SIZE = 10000
+TRAIN_BATCH_SIZE = 10000
+TEST_BATCH_SIZE = 5000
 ITERATIONS = 10
 
 
@@ -230,5 +230,8 @@ if __name__ == "__main__":
 
     # Create and run model.
     model = RecurrentFFNet(settings).to(settings.device.device)
+
+    if settings.model.should_load_weights:
+        model.load_state_dict(torch.load(WEIGHTS_PATH))
 
     model.train(train_loader, test_loader)

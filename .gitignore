@@ -11,3 +11,4 @@ frame.png
 *.prof
 logs.txt
 sequences
+*.pth
