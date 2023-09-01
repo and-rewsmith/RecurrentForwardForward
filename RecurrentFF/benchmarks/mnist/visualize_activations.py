@@ -3,6 +3,8 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 
+BASE_PATH = "./img/activation_heatmaps"
+
 tensors = torch.load('test_sample_1.pt')
 
 scenario = "correct_activations"
@@ -23,4 +25,4 @@ for t in range(timesteps):
     axes[t].set_ylabel('Layer', fontsize=12)
 
 plt.tight_layout()
-plt.savefig(f"{scenario}.png", dpi=300)
+plt.savefig(f"{BASE_PATH}/{scenario}.png", dpi=300)
