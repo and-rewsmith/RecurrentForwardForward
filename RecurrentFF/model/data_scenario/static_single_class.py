@@ -1,6 +1,5 @@
 import logging
 
-import pandas as pd
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -54,10 +53,6 @@ class StaticSingleClassActivityTracker():
         self.activations.append(torch.stack(self.partial_activations))
         self.partial_activations = []
 
-    # write to dataframe:
-    # - data
-    # - labels
-    # - activations:
     def filter_and_persist(self, predicted_labels, anti_predictions, actual_labels):
         if predicted_labels == actual_labels:
             predicted_labels_index = predicted_labels.item()
@@ -66,11 +61,11 @@ class StaticSingleClassActivityTracker():
             correct_activations = self.activations[predicted_labels_index]
             incorrect_activations = self.activations[anti_prediction_index]
 
-            print(f"Correct activations: {correct_activations.shape}")
-            print(f"Incorrect activations: {incorrect_activations.shape}")
-            print(f"Data: {self.data.shape}")
-            print(f"Labels: {self.labels.shape}")
-            input()
+            logging.debug(f"Correct activations: {correct_activations.shape}")
+            logging.debug(
+                f"Incorrect activations: {incorrect_activations.shape}")
+            logging.debug(f"Data: {self.data.shape}")
+            logging.debug(f"Labels: {self.labels.shape}")
 
             torch.save({
                 "correct_activations": correct_activations,
