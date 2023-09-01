@@ -13,7 +13,7 @@ ff_optimizer = "rmsprop"
 classifier_optimizer = "adam"
 interconnect_density = 1
 should_log_metrics = true 
-should_replace_neg_data = true
+should_replace_neg_data = false
 should_load_weights = false
 
 [model.ff_rmsprop]
