@@ -5,6 +5,7 @@ import torch
 from torch import nn
 import wandb
 from profilehooks import profile
+from RecurrentFF.model.data_scenario.processor import DataScenario
 
 from RecurrentFF.model.data_scenario.static_single_class import (
     StaticSingleClassProcessor,
@@ -103,6 +104,11 @@ class RecurrentFFNet(nn.Module):
             self.inner_layers, self.settings)
 
         logging.info("Finished initializing network")
+
+    def predict(self, data_scenario: DataScenario, data_loader, num_batches: int, write_activations=False):
+        if data_scenario == DataScenario.StaticSingleClass:
+            self.processor.brute_force_predict(
+                data_loader, num_batches, True, write_activations=True)
 
     @profile(stdout=False, filename='baseline.prof',
              skip=Settings.new().model.skip_profiling)

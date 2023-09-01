@@ -1,5 +1,6 @@
 import logging
 
+import pandas as pd
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -25,6 +26,65 @@ class SingleStaticClassTestData:
     def __iter__(self):
         yield self.input
         yield self.labels
+
+
+class StaticSingleClassActivityTracker():
+
+    def __init__(self):
+        self.data = None
+        self.labels = None
+        self.activations = []
+        self.partial_activations = []
+        self.tracked_samples = 0
+
+    def reinitialize(self, data, labels):
+        self.data = data[0][0]  # first batch, first timestep
+        self.labels = labels.squeeze(1)
+        self.activations = []
+        self.partial_activations = []
+        self.tracked_samples += 1
+
+    def track_partial_activations(self, layers: InnerLayers):
+        build = []
+        for layer in layers:
+            build.append(layer.predict_activations.current)
+        self.partial_activations.append(torch.stack(build).squeeze(1))
+
+    def cut_activations(self):
+        self.activations.append(torch.stack(self.partial_activations))
+        self.partial_activations = []
+
+    # write to dataframe:
+    # - data
+    # - labels
+    # - activations:
+    def filter_and_persist(self, predicted_labels, anti_predictions, actual_labels):
+        if predicted_labels == actual_labels:
+            predicted_labels_index = predicted_labels.item()
+            anti_prediction_index = anti_predictions.item()
+
+            correct_activations = self.activations[predicted_labels_index]
+            incorrect_activations = self.activations[anti_prediction_index]
+
+            print(f"Correct activations: {correct_activations.shape}")
+            print(f"Incorrect activations: {incorrect_activations.shape}")
+            print(f"Data: {self.data.shape}")
+            print(f"Labels: {self.labels.shape}")
+            input()
+
+            torch.save({
+                "correct_activations": correct_activations,
+                "incorrect_activations": incorrect_activations,
+                "data": self.data,
+                "labels": self.labels
+            },
+                f"test_sample_{self.tracked_samples}.pt")
+
+        else:
+            self.activations = []
+            self.partial_activations = []
+            self.data = None
+            self.labels = None
 
 
 def formulate_incorrect_class(prob_tensor: torch.Tensor,
@@ -197,7 +257,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
         input_labels.neg_labels = negative_labels.repeat(
             frames, 1, 1)  # Repeat along the new dimension
 
-    def brute_force_predict(self, loader, limit_batches=None, isTestSet=False):
+    def brute_force_predict(self, loader, limit_batches=None, isTestSet=False, write_activations=False):
         """
         This function predicts the class labels for the provided test data using
         the trained RecurrentFFNet model. It does so by enumerating all possible
@@ -232,6 +292,10 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
             predictions by comparing them to the actual labels and returns this
             accuracy.
         """
+        if write_activations:
+            assert self.settings.data_config.test_batch_size == 1 and isTestSet, "Cannot write activations for batch size > 1"
+            activity_tracker = StaticSingleClassActivityTracker()
+
         forward_mode = ForwardMode.PredictData if isTestSet else ForwardMode.PositiveData
 
         for batch, test_data in enumerate(loader):
@@ -245,6 +309,9 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                 data, labels = test_data
                 data = data.to(self.settings.device.device)
                 labels = labels.to(self.settings.device.device)
+
+                if write_activations:
+                    activity_tracker.reinitialize(data, labels)
 
                 # since this is static singleclass we can use the first frame for the label
                 labels = labels[0]
@@ -263,6 +330,9 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                     for _preinit_iteration in range(0, len(self.inner_layers)):
                         self.inner_layers.advance_layers_forward(
                             forward_mode, data[0], upper_clamped_tensor, False)
+                        if write_activations:
+                            activity_tracker.track_partial_activations(
+                                self.inner_layers)
 
                     one_hot_labels = torch.zeros(
                         data.shape[1],
@@ -278,6 +348,9 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                     for iteration in range(0, iterations):
                         self.inner_layers.advance_layers_forward(
                             forward_mode, data[iteration], one_hot_labels, True)
+                        if write_activations:
+                            activity_tracker.track_partial_activations(
+                                self.inner_layers)
 
                         if iteration >= lower_iteration_threshold and iteration <= upper_iteration_threshold:
                             layer_badnesses = []
@@ -292,6 +365,9 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
 
                             badnesses.append(torch.stack(
                                 layer_badnesses, dim=1))
+
+                    if write_activations:
+                        activity_tracker.cut_activations()
 
                     # tensor of shape (batch_size, iterations, num_layers)
                     badnesses = torch.stack(badnesses, dim=1)
@@ -308,6 +384,11 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
 
                 # select the label with the maximum badness
                 predicted_labels = torch.argmin(all_labels_badness, dim=1)
+                if write_activations:
+                    anti_predictions = torch.argmax(
+                        all_labels_badness, dim=1)
+                    activity_tracker.filter_and_persist(
+                        predicted_labels, anti_predictions, labels)
 
                 logging.debug("Predicted labels: " + str(predicted_labels))
                 logging.debug("Actual labels: " + str(labels))

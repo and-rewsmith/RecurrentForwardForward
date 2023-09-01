@@ -1,9 +1,14 @@
 from abc import ABCMeta, abstractmethod
+from enum import Enum
 
 import torch
 from RecurrentFF.settings import Settings
 
 from RecurrentFF.util import TrainLabelData
+
+
+class DataScenario(Enum):
+    StaticSingleClass = 1
 
 
 class DataScenarioProcessor(metaclass=ABCMeta):

@@ -12,3 +12,4 @@ frame.png
 logs.txt
 sequences
 *.pth
+*.pt
