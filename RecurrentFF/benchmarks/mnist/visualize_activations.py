@@ -15,7 +15,10 @@ timesteps = loaded.shape[0]
 fig, axes = plt.subplots(timesteps, 1, figsize=(10, 5 * timesteps))
 
 for t in range(timesteps):
-    df = pd.DataFrame(loaded[t].cpu().numpy())
+    timestep_tensor = loaded[t]
+    timestep_tensor = torch.abs(timestep_tensor)
+
+    df = pd.DataFrame(timestep_tensor.cpu())
     sns_heatmap = sns.heatmap(df, cmap='viridis', cbar_kws={
                               'label': 'Activation Value'}, ax=axes[t])
     cbar = sns_heatmap.collections[0].colorbar

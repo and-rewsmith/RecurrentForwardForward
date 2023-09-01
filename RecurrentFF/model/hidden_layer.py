@@ -2,6 +2,7 @@ import math
 
 import torch
 from torch import nn
+from torch.nn import Module
 from torch.nn import functional as F
 from torch.optim import RMSprop, Adam, Adadelta, SGD
 
@@ -14,6 +15,45 @@ from RecurrentFF.util import (
 from RecurrentFF.settings import (
     Settings,
 )
+
+
+def custom_load_state_dict(self, state_dict, strict=True):
+    # This function is a replication of the original PyTorch load_state_dict logic
+    # with a check to prevent infinite recursion through the linked layers.
+    def load(module, prefix=''):
+        local_metadata = {} if metadata is None else metadata.get(
+            prefix[:-1], {})
+        module._load_from_state_dict(
+            state_dict, prefix, local_metadata, True, missing_keys, unexpected_keys, error_msgs)
+        for name, child in module._modules.items():
+            # Check to prevent infinite recursion
+            if name not in ['previous_layer', 'next_layer']:
+                if child is not None:
+                    load(child, prefix + name + '.')
+
+    missing_keys = []
+    unexpected_keys = []
+    error_msgs = []
+
+    # The original function uses _IncompatibleKeys to track this, but for simplicity
+    # we'll just use two lists and construct it at the end if needed.
+
+    metadata = getattr(state_dict, '_metadata', None)
+    load(self)
+
+    if strict:
+        if len(unexpected_keys) > 0:
+            error_msgs.insert(0, 'Unexpected key(s) in state_dict: {}. '.format(
+                ', '.join('"{}"'.format(k) for k in unexpected_keys)))
+        if len(missing_keys) > 0:
+            error_msgs.insert(0, 'Missing key(s) in state_dict: {}. '.format(
+                ', '.join('"{}"'.format(k) for k in missing_keys)))
+
+    if len(error_msgs) > 0:
+        raise RuntimeError(
+            'Error(s) in loading state_dict:\n\t{}'.format('\n\t'.join(error_msgs)))
+
+    return self
 
 
 def amplified_initialization(layer: nn.Linear, amplification_factor=3.0):
@@ -53,6 +93,8 @@ class HiddenLayer(nn.Module):
     backward transformation is key in the learning process where it aids in the
     adjustment of weights based on the output or next layer's activations.
     """
+
+    setattr(Module, "load_state_dict", custom_load_state_dict)
 
     def __init__(
             self,

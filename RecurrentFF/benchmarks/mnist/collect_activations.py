@@ -37,7 +37,7 @@ if __name__ == "__main__":
     # Create and run model.
     model = RecurrentFFNet(settings).to(settings.device.device)
 
-    model.load_state_dict(torch.load(WEIGHTS_PATH))
+    model.load_state_dict(torch.load("weights_9_1_2.pth"))
 
     model.predict(DataScenario.StaticSingleClass,
                   test_loader, NUM_BATCHES, write_activations=True)
