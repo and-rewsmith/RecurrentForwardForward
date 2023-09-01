@@ -92,8 +92,8 @@ class HiddenLayer(nn.Module):
         self.lateral_linear = nn.Linear(size, size)
         nn.init.orthogonal_(self.lateral_linear.weight, gain=math.sqrt(2))
 
-        self.__annotations__['previous_layer'] = None
-        self.__annotations__['next_layer'] = None
+        self.previous_layer = None
+        self.next_layer = None
 
         if self.settings.model.ff_optimizer == "adam":
             self.optimizer = Adam(self.parameters(),
@@ -103,8 +103,6 @@ class HiddenLayer(nn.Module):
                 self.parameters(),
                 lr=self.settings.model.ff_rmsprop.learning_rate,
                 momentum=self.settings.model.ff_rmsprop.momentum)
-            # self.optimizer = SGD(
-            #     self.parameters(), lr=self.settings.model.ff_rmsprop.learning_rate)
         elif self.settings.model.ff_optimizer == "adadelta":
             self.optimizer = Adadelta(
                 self.parameters(),
@@ -113,42 +111,57 @@ class HiddenLayer(nn.Module):
         self.param_name_dict = {param: name for name,
                                 param in self.named_parameters()}
 
-    # def _apply(self, fn):
-    #     """
-    #     Override apply, but we don't want to apply to sibling layers as that
-    #     will cause a stack overflow. The hidden layers are contained in a
-    #     collection in the higher-level RecurrentFFNet. They will all get the
-    #     apply call from there.
-    #     """
-    #     # Apply `fn` to each parameter and buffer of this layer
-    #     for param in self._parameters.values():
-    #         if param is not None:
-    #             # Tensors stored in modules are graph leaves, and we don't
-    #             # want to create copy nodes, so we have to unpack the data.
-    #             param.data = fn(param.data)
-    #             if param._grad is not None:
-    #                 param._grad.data = fn(param._grad.data)
+    def _apply(self, fn):
+        """
+        Override apply, but we don't want to apply to sibling layers as that
+        will cause a stack overflow. The hidden layers are contained in a
+        collection in the higher-level RecurrentFFNet. They will all get the
+        apply call from there.
+        """
+        # Remove `previous_layer` and `next_layer` temporarily
+        previous_layer = self.previous_layer
+        next_layer = self.next_layer
+        self.previous_layer = None
+        self.next_layer = None
 
-    #     for key, buf in self._buffers.items():
-    #         if buf is not None:
-    #             self._buffers[key] = fn(buf)
+        # Apply `fn` to each parameter and buffer of this layer
+        for param in self._parameters.values():
+            if param is not None:
+                # Tensors stored in modules are graph leaves, and we don't
+                # want to create copy nodes, so we have to unpack the data.
+                param.data = fn(param.data)
+                if param._grad is not None:
+                    param._grad.data = fn(param._grad.data)
 
-    #     # Then remove `previous_layer` and `next_layer` temporarily
-    #     previous_layer = self.previous_layer
-    #     next_layer = self.next_layer
-    #     self.previous_layer = None
-    #     self.next_layer = None
+        for key, buf in self._buffers.items():
+            if buf is not None:
+                self._buffers[key] = fn(buf)
 
-    #     # Apply `fn` to submodules
-    #     for module in self.children():
-    #         print(module)
-    #         module._apply(fn)
+        # Apply `fn` to submodules
+        for module in self.children():
+            module._apply(fn)
 
-    #     # Restore `previous_layer` and `next_layer`
-    #     self.previous_layer = previous_layer
-    #     self.next_layer = next_layer
+        # Restore `previous_layer` and `next_layer`
+        self.previous_layer = previous_layer
+        self.next_layer = next_layer
 
-    #     return self
+        return self
+
+    def state_dict(self, *args, **kwargs):
+        # Temporarily unlink the previous and next layers
+        previous_layer = self.previous_layer
+        next_layer = self.next_layer
+        self.previous_layer = None
+        self.next_layer = None
+
+        # Get the state dict without the linked layers
+        state = super().state_dict(*args, **kwargs)
+
+        # Restore the links
+        self.previous_layer = previous_layer
+        self.next_layer = next_layer
+
+        return state
 
     def reset_activations(self, isTraining):
         activations_dim = None
@@ -201,10 +214,10 @@ class HiddenLayer(nn.Module):
             self.predict_activations.advance()
 
     def set_previous_layer(self, previous_layer):
-        self.__annotations__['previous_layer'] = previous_layer
+        self.previous_layer = previous_layer
 
     def set_next_layer(self, next_layer):
-        self.__annotations__['next_layer'] = next_layer
+        self.next_layer = next_layer
 
     def train(self, input_data, label_data, should_damp):
         self.optimizer.zero_grad()
@@ -294,8 +307,8 @@ class HiddenLayer(nn.Module):
             damping, update the current layer's activations, and return the new
             activations.
         """
-        next_layer = self.__annotations__['next_layer']
-        previous_layer = self.__annotations__['previous_layer']
+        next_layer = self.next_layer
+        previous_layer = self.previous_layer
 
         # Make sure assumptions aren't violated regarding layer connectivity.
         if data is None:

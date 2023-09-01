@@ -232,6 +232,7 @@ if __name__ == "__main__":
     model = RecurrentFFNet(settings).to(settings.device.device)
 
     if settings.model.should_load_weights:
+        exit(1)
         # model.load_state_dict(torch.load(WEIGHTS_PATH))
         model.load_state_dict(torch.load("weights_9_1.pth"))
 
