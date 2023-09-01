@@ -14,7 +14,7 @@ NUM_CLASSES = 10
 TRAIN_BATCH_SIZE = 500
 TEST_BATCH_SIZE = 5000
 
-DEVICE = "mps"
+DEVICE = "cuda"
 
 
 def run(settings: Settings):
@@ -61,7 +61,8 @@ if __name__ == "__main__":
 
     iterations = [10, 20]
 
-    hidden_sizes = [[500, 500, 500], [1000, 1000, 1000]]
+    hidden_sizes = [[2000, 2000, 2000], [
+        2000, 2000, 2000, 2000], [1000, 2000, 1000]]
 
     ff_act = ["relu"]
 
