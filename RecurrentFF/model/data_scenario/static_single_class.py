@@ -288,7 +288,8 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
             accuracy.
         """
         if write_activations:
-            assert self.settings.data_config.test_batch_size == 1 and isTestSet, "Cannot write activations for batch size > 1"
+            assert self.settings.data_config.test_batch_size == 1 \
+                and isTestSet, "Cannot write activations for batch size > 1"
             activity_tracker = StaticSingleClassActivityTracker()
 
         forward_mode = ForwardMode.PredictData if isTestSet else ForwardMode.PositiveData
