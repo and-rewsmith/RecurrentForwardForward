@@ -252,7 +252,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
         input_labels.neg_labels = negative_labels.repeat(
             frames, 1, 1)  # Repeat along the new dimension
 
-    def brute_force_predict(self, loader, limit_batches=None, isTestSet=False, write_activations=False):
+    def brute_force_predict(self, loader, limit_batches=None, is_test_set=False, write_activations=False):
         """
         This function predicts the class labels for the provided test data using
         the trained RecurrentFFNet model. It does so by enumerating all possible
@@ -289,10 +289,10 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
         """
         if write_activations:
             assert self.settings.data_config.test_batch_size == 1 \
-                and isTestSet, "Cannot write activations for batch size > 1"
+                and is_test_set, "Cannot write activations for batch size > 1"
             activity_tracker = StaticSingleClassActivityTracker()
 
-        forward_mode = ForwardMode.PredictData if isTestSet else ForwardMode.PositiveData
+        forward_mode = ForwardMode.PredictData if is_test_set else ForwardMode.PositiveData
 
         for batch, test_data in enumerate(loader):
             if limit_batches is not None and batch == limit_batches:
@@ -318,7 +318,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
 
                 # evaluate badness for each possible label
                 for label in range(self.settings.data_config.num_classes):
-                    self.inner_layers.reset_activations(not isTestSet)
+                    self.inner_layers.reset_activations(not is_test_set)
 
                     upper_clamped_tensor = self.get_preinit_upper_clamped_tensor(
                         (data.shape[1], self.settings.data_config.num_classes))
@@ -399,7 +399,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
             total for _correct, total in accuracy_contexts)
         accuracy = total_correct / total_submissions * 100 if total_submissions else 0
 
-        if isTestSet:
+        if is_test_set:
             logging.info(f'Test accuracy: {accuracy}%')
         else:
             logging.info(f'Train accuracy: {accuracy}%')

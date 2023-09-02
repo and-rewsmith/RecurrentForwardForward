@@ -24,18 +24,11 @@ from RecurrentFF.settings import (
 )
 
 
-# TODO: store activations
-# TODO: add conv layer at beginning to use receptive fields
 # TODO: try sigmoid activation function
-# TODO: use separate optimizer for lateral connections
-# TODO: plumb optimizer into `HiddenLayer`
-# TODO: different learning rates for lateral connections
-# TODO: initialize weights (division by n, number of inputs) (lora activation)
-# TODO: threshold a parameter?
-# TODO: average activation
-# TODO: look at Hinton norm
-# TODO: log activations (variance is much bigger than average, then relu
-#       is not good - maybe try leaky relu?)
+# TODO: try use separate optimizer for lateral connections
+# TODO: try different learning rates for lateral connections
+# TODO: figure out average activation
+# TODO: log activations (variance is much bigger than average, then not good)
 class RecurrentFFNet(nn.Module):
     """
     Implements a Recurrent Forward-Forward Network (RecurrentFFNet) based on
@@ -108,7 +101,7 @@ class RecurrentFFNet(nn.Module):
     def predict(self, data_scenario: DataScenario, data_loader, num_batches: int, write_activations=False):
         if data_scenario == DataScenario.StaticSingleClass:
             self.processor.brute_force_predict(
-                data_loader, num_batches, True, write_activations=True)
+                data_loader, num_batches, is_test_set=True, write_activations=write_activations)
 
     @profile(stdout=False, filename='baseline.prof',
              skip=Settings.new().model.skip_profiling)
