@@ -389,14 +389,14 @@ class HiddenLayer(nn.Module):
             prev_act_stdized = standardize_layer_activations(
                 prev_act, self.settings.model.epsilon)
 
-            new_activation =  \
-                F.leaky_relu(F.linear(
+            new_activation = F.elu(
+                F.linear(
                     prev_layer_stdized,
-                    self.forward_linear.weight)) + \
-                -1 * F.leaky_relu(F.linear(
+                    self.forward_linear.weight) +
+                -1 * F.linear(
                     next_layer_stdized,
-                    self.backward_linear.weight)) + \
-                F.leaky_relu(F.linear(
+                    self.backward_linear.weight) +
+                F.linear(
                     prev_act_stdized,
                     self.lateral_linear.weight))
 
@@ -420,14 +420,14 @@ class HiddenLayer(nn.Module):
             prev_act_stdized = standardize_layer_activations(
                 prev_act, self.settings.model.epsilon)
 
-            new_activation = \
-                F.leaky_relu(F.linear(
+            new_activation = F.elu(
+                F.linear(
                     data,
-                    self.forward_linear.weight)) + \
-                -1 * F.leaky_relu(F.linear(
+                    self.forward_linear.weight) +
+                -1 * F.linear(
                     labels,
-                    self.backward_linear.weight)) + \
-                F.leaky_relu(F.linear(
+                    self.backward_linear.weight) +
+                F.linear(
                     prev_act_stdized,
                     self.lateral_linear.weight))
 
@@ -458,14 +458,14 @@ class HiddenLayer(nn.Module):
             prev_act_stdized = standardize_layer_activations(
                 prev_act, self.settings.model.epsilon)
 
-            new_activation = \
-                F.leaky_relu(F.linear(
+            new_activation = F.elu(
+                F.linear(
                     data,
-                    self.forward_linear.weight)) + \
-                -1 * F.leaky_relu(F.linear(
+                    self.forward_linear.weight) +
+                -1 * F.linear(
                     next_layer_stdized,
-                    self.backward_linear.weight)) + \
-                F.leaky_relu(F.linear(
+                    self.backward_linear.weight) +
+                F.linear(
                     prev_act_stdized,
                     self.lateral_linear.weight))
 
@@ -497,15 +497,16 @@ class HiddenLayer(nn.Module):
                 prev_act, self.settings.model.epsilon)
 
             new_activation = \
-                F.leaky_relu(F.linear(
-                    prev_layer_stdized,
-                    self.forward_linear.weight)) + \
-                -1 * F.leaky_relu(F.linear(
-                    labels,
-                    self.backward_linear.weight)) + \
-                F.leaky_relu(F.linear(
-                    prev_act_stdized,
-                    self.lateral_linear.weight))
+                F.elu(
+                    F.linear(
+                        prev_layer_stdized,
+                        self.forward_linear.weight) +
+                    -1 * F.linear(
+                        labels,
+                        self.backward_linear.weight) +
+                    F.linear(
+                        prev_act_stdized,
+                        self.lateral_linear.weight))
 
             if should_damp:
                 old_activation = new_activation
