@@ -2,7 +2,7 @@
 device = "mps"
 
 [model]
-hidden_sizes = [1000, 1000, 1000]
+hidden_sizes = [2000, 2000, 2000]
 epochs = 30000
 loss_threshold = 1.5
 damping_factor = 0.7
@@ -17,8 +17,8 @@ should_replace_neg_data = false
 should_load_weights = false
 
 [model.ff_rmsprop]
-momentum = 0.4
-learning_rate = 0.000005
+momentum = 0.0
+learning_rate = 0.00005
 
 [model.classifier_rmsprop]
 momentum = 0
