@@ -1,23 +1,21 @@
 import os
-import multiprocessing
 
 import torch
 from torch.utils.data import DataLoader, Dataset
 import wandb
 from RecurrentFF.model.data_scenario.static_single_class import SingleStaticClassTestData
 
-from RecurrentFF.settings import Settings
-from RecurrentFF.util import DataConfig, TrainInputData, TrainLabelData, set_logging
+from RecurrentFF.settings import Settings, DataConfig
+from RecurrentFF.util import TrainInputData, TrainLabelData, set_logging
 from RecurrentFF.model.model import RecurrentFFNet
 from RecurrentFF.benchmarks.moving_mnist.constants import MOVING_MNIST_DATA_DIR
 
-NUM_CLASSES = 10
 DATA_SIZE = 4096
-TRAIN_BATCH_SIZE = 5000
-TEST_BATCH_SIZE = 5000
+NUM_CLASSES = 10
+TRAIN_BATCH_SIZE = 10000 
+TEST_BATCH_SIZE = 10000
 ITERATIONS = 20
-FOCUS_ITERATION_NEG_OFFSET = 2
-FOCUS_ITERATION_POS_OFFSET = 2
+
 DATA_PER_FILE = 1000
 
 
@@ -203,8 +201,7 @@ if __name__ == '__main__':
         "train_batch_size": TRAIN_BATCH_SIZE,
         "test_batch_size": TEST_BATCH_SIZE,
         "iterations": ITERATIONS,
-        "focus_iteration_neg_offset": FOCUS_ITERATION_NEG_OFFSET,
-        "focus_iteration_pos_offset": FOCUS_ITERATION_POS_OFFSET}
+        }
 
     if settings.data_config is None:
         settings.data_config = DataConfig(**data_config)
