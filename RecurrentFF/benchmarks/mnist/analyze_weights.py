@@ -42,7 +42,8 @@ def compute_elbow(eigenvectors, max_clusters=10):
         kmeanModel.fit(spectral_repr_k)
         # cdist computes distance between each pair of the two collections of inputs
         distortions.append(sum(np.min(
-            scipy.spatial.distance.cdist(spectral_repr_k, kmeanModel.cluster_centers_, 'euclidean'), axis=1)) / spectral_repr_k.shape[0])
+            scipy.spatial.distance.cdist(spectral_repr_k, kmeanModel.cluster_centers_, 'euclidean'), axis=1))
+            / spectral_repr_k.shape[0])
 
     # Plotting the Elbow curve
     plt.figure(figsize=(10, 6))
