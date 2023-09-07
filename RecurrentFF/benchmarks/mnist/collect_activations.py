@@ -7,7 +7,7 @@ from RecurrentFF.model.model import RecurrentFFNet
 from RecurrentFF.settings import Settings, DataConfig
 
 TEST_BATCH_SIZE = 1
-NUM_BATCHES = 2
+NUM_BATCHES = 1
 
 if __name__ == "__main__":
     settings = Settings.new()
@@ -37,7 +37,7 @@ if __name__ == "__main__":
     # Create and run model.
     model = RecurrentFFNet(settings).to(settings.device.device)
 
-    model.load_state_dict(torch.load("weights_9_1_2.pth"))
+    model.load_state_dict(torch.load("weights_9-2.pth"))
 
     model.predict(DataScenario.StaticSingleClass,
                   test_loader, NUM_BATCHES, write_activations=True)

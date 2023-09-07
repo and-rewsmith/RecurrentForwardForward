@@ -397,7 +397,8 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
         total_correct = sum(correct for correct, _total in accuracy_contexts)
         total_submissions = sum(
             total for _correct, total in accuracy_contexts)
-        accuracy = total_correct / total_submissions * 100 if total_submissions else 0
+        accuracy = total_correct / total_submissions * \
+            100 if total_submissions else exit(1)
 
         if is_test_set:
             logging.info(f'Test accuracy: {accuracy}%')

@@ -12,7 +12,7 @@ from RecurrentFF.benchmarks.moving_mnist.constants import MOVING_MNIST_DATA_DIR
 
 DATA_SIZE = 4096
 NUM_CLASSES = 10
-TRAIN_BATCH_SIZE = 10000 
+TRAIN_BATCH_SIZE = 500
 TEST_BATCH_SIZE = 10000
 ITERATIONS = 20
 
@@ -158,7 +158,8 @@ def test_collate_fn(batch):
     pos_data = torch.stack(pos_data, 1)
     positive_labels = torch.stack(positive_labels)
 
-    positive_labels = positive_labels.argmax(dim=1)
+    positive_labels = positive_labels.argmax(
+        dim=1).unsqueeze(0).repeat(ITERATIONS, 1)
 
     return SingleStaticClassTestData(pos_data, positive_labels)
 
@@ -201,7 +202,7 @@ if __name__ == '__main__':
         "train_batch_size": TRAIN_BATCH_SIZE,
         "test_batch_size": TEST_BATCH_SIZE,
         "iterations": ITERATIONS,
-        }
+    }
 
     if settings.data_config is None:
         settings.data_config = DataConfig(**data_config)
