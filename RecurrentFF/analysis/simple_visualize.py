@@ -3,7 +3,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 # Read the parquet file into a dataframe
-df = pd.read_parquet('converted_data2.parquet')
+df = pd.read_parquet('converted_data.parquet')
 
 # Compute mean activity by layer, is_label_showing, and activation_type
 grouped = df.groupby(['layer_index', 'is_label_showing', 'activation_type'])[
