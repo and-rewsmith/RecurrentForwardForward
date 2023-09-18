@@ -6,9 +6,10 @@ import os
 DATASET = "MNIST"
 LABEL_SHOW_BOUNDARY = 10
 NUMBER_FILES = 100
-DIR_PATH = "artifacts/activations"
-DEVICE = "cuda"
-BATCH_SIZE = 1000  # You can adjust this value based on your memory availability
+DIR_PATH = "artifacts/activations_917"
+DEVICE = "mps"
+# You can adjust this value based on your memory availability
+BATCH_SIZE = 1024 ** 3
 
 # Get the first NUMBER_FILES files from the directory
 files = [f for f in os.listdir(DIR_PATH) if f.endswith('.pt')]
@@ -61,6 +62,8 @@ for i, file in enumerate(files):
                             df = pd.concat(
                                 [df, pd.DataFrame(batch_rows)], ignore_index=True)
                             batch_rows.clear()
+                            df.to_parquet('converted_data.parquet')
+                            print("saved batch to parquet file")
 
 # Add any remaining rows in the batch_rows to the main dataframe
 if batch_rows:
