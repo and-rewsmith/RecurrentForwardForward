@@ -54,6 +54,7 @@ class Model(BaseModel):
     should_log_metrics: bool
     should_replace_neg_data: bool
     should_load_weights: bool
+    lambda_spectral: float
 
     ff_activation: str
 

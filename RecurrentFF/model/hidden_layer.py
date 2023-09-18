@@ -5,6 +5,7 @@ from torch import nn
 from torch.nn import Module
 from torch.nn import functional as F
 from torch.optim import RMSprop, Adam, Adadelta, SGD
+from torchviz import make_dot
 
 from RecurrentFF.util import (
     Activations,
@@ -15,6 +16,18 @@ from RecurrentFF.util import (
 from RecurrentFF.settings import (
     Settings,
 )
+
+POWER_ITERATIONS = 1
+
+
+def compute_spectral_norm(matrix):
+    u = torch.randn(matrix.size(0)).to(matrix.device)
+    v = torch.randn(matrix.size(1)).to(matrix.device)
+    for _ in range(POWER_ITERATIONS):  # typically, a few power iterations are sufficient
+        v = torch.nn.functional.normalize(torch.mv(matrix.t(), u), dim=0)
+        u = torch.nn.functional.normalize(torch.mv(matrix, v), dim=0)
+    sigma = torch.dot(u, torch.mv(matrix, v))
+    return sigma
 
 
 def custom_load_state_dict(self, state_dict, strict=True):
@@ -119,23 +132,44 @@ class HiddenLayer(nn.Module):
         self.predict_activations = None
         self.reset_activations(True)
 
-        self.forward_linear = nn.Linear(prev_size, size)
+        forward_linear = nn.Linear(prev_size, size)
         nn.init.kaiming_uniform_(
-            self.forward_linear.weight, nonlinearity='relu')
+            forward_linear.weight, nonlinearity='relu')
 
-        self.backward_linear = nn.Linear(next_size, size)
+        backward_linear = nn.Linear(next_size, size)
+        # nn.init.kaiming_uniform_(
+        #     backward_linear.weight, nonlinearity='relu')
+        amplified_initialization(backward_linear, 3.0)
 
-        if next_size == self.settings.data_config.num_classes:
-            amplified_initialization(self.backward_linear, 3.0)
-        else:
-            nn.init.uniform_(self.backward_linear.weight, -0.05, 0.05)
+        # if next_size == self.settings.data_config.num_classes:
+        # nn.init.orthogonal_(backward_linear.weight, gain=math.sqrt(2))
+        # nn.init.kaiming_uniform_(
+        #     backward_linear.weight, nonlinearity='relu')
+        # amplified_initialization(backward_linear, 3.0)
+        # nn.init.uniform_(backward_linear.weight, -0.05, 0.05)
+        # else:
+        # nn.init.uniform_(backward_linear.weight, -0.05, 0.05)
 
         # Initialize the lateral weights to be the identity matrix
-        self.lateral_linear = nn.Linear(size, size)
-        nn.init.orthogonal_(self.lateral_linear.weight, gain=math.sqrt(2))
+        lateral_linear = nn.Linear(size, size)
+        nn.init.orthogonal_(lateral_linear.weight, gain=math.sqrt(2))
 
         self.previous_layer = None
         self.next_layer = None
+
+        self.forward_linear = forward_linear
+        self.backward_linear = backward_linear
+        self.lateral_linear = lateral_linear
+
+        # self.lateral_linear = torch.nn.utils.parametrizations.spectral_norm(
+        #     lateral_linear)
+        # self.forward_linear = torch.nn.utils.parametrizations.spectral_norm(
+        #     forward_linear)
+        # self.backward_linear = torch.nn.utils.parametrizations.spectral_norm(
+        #     backward_linear)
+
+        self.param_name_dict = {param: name for name,
+                                param in self.named_parameters()}
 
         if self.settings.model.ff_optimizer == "adam":
             self.optimizer = Adam(self.parameters(),
@@ -150,8 +184,14 @@ class HiddenLayer(nn.Module):
                 self.parameters(),
                 lr=self.settings.model.ff_adadelta.learning_rate)
 
-        self.param_name_dict = {param: name for name,
-                                param in self.named_parameters()}
+        l1_max = 0
+        max_expected_loss = 4
+        percentage_contribution_to_loss = 0.08
+        for param in self.param_name_dict:
+            if "weight" in self.param_name_dict[param]:
+                l1_max += param.abs().sum()
+        self.lambda_l1 = (percentage_contribution_to_loss *
+                          max_expected_loss / l1_max).item()
 
     def _apply(self, fn):
         """
@@ -294,16 +334,74 @@ class HiddenLayer(nn.Module):
         pos_badness = layer_activations_to_badness(pos_activations)
         neg_badness = layer_activations_to_badness(neg_activations)
 
+        # # Compute the L1 regularization penalty for all the parameters in the layer
+        # l1_penalty = 0.0
+        # # Assuming you have lambda in settings
+        # lambda_l1 = self.lambda_l1
+        # for params in self.parameters():
+        #     l1_penalty += params.abs().sum()
+
+        # Compute the L1 regularization penalty for all the parameters in the layer
+        l1_penalty = torch.sum(torch.stack([torch.abs(
+            p).sum() for p, name in self.param_name_dict.items() if "weight" in name]))
+
         # Loss function equivelent to:
         # plot3d log(1 + exp(-n + 1)) + log(1 + exp(p - 1)) for n=0 to 3, p=0 to 3
         layer_loss = F.softplus(torch.cat([
             (-1 * neg_badness) + self.settings.model.loss_threshold,
             pos_badness - self.settings.model.loss_threshold
         ])).mean()
-        layer_loss.backward()
+
+        # Compute the spectral norm for the weight matrices
+        # spectral_norm_lateral = 1
+        # spectral_norm_forward = 1
+        # spectral_norm_backward = 1
+
+        # spectral_norm_lateral = compute_spectral_norm(
+        #     self.lateral_linear.weight)
+        # spectral_norm_forward = compute_spectral_norm(
+        #     self.forward_linear.weight)
+        # spectral_norm_backward = compute_spectral_norm(
+        #     self.backward_linear.weight)
+
+        # lateral_weights_penalty = self.settings.model.lambda_spectral * \
+        #     spectral_norm_lateral
+        # forward_weights_penalty = self.settings.model.lambda_spectral * \
+        #     spectral_norm_forward
+        # backward_weights_penalty = self.settings.model.lambda_spectral * \
+        #     spectral_norm_backward
+
+        # Updated Loss: Add the spectral norm penalties
+        # total_loss = (layer_loss + self.lambda_l1 * l1_penalty +
+        #               lateral_weights_penalty +
+        #               forward_weights_penalty +
+        #               backward_weights_penalty)
+        # print(f"layer loss: {layer_loss}")
+        # print(f"l1 penalty: {(l1_penalty * self.lambda_l1)}")
+        # print(
+        #     f"eig penalty: {(lateral_weights_penalty + forward_weights_penalty + backward_weights_penalty):.3f} (forward: {forward_weights_penalty:.3f}, backward: {backward_weights_penalty:.3f}, lateral: {lateral_weights_penalty:.3f})"
+        # )
+        # print()
+
+        total_loss = (layer_loss + l1_penalty * self.lambda_l1)
+        # total_loss = layer_loss
+        # total_loss = (layer_loss + lateral_weights_penalty +
+        #               forward_weights_penalty + backward_weights_penalty)
+
+        total_loss.backward()
+
+        # # Visualize computation graph
+        # dot = make_dot(total_loss, params=dict(self.named_parameters()))
+        # dot.format = 'png'
+        # # This will save the graph in PNG format
+        # dot.render(filename="computation_graph")
+
+        # # Wait for user input
+        # input("Press Enter to continue...")
 
         self.optimizer.step()
-        return layer_loss
+
+        return total_loss
 
     def forward(self, mode, data, labels, should_damp):
         """

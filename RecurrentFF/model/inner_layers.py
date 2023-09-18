@@ -166,6 +166,13 @@ class LayerMetrics:
             layer.backward_linear.weight.grad, p=2)
         lateral_grads_norm = torch.norm(layer.lateral_linear.weight.grad, p=2)
 
+        # forward_grad_norm = torch.norm(
+        #     layer.forward_linear.parametrizations.weight.original.grad, p=2)
+        # backward_grads_norm = torch.norm(
+        #     layer.backward_linear.parametrizations.weight.original.grad, p=2)
+        # lateral_grads_norm = torch.norm(
+        #     layer.lateral_linear.parametrizations.weight.original.grad, p=2)
+
         self.pos_activations_norms[layer_num] += pos_activations_norm
         self.neg_activations_norms[layer_num] += neg_activations_norm
         self.forward_weights_norms[layer_num] += forward_weights_norm
