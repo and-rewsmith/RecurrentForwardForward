@@ -99,15 +99,6 @@ class StaticSingleClassActivityTracker():
             predicted_labels_index = predicted_labels.item()
             anti_prediction_index = anti_predictions.item()
 
-            # print(predicted_labels)
-            # print(actual_labels)
-            # print(anti_predictions)
-            # print("0---")
-            # print(len(self.forward_activations))
-            # print(len(self.backward_activations))
-            # print(len(self.lateral_activations))
-            # input()
-
             correct_activations = self.activations[predicted_labels_index]
             correct_forward_activations = self.forward_activations[predicted_labels_index]
             correct_backward_activations = self.backward_activations[predicted_labels_index]
