@@ -12,7 +12,6 @@ def aggregate_activations_and_labels(directory=DIR_PATH):
     labels_list = []
 
     # Iterate through each file in the specified directory
-    count = 2
     for filename in os.listdir(directory):
         if filename.endswith(".pt"):
             file_path = os.path.join(directory, filename)
@@ -28,10 +27,6 @@ def aggregate_activations_and_labels(directory=DIR_PATH):
             prelabel_activations.append(current_prelabel_activations)
             postlabel_activations.append(current_postlabel_activations)
             labels_list.append(current_labels)
-
-            count += 1
-            if count == 2:
-                break
 
     # Convert lists to tensors
     prelabel_activations_tensor = torch.stack(prelabel_activations, dim=0)

@@ -242,7 +242,7 @@ def plot_activation_heatmap(file_name, activation_type="correct"):
     # Load the tensor
     data = torch.load(f"{BASE_PT_PATH}/{file_name}")
 
-    # Create figure and axes for the 6 subplots for 3 layers (1 additional subplot for the combined activations)
+    # Create figure and axes for the 6 subplots for n layers (1 additional subplot for the combined activations)
     fig, axes = plt.subplots(6, 3, figsize=(30, 30))
 
     activations_names = ['forward', 'backward', 'lateral']
@@ -333,5 +333,5 @@ if __name__ == '__main__':
     plot_cosine_similarity_multi_file(
         file_names, activation_type="incorrect")
 
-    plot_cosine_similarity('test_sample_2.pt', activation_type="correct")
-    plot_cosine_similarity('test_sample_2.pt', activation_type="incorrect")
+    plot_cosine_similarity('test_sample_3.pt', activation_type="correct")
+    plot_cosine_similarity('test_sample_3.pt', activation_type="incorrect")
