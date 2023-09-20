@@ -206,8 +206,7 @@ if __name__ == "__main__":
         "train_batch_size": TRAIN_BATCH_SIZE,
         "test_batch_size": TEST_BATCH_SIZE,
         "iterations": ITERATIONS,
-        # "dataset": DATASET
-    }
+        "dataset": DATASET}
 
     if settings.data_config is None:
         settings.data_config = DataConfig(**data_config)

@@ -98,9 +98,9 @@ class RecurrentFFNet(nn.Module):
         self.processor = StaticSingleClassProcessor(
             self.inner_layers, self.settings)
 
-        # self.weights_file_name = self.settings.data_config.dataset + \
-        #     "_" + datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + "_" + ''.join(
-        #         random.choices(string.ascii_uppercase + string.digits, k=6)) + ".pth"
+        self.weights_file_name = self.settings.data_config.dataset + \
+            "_" + datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + "_" + ''.join(
+                random.choices(string.ascii_uppercase + string.digits, k=6)) + ".pth"
 
         logging.info("Finished initializing network")
 

@@ -3,19 +3,17 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
-from torch.nn import functional as F
 
-BASE_OUT_PATH = "./img/activation_heatmaps"
-BASE_PT_PATH = "./artifacts/activations"
-SCENARIOS = ["correct_activations", "incorrect_activations"]
-FILENAMES = ["test_sample_1.pt", "test_sample_2.pt", "test_sample_3.pt"]
+BASE_PATH = "./img/activation_heatmaps"
+SCENARIOS = ["incorrect_activations", "correct_activations"]
+FILENAMES = ["test_sample_1.pt", "test_sample_2.pt"]
 
 
 def plot_mean_stddev():
     running_sum_activations = None
     for filename in FILENAMES:
         identifier = filename.split(".")[0].split("_")[-1]
-        tensors = torch.load(f"{BASE_PT_PATH}/{filename}")
+        tensors = torch.load(filename)
 
         for scenario in SCENARIOS:
             loaded = torch.abs(tensors[scenario])
@@ -87,13 +85,13 @@ def plot_mean_stddev():
     axes[3].set_ylabel('Layer', fontsize=12)
     plt.tight_layout()
     plt.savefig(
-        f"{BASE_OUT_PATH}/all_means_std_dev.png", dpi=300)
+        f"{BASE_PATH}/all_means_std_dev.png", dpi=300)
 
 
 def plot_activations_over_timesteps():
     for filename in FILENAMES:
         identifier = filename.split(".")[0].split("_")[-1]
-        tensors = torch.load(f"{BASE_PT_PATH}/{filename}")
+        tensors = torch.load(filename)
 
         print(f"=====Filename: {filename}=====")
 
@@ -183,7 +181,7 @@ def plot_activations_over_timesteps():
             axes[1].set_ylabel('Layer', fontsize=12)
             plt.tight_layout()
             plt.savefig(
-                f"{BASE_OUT_PATH}/means_{scenario}_{identifier}.png", dpi=300)
+                f"{BASE_PATH}/means_{scenario}_{identifier}.png", dpi=300)
 
             # =========================================================================
             # Plot all timesteps absolute value activations
@@ -205,14 +203,13 @@ def plot_activations_over_timesteps():
                 axes[t].set_ylabel('Layer', fontsize=12)
 
             plt.tight_layout()
-            plt.savefig(
-                f"{BASE_OUT_PATH}/{scenario}_{identifier}.png", dpi=300)
+            plt.savefig(f"{BASE_PATH}/{scenario}_{identifier}.png", dpi=300)
 
 
-def plot_activations_l2_over_time():
+def plot_activations_over_time():
     for filename in FILENAMES:
         identifier = filename.split(".")[0].split("_")[-1]
-        tensors = torch.load(f"{BASE_PT_PATH}/{filename}")
+        tensors = torch.load(filename)
 
         for scenario in SCENARIOS:
             loaded = tensors[scenario]
@@ -243,14 +240,14 @@ def plot_activations_l2_over_time():
             plt.legend()
             plt.tight_layout()
             plt.savefig(
-                f"{BASE_OUT_PATH}/l2norm_over_time_{scenario}_{identifier}.png", dpi=300)
+                f"{BASE_PATH}/l2norm_over_time_{scenario}_{identifier}.png", dpi=300)
             plt.close()
 
 
 def plot_sparsity_over_time(threshold=0.01):
     for filename in FILENAMES:
         identifier = filename.split(".")[0].split("_")[-1]
-        tensors = torch.load(f"{BASE_PT_PATH}/{filename}")
+        tensors = torch.load(filename)
 
         for scenario in SCENARIOS:
             loaded = tensors[scenario]
@@ -277,14 +274,14 @@ def plot_sparsity_over_time(threshold=0.01):
             plt.legend()
             plt.tight_layout()
             plt.savefig(
-                f"{BASE_OUT_PATH}/sparsity_over_time_{scenario}_{identifier}.png", dpi=300)
+                f"{BASE_PATH}/sparsity_over_time_{scenario}_{identifier}.png", dpi=300)
             plt.close()
 
 
-def plot_activation_percentiles_over_time(percentiles=[10, 25, 50, 75, 90, 95, 99]):
+def plot_activation_percentiles_over_time(percentiles=[10, 25, 50, 75, 90]):
     for filename in FILENAMES:
         identifier = filename.split(".")[0].split("_")[-1]
-        tensors = torch.load(f"{BASE_PT_PATH}/{filename}")
+        tensors = torch.load(filename)
 
         for scenario in SCENARIOS:
             loaded = tensors[scenario].abs()
@@ -321,13 +318,13 @@ def plot_activation_percentiles_over_time(percentiles=[10, 25, 50, 75, 90, 95, 9
                 f'Activation Magnitudes by Percentile Over Time ({scenario} - {identifier})')
             plt.tight_layout()
             plt.savefig(
-                f"{BASE_OUT_PATH}/activation_percentiles_over_time_{scenario}_{identifier}.png", dpi=300)
+                f"{BASE_PATH}/activation_percentiles_over_time_{scenario}_{identifier}.png", dpi=300)
             plt.close()
 
 
 if __name__ == "__main__":
     plot_mean_stddev()
     plot_activations_over_timesteps()
-    plot_activations_l2_over_time()
+    plot_activations_over_time()
     plot_sparsity_over_time()
     plot_activation_percentiles_over_time()

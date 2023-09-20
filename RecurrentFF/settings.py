@@ -13,7 +13,7 @@ class DataConfig(BaseModel):
     train_batch_size: int
     test_batch_size: int
     iterations: int
-    # dataset: str
+    dataset: str
 
 
 class FfRmsprop(BaseModel):
