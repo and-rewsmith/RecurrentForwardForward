@@ -4,15 +4,15 @@ import matplotlib.pyplot as plt
 from numpy.linalg import eig
 
 # Load the weights
-weights = torch.load("weights_9-2.pth")
+weights = torch.load("IdentityMoneyball.pth", map_location=torch.device('cpu'))
 
-matrix_size = 6000
-layers = 3
+MATRIX_SIZE = 6000
+LAYERS = 5
 
 # 1. Extract the lateral connectivity matrices from the weights.
 lateral_matrices = []
-for i in range(layers):
-    recurrent_key = f"inner_layers.layers.{i}.lateral_linear.weight"
+for i in range(LAYERS):
+    recurrent_key = f"inner_layers.layers.{i}.lateral_linear.parametrizations.weight.original"
     lateral_matrix = np.abs(weights[recurrent_key].detach().cpu().numpy())
     lateral_matrices.append(lateral_matrix)
 

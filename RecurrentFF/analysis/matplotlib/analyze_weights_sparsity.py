@@ -2,12 +2,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 import torch
 
+LAYERS = 5
+
 
 def plot_heatmap(weights, layer_idx, vmin, vmax):
     """Plot the heatmap of weights for a specific layer."""
 
     forward_key = f"inner_layers.layers.{layer_idx}.forward_linear.weight"
-    recurrent_key = f"inner_layers.layers.{layer_idx}.lateral_linear.weight"
+    recurrent_key = f"inner_layers.layers.{layer_idx}.lateral_linear.parametrizations.weight.original"
     backward_key = f"inner_layers.layers.{layer_idx}.backward_linear.weight"
 
     # Extract weights
@@ -39,7 +41,7 @@ def get_global_min_max(weights, layers):
     all_weights = []
     for i in range(layers):
         forward_key = f"inner_layers.layers.{i}.forward_linear.weight"
-        recurrent_key = f"inner_layers.layers.{i}.lateral_linear.weight"
+        recurrent_key = f"inner_layers.layers.{i}.lateral_linear.parametrizations.weight.original"
         backward_key = f"inner_layers.layers.{i}.backward_linear.weight"
 
         all_weights.extend([
@@ -56,7 +58,7 @@ def plot_density_function(weights, layer_idx):
     """Plot the density function of weight sparsities for a specific layer."""
 
     forward_key = f"inner_layers.layers.{layer_idx}.forward_linear.weight"
-    recurrent_key = f"inner_layers.layers.{layer_idx}.lateral_linear.weight"
+    recurrent_key = f"inner_layers.layers.{layer_idx}.lateral_linear.parametrizations.weight.original"
     backward_key = f"inner_layers.layers.{layer_idx}.backward_linear.weight"
 
     # Extract and flatten weights
@@ -91,19 +93,18 @@ def plot_density_function(weights, layer_idx):
 
 
 # Assuming you're using the same loading code as before
-weights = torch.load("weights_9-2.pth")
-layers = len(weights) // 6
+weights = torch.load("IdentityMoneyball.pth", map_location=torch.device('cpu'))
 
 # for i in range(layers):
 #     plot_density_function(weights, i)
 
 
 # Get global min and max values for consistent scale
-vmin, vmax = get_global_min_max(weights, layers)
+vmin, vmax = get_global_min_max(weights, LAYERS)
 scaling_factor = 6
 vmin = vmin // scaling_factor
 vmax = vmax // scaling_factor
 
 # Plot the heatmaps
-for i in range(layers):
+for i in range(LAYERS):
     plot_heatmap(weights, i, vmin, vmax)

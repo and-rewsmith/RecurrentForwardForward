@@ -89,7 +89,8 @@ def plot_weight_magnitude_histogram(all_weights):
 
 
 if __name__ == "__main__":
-    weights = torch.load("weights_9-2.pth")
+    weights = torch.load("IdentityMoneyball.pth",
+                         map_location=torch.device('cpu'))
 
     for element in weights:
         print(element)
