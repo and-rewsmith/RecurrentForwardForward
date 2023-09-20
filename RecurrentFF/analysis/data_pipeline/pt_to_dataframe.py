@@ -29,8 +29,10 @@ for i, file in enumerate(files):
 
             print("processing timestep ", timestep)
 
-            for layer_index, _ in enumerate(data[f"{data_type}_activations"][timestep]):
-                for neuron_index, _ in enumerate(data[f"{data_type}_activations"][timestep][layer_index]):
+            for layer_index, _ in enumerate(
+                    data[f"{data_type}_activations"][timestep]):
+                for neuron_index, _ in enumerate(
+                        data[f"{data_type}_activations"][timestep][layer_index]):
                     row = {
                         "image_timestep": timestep,
                         "layer_index": layer_index,
@@ -41,10 +43,14 @@ for i, file in enumerate(files):
                         "dataset": DATASET,
                         "is_correct": True if data_type == "correct" else False,
                         "data_sample_id": i,
-                        "activation": data[f"{data_type}_activations"][timestep][layer_index][neuron_index].cpu().item(),
-                        "forward_activation_component": data[f"{data_type}_forward_activations"][timestep][layer_index][neuron_index].cpu().item(),
-                        "backward_activation_component": data[f"{data_type}_backward_activations"][timestep][layer_index][neuron_index].cpu().item(),
-                        "lateral_activation_component": data[f"{data_type}_lateral_activations"][timestep][layer_index][neuron_index].cpu().item()
+                        "activation":
+                            data[f"{data_type}_activations"][timestep][layer_index][neuron_index].cpu().item(),
+                        "forward_activation_component":
+                            data[f"{data_type}_forward_activations"][timestep][layer_index][neuron_index].cpu().item(),
+                        "backward_activation_component":
+                            data[f"{data_type}_backward_activations"][timestep][layer_index][neuron_index].cpu().item(),
+                        "lateral_activation_component":
+                            data[f"{data_type}_lateral_activations"][timestep][layer_index][neuron_index].cpu().item()
                     }
                     batch_rows.append(row)
 

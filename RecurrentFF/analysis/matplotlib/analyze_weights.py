@@ -36,18 +36,25 @@ def compute_elbow(eigenvectors, max_clusters=10):
     - distortions: A list containing the sum of squared distances for each cluster number.
     """
     distortions = []
-    for k in range(1, max_clusters+1):
-        spectral_repr_k = eigenvectors[:, 1:k+1]
+    for k in range(1, max_clusters + 1):
+        spectral_repr_k = eigenvectors[:, 1:k + 1]
         kmeanModel = KMeans(n_clusters=k)
         kmeanModel.fit(spectral_repr_k)
-        # cdist computes distance between each pair of the two collections of inputs
-        distortions.append(sum(np.min(
-            scipy.spatial.distance.cdist(spectral_repr_k, kmeanModel.cluster_centers_, 'euclidean'), axis=1))
-            / spectral_repr_k.shape[0])
+        # cdist computes distance between each pair of the two collections of
+        # inputs
+        distortions.append(
+            sum(
+                np.min(
+                    scipy.spatial.distance.cdist(
+                        spectral_repr_k,
+                        kmeanModel.cluster_centers_,
+                        'euclidean'),
+                    axis=1)) /
+            spectral_repr_k.shape[0])
 
     # Plotting the Elbow curve
     plt.figure(figsize=(10, 6))
-    plt.plot(range(1, max_clusters+1), distortions, 'bx-')
+    plt.plot(range(1, max_clusters + 1), distortions, 'bx-')
     plt.xlabel('Number of Clusters (k)')
     plt.ylabel('Distortion')
     plt.title('The Elbow Method showing the optimal k')
@@ -108,8 +115,8 @@ if __name__ == "__main__":
 
         # backward weights
         if i != layers - 1:
-            adjacency_matrix[start_idx:end_idx, start_idx + 2000:end_idx +
-                             2000] = np.abs(weights[forward_key].detach().cpu().numpy())
+            adjacency_matrix[start_idx:end_idx, start_idx + 2000:end_idx + 2000] = np.abs(
+                weights[forward_key].detach().cpu().numpy())
 
         # recurrent weights
         adjacency_matrix[start_idx:end_idx, start_idx:end_idx] = np.abs(
@@ -117,8 +124,8 @@ if __name__ == "__main__":
 
         # forward weights
         if i != 0:
-            adjacency_matrix[start_idx:end_idx, start_idx - 2000:end_idx -
-                             2000] = np.abs(weights[backward_key].detach().cpu().numpy())
+            adjacency_matrix[start_idx:end_idx, start_idx - 2000:end_idx - 2000] = np.abs(
+                weights[backward_key].detach().cpu().numpy())
 
     # Flatten the adjacency matrix to get all weights as a 1D array
     all_weights = adjacency_matrix.flatten()
@@ -176,9 +183,10 @@ if __name__ == "__main__":
     print(
         f"Optimal number of clusters (k) based on the Elbow method: {optimal_k}")
 
-    # We'll use the optimal_k found using the elbow method for spectral clustering
+    # We'll use the optimal_k found using the elbow method for spectral
+    # clustering
     kmeans = KMeans(n_clusters=optimal_k)
-    spectral_repr = eigenvectors[:, 1:optimal_k+1]
+    spectral_repr = eigenvectors[:, 1:optimal_k + 1]
     clusters = kmeans.fit_predict(spectral_repr)
 
     # Let's print out the distribution of nodes in each cluster

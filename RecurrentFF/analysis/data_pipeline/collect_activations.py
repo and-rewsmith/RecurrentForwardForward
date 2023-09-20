@@ -1,6 +1,7 @@
 import torch
 
-from RecurrentFF.benchmarks.mnist.mnist import DATA_SIZE, ITERATIONS, NUM_CLASSES, TRAIN_BATCH_SIZE, MNIST_loaders, DATASET
+from RecurrentFF.benchmarks.mnist.mnist import DATA_SIZE, ITERATIONS, NUM_CLASSES, \
+    TRAIN_BATCH_SIZE, MNIST_loaders, DATASET
 from RecurrentFF.model.data_scenario.processor import DataScenario
 from RecurrentFF.util import set_logging
 from RecurrentFF.model.model import RecurrentFFNet

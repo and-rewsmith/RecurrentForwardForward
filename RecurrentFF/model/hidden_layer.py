@@ -24,7 +24,13 @@ def custom_load_state_dict(self, state_dict, strict=True):
         local_metadata = {} if metadata is None else metadata.get(
             prefix[:-1], {})
         module._load_from_state_dict(
-            state_dict, prefix, local_metadata, True, missing_keys, unexpected_keys, error_msgs)
+            state_dict,
+            prefix,
+            local_metadata,
+            True,
+            missing_keys,
+            unexpected_keys,
+            error_msgs)
         for name, child in module._modules.items():
             # Check to prevent infinite recursion
             if name not in ['previous_layer', 'next_layer']:
@@ -51,7 +57,8 @@ def custom_load_state_dict(self, state_dict, strict=True):
 
     if len(error_msgs) > 0:
         raise RuntimeError(
-            'Error(s) in loading state_dict:\n\t{}'.format('\n\t'.join(error_msgs)))
+            'Error(s) in loading state_dict:\n\t{}'.format(
+                '\n\t'.join(error_msgs)))
 
     return self
 
@@ -295,7 +302,8 @@ class HiddenLayer(nn.Module):
         neg_badness = layer_activations_to_badness(neg_activations)
 
         # Loss function equivelent to:
-        # plot3d log(1 + exp(-n + 1)) + log(1 + exp(p - 1)) for n=0 to 3, p=0 to 3
+        # plot3d log(1 + exp(-n + 1)) + log(1 + exp(p - 1)) for n=0 to 3, p=0
+        # to 3
         layer_loss = F.softplus(torch.cat([
             (-1 * neg_badness) + self.settings.model.loss_threshold,
             pos_badness - self.settings.model.loss_threshold

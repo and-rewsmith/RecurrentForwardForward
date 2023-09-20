@@ -19,7 +19,8 @@ def aggregate_activations_and_labels(directory=DIR_PATH):
             # Load the torch file
             data = torch.load(file_path)
 
-            # Extract the required data (first PRELABEL_TIMESTEPS of activations and labels)
+            # Extract the required data (first PRELABEL_TIMESTEPS of
+            # activations and labels)
             current_prelabel_activations = data["correct_activations"][:PRELABEL_TIMESTEPS]
             current_postlabel_activations = data["correct_activations"][PRELABEL_TIMESTEPS:]
             current_labels = data["labels"][0]

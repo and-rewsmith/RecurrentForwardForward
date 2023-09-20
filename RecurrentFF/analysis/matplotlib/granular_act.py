@@ -21,7 +21,8 @@ def plot_cosine_similarity_multi_file(file_names, activation_type="correct"):
         # Load the tensor for each file
         data = torch.load(f"{BASE_PT_PATH}/{file_name}")
         if accum_data is None:
-            # If this is the first file, initialize accum_data with the same keys and shapes as the loaded data
+            # If this is the first file, initialize accum_data with the same
+            # keys and shapes as the loaded data
             accum_data = {key: torch.zeros_like(
                 value.float()) for key, value in data.items()}
 
@@ -54,20 +55,23 @@ def plot_cosine_similarity_multi_file(file_names, activation_type="correct"):
     fig, axes = plt.subplots(n_layers, 2, figsize=(20, 20))
 
     for layer in range(n_layers):
-        for col, comparisons in enumerate([basic_comparisons, complex_comparisons]):
+        for col, comparisons in enumerate(
+                [basic_comparisons, complex_comparisons]):
             ax = axes[layer, col]
 
             for act1, act2 in comparisons:
-                # Fetch the data for the first activation type for the current layer
+                # Fetch the data for the first activation type for the current
+                # layer
                 data1 = accum_data[f'{activation_type}_{act1}_activations'][:, layer, :].cpu(
                 ).numpy()
 
-                # For combined pairs like "backward + lateral", we add the activations
+                # For combined pairs like "backward + lateral", we add the
+                # activations
                 if '+' in act2:
                     act2_parts = act2.split('+')
                     act2_parts = [a.strip() for a in act2_parts]
-                    data2 = sum(
-                        accum_data[f'{activation_type}_{a}_activations'][:, layer, :].cpu().numpy() for a in act2_parts)
+                    data2 = sum(accum_data[f'{activation_type}_{a}_activations'][:, layer, :].cpu(
+                    ).numpy() for a in act2_parts)
                 else:
                     data2 = accum_data[f'{activation_type}_{act2}_activations'][:, layer, :].cpu(
                     ).numpy()
@@ -78,8 +82,8 @@ def plot_cosine_similarity_multi_file(file_names, activation_type="correct"):
                 data2_projected = pca.transform(data2)
 
                 # Compute cosine similarity for each time step
-                cos_sim = [cosine_similarity(data1_projected[i].reshape(1, -1), data2_projected[i].reshape(1, -1))[0][0]
-                           for i in range(data1_projected.shape[0])]
+                cos_sim = [cosine_similarity(data1_projected[i].reshape(
+                    1, -1), data2_projected[i].reshape(1, -1))[0][0] for i in range(data1_projected.shape[0])]
 
                 ax.plot(cos_sim, label=f'Cosine Similarity: {act1} :: {act2}')
                 ax.set_title(
@@ -119,15 +123,18 @@ def plot_cosine_similarity(file_name, activation_type="correct"):
     fig, axes = plt.subplots(n_layers, 2, figsize=(20, 20))
 
     for layer in range(n_layers):
-        for col, comparisons in enumerate([basic_comparisons, complex_comparisons]):
+        for col, comparisons in enumerate(
+                [basic_comparisons, complex_comparisons]):
             ax = axes[layer, col]
 
             for act1, act2 in comparisons:
-                # Fetch the data for the first activation type for the current layer
+                # Fetch the data for the first activation type for the current
+                # layer
                 data1 = data[f'{activation_type}_{act1}_activations'][:, layer, :].cpu(
                 )
 
-                # For combined pairs like "backward + lateral", we add the activations
+                # For combined pairs like "backward + lateral", we add the
+                # activations
                 if '+' in act2:
                     act2_parts = act2.split('+')
                     act2_parts = [a.strip() for a in act2_parts]
@@ -138,8 +145,11 @@ def plot_cosine_similarity(file_name, activation_type="correct"):
                     )
 
                 # Compute cosine similarity for each time step
-                cos_sim = [cosine_similarity(data1[i].unsqueeze(0), data2[i].unsqueeze(0))[0][0]
-                           for i in range(data1.size(0))]
+                cos_sim = [
+                    cosine_similarity(
+                        data1[i].unsqueeze(0),
+                        data2[i].unsqueeze(0))[0][0] for i in range(
+                        data1.size(0))]
 
                 ax.plot(cos_sim, label=f'Cosine Similarity: {act1} :: {act2}')
                 ax.set_title(
@@ -160,7 +170,8 @@ def plot_l2_norm_across_time(file_name, activation_type="correct"):
     data = torch.load(f"{BASE_PT_PATH}/{file_name}")
     num_layers = data["incorrect_lateral_activations"].shape[1]
 
-    # Create a figure and axes for the 3 rows (layers) and 2 columns (L2 norm and mean) of subplots
+    # Create a figure and axes for the 3 rows (layers) and 2 columns (L2 norm
+    # and mean) of subplots
     fig, axes = plt.subplots(num_layers, 2, figsize=(20, 15))
 
     activations_names = ['forward', 'backward', 'lateral']
@@ -242,7 +253,8 @@ def plot_activation_heatmap(file_name, activation_type="correct"):
     # Load the tensor
     data = torch.load(f"{BASE_PT_PATH}/{file_name}")
 
-    # Create figure and axes for the 6 subplots for n layers (1 additional subplot for the combined activations)
+    # Create figure and axes for the 6 subplots for n layers (1 additional
+    # subplot for the combined activations)
     fig, axes = plt.subplots(6, 3, figsize=(30, 30))
 
     activations_names = ['forward', 'backward', 'lateral']
@@ -253,8 +265,14 @@ def plot_activation_heatmap(file_name, activation_type="correct"):
             activation_key = f'{activation_type}_{activation}_activations'
             activation_data = data[activation_key][:, layer, :].cpu().numpy()
             ax = axes[idx, layer]
-            cax = ax.imshow(activation_data, aspect='auto',
-                            cmap='viridis', interpolation='nearest', origin='lower', vmin=-50, vmax=30)
+            cax = ax.imshow(
+                activation_data,
+                aspect='auto',
+                cmap='viridis',
+                interpolation='nearest',
+                origin='lower',
+                vmin=-50,
+                vmax=30)
             fig.colorbar(cax, ax=ax)
             ax.set_title(
                 f'{activation.capitalize()} Activations for Layer {layer} in {file_name}')
@@ -263,11 +281,17 @@ def plot_activation_heatmap(file_name, activation_type="correct"):
 
     # Plotting the heatmap for the actual combined activations
     for layer in range(3):
-        actual_combined = torch.abs(data[f'{activation_type}_activations'][:, layer, :]).cpu(
-        ).numpy()
+        actual_combined = torch.abs(
+            data[f'{activation_type}_activations'][:, layer, :]).cpu().numpy()
         ax = axes[5, layer]
-        cax = ax.imshow(actual_combined, aspect='auto',
-                        cmap='viridis', interpolation='nearest', origin='lower', vmin=OUTPUT_ACTIVATION_LIMIT_LOWER, vmax=OUTPUT_ACTIVATION_LIMIT_UPPER)
+        cax = ax.imshow(
+            actual_combined,
+            aspect='auto',
+            cmap='viridis',
+            interpolation='nearest',
+            origin='lower',
+            vmin=OUTPUT_ACTIVATION_LIMIT_LOWER,
+            vmax=OUTPUT_ACTIVATION_LIMIT_UPPER)
         fig.colorbar(cax, ax=ax)
         ax.set_title(
             f'Actual Combined Activations (With Leaky ReLU) for Layer {layer} in {file_name}')
@@ -294,8 +318,14 @@ def plot_activation_heatmap(file_name, activation_type="correct"):
 
         # Plotting the heatmap for the summed activations without leaky_relu
         ax = axes[3, layer]
-        cax = ax.imshow(summed_activations, aspect='auto',
-                        cmap='viridis', interpolation='nearest', origin='lower', vmin=-50, vmax=30)
+        cax = ax.imshow(
+            summed_activations,
+            aspect='auto',
+            cmap='viridis',
+            interpolation='nearest',
+            origin='lower',
+            vmin=-50,
+            vmax=30)
         fig.colorbar(cax, ax=ax)
         ax.set_title(
             f'Summed Activations (No Leaky ReLU) for Layer {layer} in {file_name}')
@@ -304,8 +334,14 @@ def plot_activation_heatmap(file_name, activation_type="correct"):
 
         # Plotting the heatmap for the summed activations with leaky_relu
         ax = axes[4, layer]
-        cax = ax.imshow(summed_activations_leaky, aspect='auto',
-                        cmap='viridis', interpolation='nearest', origin='lower', vmin=OUTPUT_ACTIVATION_LIMIT_LOWER, vmax=OUTPUT_ACTIVATION_LIMIT_UPPER)
+        cax = ax.imshow(
+            summed_activations_leaky,
+            aspect='auto',
+            cmap='viridis',
+            interpolation='nearest',
+            origin='lower',
+            vmin=OUTPUT_ACTIVATION_LIMIT_LOWER,
+            vmax=OUTPUT_ACTIVATION_LIMIT_UPPER)
         fig.colorbar(cax, ax=ax)
         ax.set_title(
             f'Summed Activations (With Leaky ReLU) for Layer {layer} in {file_name}')
@@ -326,8 +362,17 @@ if __name__ == '__main__':
     plot_activation_heatmap('test_sample_3.pt', activation_type="correct")
     plot_activation_heatmap('test_sample_3.pt', activation_type="incorrect")
 
-    file_names = ['test_sample_3.pt', 'test_sample_2.pt', 'test_sample_1.pt', 'test_sample_4.pt', 'test_sample_5.pt',
-                  'test_sample_6.pt', 'test_sample_7.pt', 'test_sample_8.pt', 'test_sample_9.pt', 'test_sample_11.pt']
+    file_names = [
+        'test_sample_3.pt',
+        'test_sample_2.pt',
+        'test_sample_1.pt',
+        'test_sample_4.pt',
+        'test_sample_5.pt',
+        'test_sample_6.pt',
+        'test_sample_7.pt',
+        'test_sample_8.pt',
+        'test_sample_9.pt',
+        'test_sample_11.pt']
     plot_cosine_similarity_multi_file(
         file_names, activation_type="correct")
     plot_cosine_similarity_multi_file(

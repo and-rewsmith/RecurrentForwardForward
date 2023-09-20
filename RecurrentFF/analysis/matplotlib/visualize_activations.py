@@ -38,7 +38,7 @@ def plot_mean_stddev():
         print(f"\tMean Activation: {means[layer].mean().item():.4f}")
         print(f"\tStandard Deviation: {std_devs[layer].mean().item():.4f}")
 
-    fig, axes = plt.subplots(4, 1, figsize=(10, 5*4))
+    fig, axes = plt.subplots(4, 1, figsize=(10, 5 * 4))
 
     # Plot Std Dev
     df = pd.DataFrame(std_devs.cpu().numpy())
@@ -47,7 +47,8 @@ def plot_mean_stddev():
     cbar = sns_heatmap.collections[0].colorbar
     cbar.set_label('Average Std Dev', fontsize=12)
     axes[0].set_title(
-        'Average Neuron Std Dev (across [batch, timesteps, layers])', fontsize=12)
+        'Average Neuron Std Dev (across [batch, timesteps, layers])',
+        fontsize=12)
     axes[0].set_xlabel('Neuron #', fontsize=12)
     axes[0].set_ylabel('Layer', fontsize=12)
 
@@ -58,7 +59,8 @@ def plot_mean_stddev():
     cbar = sns_heatmap.collections[0].colorbar
     cbar.set_label('Average Std Dev', fontsize=12)
     axes[1].set_title(
-        'Average Neuron Std Dev (across [batch, timesteps, layers])', fontsize=12)
+        'Average Neuron Std Dev (across [batch, timesteps, layers])',
+        fontsize=12)
     axes[1].set_xlabel('Neuron #', fontsize=12)
     axes[1].set_ylabel('Layer', fontsize=12)
 
@@ -70,7 +72,8 @@ def plot_mean_stddev():
     cbar.set_label(
         'Average Activation Value', fontsize=12)
     axes[2].set_title(
-        'Average Abs Neuron Activation (across [batch, timesteps, layers])', fontsize=12)
+        'Average Abs Neuron Activation (across [batch, timesteps, layers])',
+        fontsize=12)
     axes[2].set_xlabel('Neuron #', fontsize=12)
     axes[2].set_ylabel('Layer', fontsize=12)
 
@@ -81,7 +84,8 @@ def plot_mean_stddev():
     cbar.set_label(
         'Average Activation Value', fontsize=12)
     axes[3].set_title(
-        'Average Abs Neuron Activation (across [batch, timesteps, layers])', fontsize=12)
+        'Average Abs Neuron Activation (across [batch, timesteps, layers])',
+        fontsize=12)
     axes[3].set_xlabel('Neuron #', fontsize=12)
     axes[3].set_ylabel('Layer', fontsize=12)
     plt.tight_layout()
@@ -195,8 +199,9 @@ def plot_activations_over_timesteps():
                 timestep_tensor = torch.abs(timestep_tensor)
 
                 df = pd.DataFrame(timestep_tensor.cpu())
-                sns_heatmap = sns.heatmap(df, cmap='viridis', vmin=0, vmax=global_max, cbar_kws={
-                    'label': 'Activation Value'}, ax=axes[t])
+                sns_heatmap = sns.heatmap(
+                    df, cmap='viridis', vmin=0, vmax=global_max, cbar_kws={
+                        'label': 'Activation Value'}, ax=axes[t])
                 cbar = sns_heatmap.collections[0].colorbar
                 cbar.set_label('Activation Value', fontsize=12)
                 axes[t].set_title(f'Timestep {t}', fontsize=12)
@@ -204,7 +209,9 @@ def plot_activations_over_timesteps():
                 axes[t].set_ylabel('Layer', fontsize=12)
 
             plt.tight_layout()
-            plt.savefig(f"{BASE_OUT_PATH}/{scenario}_{identifier}.png", dpi=300)
+            plt.savefig(
+                f"{BASE_OUT_PATH}/{scenario}_{identifier}.png",
+                dpi=300)
 
 
 def plot_activations_over_time():
@@ -241,7 +248,8 @@ def plot_activations_over_time():
             plt.legend()
             plt.tight_layout()
             plt.savefig(
-                f"{BASE_OUT_PATH}/l2norm_over_time_{scenario}_{identifier}.png", dpi=300)
+                f"{BASE_OUT_PATH}/l2norm_over_time_{scenario}_{identifier}.png",
+                dpi=300)
             plt.close()
 
 
@@ -275,7 +283,8 @@ def plot_sparsity_over_time(threshold=0.01):
             plt.legend()
             plt.tight_layout()
             plt.savefig(
-                f"{BASE_OUT_PATH}/sparsity_over_time_{scenario}_{identifier}.png", dpi=300)
+                f"{BASE_OUT_PATH}/sparsity_over_time_{scenario}_{identifier}.png",
+                dpi=300)
             plt.close()
 
 
@@ -319,7 +328,8 @@ def plot_activation_percentiles_over_time(percentiles=[10, 25, 50, 75, 90]):
                 f'Activation Magnitudes by Percentile Over Time ({scenario} - {identifier})')
             plt.tight_layout()
             plt.savefig(
-                f"{BASE_OUT_PATH}/activation_percentiles_over_time_{scenario}_{identifier}.png", dpi=300)
+                f"{BASE_OUT_PATH}/activation_percentiles_over_time_{scenario}_{identifier}.png",
+                dpi=300)
             plt.close()
 
 

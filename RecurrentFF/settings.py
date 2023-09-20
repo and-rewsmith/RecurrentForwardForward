@@ -101,7 +101,12 @@ class Settings(BaseModel):
 
         if "data_config" in config:
             data_config = DataConfig(**config["data_config"])
-            return cls(model=Model(**model), device=Device(**config['device']), data_config=data_config)
+            return cls(
+                model=Model(
+                    **model),
+                device=Device(
+                    **config['device']),
+                data_config=data_config)
         else:
             return cls(model=Model(**model), device=Device(**config['device']))
 

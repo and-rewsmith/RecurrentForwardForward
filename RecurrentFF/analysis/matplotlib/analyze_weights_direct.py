@@ -22,7 +22,12 @@ def plot_correlation_heatmap(correlation_matrix, layer):
     plt.close()
 
 
-def plot_weights_comparison(forward_weights, backward_weights, lateral_weights, neuron_idx, layer):
+def plot_weights_comparison(
+        forward_weights,
+        backward_weights,
+        lateral_weights,
+        neuron_idx,
+        layer):
     """
     Plot the weights comparison for a specific neuron in a given layer.
     """
@@ -80,6 +85,11 @@ for layer in range(LAYERS):
     plot_correlation_heatmap(correlation_matrix, layer)
 
     # For Direct Comparison
-    # Plot the weights comparison for a sample neuron (e.g., neuron 0) in the current layer
+    # Plot the weights comparison for a sample neuron (e.g., neuron 0) in the
+    # current layer
     plot_weights_comparison(
-        forward_weights_layer, backward_weights_layer, lateral_weights_layer, 0, layer)
+        forward_weights_layer,
+        backward_weights_layer,
+        lateral_weights_layer,
+        0,
+        layer)

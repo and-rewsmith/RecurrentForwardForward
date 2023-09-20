@@ -16,7 +16,8 @@ def plot_activations_l2_over_time_from_df(df):
     # Compute the squared activity for each neuron
     df_activations['squared_activity'] = df_activations['activity']**2
 
-    # Aggregate data: sum squared activities and then compute the square root for L2 norm
+    # Aggregate data: sum squared activities and then compute the square root
+    # for L2 norm
     df_grouped = df_activations.groupby(['image_timestep', 'layer_index', 'is_correct'])[
         'squared_activity'].sum().reset_index()
     df_grouped['l2_norm'] = np.sqrt(df_grouped['squared_activity'])
@@ -32,9 +33,18 @@ def plot_activations_l2_over_time_from_df(df):
     df_positive = df_grouped[df_grouped['is_correct']]
     df_negative = df_grouped[~df_grouped['is_correct']]
 
-    for label, data in [("Negative Data", df_negative), ("Positive Data", df_positive)]:
-        g = sns.relplot(data=data, x='image_timestep', y='l2_norm', hue='layer_index',
-                        kind='line', height=4, aspect=2, palette=palette, legend="full")
+    for label, data in [("Negative Data", df_negative),
+                        ("Positive Data", df_positive)]:
+        g = sns.relplot(
+            data=data,
+            x='image_timestep',
+            y='l2_norm',
+            hue='layer_index',
+            kind='line',
+            height=4,
+            aspect=2,
+            palette=palette,
+            legend="full")
 
         # Enhancements
         g.set_axis_labels("Time", "L2 Norm")
@@ -43,9 +53,13 @@ def plot_activations_l2_over_time_from_df(df):
         plt.tight_layout()
         plt.subplots_adjust(top=0.92)
         plt.savefig(
-            f'{SAVE_BASEPATH}/l2norm_over_time_{label.replace(" ", "_").lower()}.pdf', format='pdf', bbox_inches='tight')
+            f'{SAVE_BASEPATH}/l2norm_over_time_{label.replace(" ", "_").lower()}.pdf',
+            format='pdf',
+            bbox_inches='tight')
         plt.savefig(
-            f'{SAVE_BASEPATH}/l2norm_over_time_{label.replace(" ", "_").lower()}.png', format='png', bbox_inches='tight')
+            f'{SAVE_BASEPATH}/l2norm_over_time_{label.replace(" ", "_").lower()}.png',
+            format='png',
+            bbox_inches='tight')
         # plt.show()
 
 

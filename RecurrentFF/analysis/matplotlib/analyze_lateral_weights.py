@@ -19,7 +19,8 @@ for i in range(LAYERS):
 # 2. Compute the eigenvalues of these matrices.
 eigenvalues_list = [eig(matrix)[0] for matrix in lateral_matrices]
 
-# 3. Analyze the real parts of the eigenvalues to determine the stability of the system.
+# 3. Analyze the real parts of the eigenvalues to determine the stability
+# of the system.
 for idx, eigenvalues in enumerate(eigenvalues_list):
     unstable_modes = np.sum(np.real(eigenvalues) > 1)
     print(f"For lateral matrix {idx+1}:")

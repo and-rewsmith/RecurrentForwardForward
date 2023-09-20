@@ -104,10 +104,18 @@ class RecurrentFFNet(nn.Module):
 
         logging.info("Finished initializing network")
 
-    def predict(self, data_scenario: DataScenario, data_loader, num_batches: int, write_activations=False):
+    def predict(
+            self,
+            data_scenario: DataScenario,
+            data_loader,
+            num_batches: int,
+            write_activations=False):
         if data_scenario == DataScenario.StaticSingleClass:
             self.processor.brute_force_predict(
-                data_loader, num_batches, is_test_set=True, write_activations=write_activations)
+                data_loader,
+                num_batches,
+                is_test_set=True,
+                write_activations=write_activations)
 
     @profile(stdout=False, filename='baseline.prof',
              skip=Settings.new().model.skip_profiling)
@@ -163,7 +171,8 @@ class RecurrentFFNet(nn.Module):
 
                 total_batch_count += 1
 
-            # TODO: make train batches equal to however much a single test batch is w.r.t. total samples
+            # TODO: make train batches equal to however much a single test
+            # batch is w.r.t. total samples
             train_accuracy = self.processor.brute_force_predict(
                 ValidationLoader(train_loader), 10, False)
             test_accuracy = self.processor.brute_force_predict(
@@ -181,7 +190,12 @@ class RecurrentFFNet(nn.Module):
                     total_batch_count
                 )
 
-    def __train_batch(self, batch_num, input_data, label_data, total_batch_count):
+    def __train_batch(
+            self,
+            batch_num,
+            input_data,
+            label_data,
+            total_batch_count):
         logging.info("Batch: " + str(batch_num))
 
         self.inner_layers.reset_activations(True)
@@ -256,7 +270,12 @@ class RecurrentFFNet(nn.Module):
 
         return layer_metrics, pos_badness_per_layer, neg_badness_per_layer
 
-    def __log_epoch_metrics(self, train_accuracy, test_accuracy, epoch, total_batch_count):
+    def __log_epoch_metrics(
+            self,
+            train_accuracy,
+            test_accuracy,
+            epoch,
+            total_batch_count):
         wandb.log({"train_acc": train_accuracy,
                    "test_acc": test_accuracy,
                    "epoch": epoch}, step=total_batch_count)
