@@ -101,23 +101,29 @@ def plot_cosine_similarity(df):
         cos_sims_neg = compute_cosine_similarity(df_layer, False)
 
         for comparison, cos_sim in cos_sims_pos.items():
+            comp1 = comparison[0].split("_")[0]
+            comp2 = comparison[1].split("_")[0] if "+" not in comparison[1] else "(" + comparison[1].split(
+                "+")[0].split("_")[0] + " + " + comparison[1].split("+")[1].split("_")[0] + ")"
             for i, val in enumerate(cos_sim):
                 plot_data.append({
                     'layer': layer,
                     'timestep': i,
                     'similarity': val,
-                    'comparison': f'{comparison[0].split("_")[0]} vs {comparison[1].split("_")[0] if "+" not in comparison[1] else "(" + comparison[1].split("+")[0].split("_")[0] + " + " + comparison[1].split("+")[1].split("_")[0] + ")"}',
+                    'comparison': f'{comp1} vs {comp2}',
                     'type': 'Basic' if comparison in BASIC_COMPARISONS else 'Complex',
                     'is_pos_data': True
                 })
 
         for comparison, cos_sim in cos_sims_neg.items():
+            comp1 = comparison[0].split("_")[0]
+            comp2 = comparison[1].split("_")[0] if "+" not in comparison[1] else "(" + comparison[1].split(
+                "+")[0].split("_")[0] + " + " + comparison[1].split("+")[1].split("_")[0] + ")"
             for i, val in enumerate(cos_sim):
                 plot_data.append({
                     'layer': layer,
                     'timestep': i,
                     'similarity': val,
-                    'comparison': f'{comparison[0].split("_")[0]} vs {comparison[1].split("_")[0] if "+" not in comparison[1] else "(" + comparison[1].split("+")[0].split("_")[0] + " + " + comparison[1].split("+")[1].split("_")[0] + ")"}',
+                    'comparison': f'{comp1} vs {comp2}',
                     'type': 'Basic' if comparison in BASIC_COMPARISONS else 'Complex',
                     'is_pos_data': False
                 })
