@@ -155,6 +155,9 @@ def plot_cosine_similarity(df):
 
     # Convert the list to a DataFrame
     plot_df = pd.DataFrame(plot_data)
+    # Replace is_pos_data values for clarity in titles
+    plot_df['is_pos_data'] = plot_df['is_pos_data'].replace(
+        {True: 'Positive', False: 'Negative'})
 
     # Separate the data into basic and complex
     df_basic = plot_df[plot_df['type'] == 'Basic']
@@ -166,7 +169,15 @@ def plot_cosine_similarity(df):
     g_basic = g_basic.map(sns.lineplot, 'timestep',
                           'similarity', 'comparison', palette='tab10')
     g_basic.add_legend()
-    g_basic.savefig("img/presentation/cosine_sim/basic_comparisons.png")
+
+    # Set titles for basic plot
+    g_basic.set_titles(
+        col_template='Layer {col_name}', row_template='{row_name} Data')
+    g_basic.set_axis_labels('Time Step', 'Cosine Similarity')
+
+    g_basic.savefig("img/presentation/2E_cosine_sim/basic_comparisons.png")
+    g_basic.savefig("img/presentation/2E_cosine_sim/basic_comparisons.pdf",
+                    format='pdf', bbox_inches='tight')
 
     # Plotting for complex comparisons
     g_complex = sns.FacetGrid(df_complex, col="layer",
@@ -174,7 +185,15 @@ def plot_cosine_similarity(df):
     g_complex = g_complex.map(sns.lineplot, 'timestep',
                               'similarity', 'comparison', palette='tab10')
     g_complex.add_legend()
-    g_complex.savefig("img/presentation/cosine_sim/complex_comparisons.png")
+
+    # Set titles for complex plot
+    g_complex.set_titles(
+        col_template='Layer {col_name}', row_template='{row_name} Data')
+    g_complex.set_axis_labels('Time Step', 'Cosine Similarity')
+
+    g_complex.savefig("img/presentation/2E_cosine_sim/complex_comparisons.png")
+    g_complex.savefig("img/presentation/2E_cosine_sim/complex_comparisons.pdf",
+                      format='pdf', bbox_inches='tight')
 
 
 df = pd.read_parquet('~/Downloads/dataframe_9-19.parquet')

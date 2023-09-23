@@ -6,7 +6,7 @@ import numpy as np
 # Load the parquet file
 df = pd.read_parquet('~/Downloads/dataframe_9-19.parquet')
 
-SAVE_BASEPATH = "./img/presentation/l2_norm_activations/"
+SAVE_BASEPATH = "./img/presentation/3A_l2_norm_activations/"
 
 
 def plot_activations_l2_over_time_from_df(df):
