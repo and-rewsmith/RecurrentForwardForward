@@ -4,25 +4,28 @@ import matplotlib.pyplot as plt
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.decomposition import PCA
 
+import seaborn as sns
+
+BASIC_COMPARISONS = [
+    ('forward_activation_component', 'backward_activation_component'),
+    ('forward_activation_component', 'lateral_activation_component'),
+    ('backward_activation_component', 'lateral_activation_component')
+]
+
+COMPLEX_COMPARISONS = [
+    ('forward_activation_component',
+        'backward_activation_component + lateral_activation_component'),
+    ('backward_activation_component',
+        'forward_activation_component + lateral_activation_component'),
+    ('lateral_activation_component',
+        'forward_activation_component + backward_activation_component')
+]
+
 
 def compute_cosine_similarity(df):
     # Define the list of comparisons
-    basic_comparisons = [
-        ('forward_activation_component', 'backward_activation_component'),
-        ('forward_activation_component', 'lateral_activation_component'),
-        ('backward_activation_component', 'lateral_activation_component')
-    ]
 
-    complex_comparisons = [
-        ('forward_activation_component',
-         'backward_activation_component + lateral_activation_component'),
-        ('backward_activation_component',
-         'forward_activation_component + lateral_activation_component'),
-        ('lateral_activation_component',
-         'forward_activation_component + backward_activation_component')
-    ]
-
-    all_comparisons = basic_comparisons + complex_comparisons
+    all_comparisons = BASIC_COMPARISONS + COMPLEX_COMPARISONS
 
     df = df[['image_timestep', 'neuron index', 'forward_activation_component',
             'backward_activation_component', 'lateral_activation_component']]
@@ -99,55 +102,46 @@ def compute_cosine_similarity(df):
 
 def plot_cosine_similarity(df, is_correct):
 
+    sns.set_style("whitegrid")  # Set Seaborn style
+
     # Filter the dataframe based on is_correct
     df_filtered = df[df['is_correct'] == is_correct]
     if 'image' in df.columns:
         df_filtered = df_filtered.drop(columns=['image', 'dataset'])
 
-    # print(df_filtered.shape)
-
-    # Group by required dimensions and compute mean
     df_grouped = df_filtered.groupby(
         ['layer_index', 'neuron index', 'image_timestep']).mean().reset_index()
 
-    # Number of unique layers
     n_layers = df['layer_index'].nunique()
 
-    # Plot settings
-    fig, axes = plt.subplots(n_layers, 2, figsize=(15, 5 * n_layers))
+    # We'll generate a list to store all the data to be plotted
+    plot_data = []
 
-    for layer, (ax1, ax2) in zip(df['layer_index'].unique(), axes):
+    for layer in df['layer_index'].unique():
         df_layer = df_grouped[df_grouped['layer_index'] == layer]
         cos_sims = compute_cosine_similarity(df_layer)
 
-        timestep = 0
         for comparison, cos_sim in cos_sims.items():
-            ax = None
-            if timestep < 3:
-                ax = ax1
-            else:
-                ax = ax2
+            for i, val in enumerate(cos_sim):
+                plot_data.append({
+                    'layer': layer,
+                    'timestep': i,
+                    'similarity': val,
+                    'comparison': f'{comparison[0].split("_")[0]} vs {comparison[1].split("_")[0]}',
+                    'type': 'Basic' if comparison in BASIC_COMPARISONS else 'Complex'
+                })
 
-            # print("image timestep")
-            # print(df_layer['image_timestep'].shape)
-            # input()
+    # Convert the list to a DataFrame
+    plot_df = pd.DataFrame(plot_data)
 
-            ax.plot([i for i in range(0, len(cos_sim))], cos_sim,
-                    label=f'{comparison[0].split("_")[0]} vs {comparison[1].split("_")[0]}')
-            timestep += 1
+    # Using Seaborn's FacetGrid
+    g = sns.FacetGrid(plot_df, col="layer", row="type", height=5, aspect=1.2)
+    g = g.map(sns.lineplot, 'timestep', 'similarity',
+              'comparison', palette='tab10')
+    g.add_legend()
 
-        ax1.set_title(f'Layer {layer} - Basic Comparisons')
-        ax1.set_xlabel('Timesteps')
-        ax1.set_ylabel('Cosine Similarity')
-        ax1.legend()
-
-        ax2.set_title(f'Layer {layer} - Complex Comparisons')
-        ax2.set_xlabel('Timesteps')
-        ax2.set_ylabel('Cosine Similarity')
-        ax2.legend()
-
-    plt.tight_layout()
-    plt.savefig(
+    # Save the plot
+    g.savefig(
         f"img/presentation/cosine_sim/{'correct' if is_correct else 'incorrect'}.png")
 
 
