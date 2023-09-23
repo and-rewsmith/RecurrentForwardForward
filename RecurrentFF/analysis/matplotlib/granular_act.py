@@ -66,7 +66,6 @@ def plot_cosine_similarity_multi_file(file_names, activation_type="correct"):
                 # layer
                 data1 = accum_data[f'{activation_type}_{act1}_activations'][:, layer, :].cpu(
                 ).numpy()
-                print(data1.shape)
 
                 # For combined pairs like "backward + lateral", we add the
                 # activations
@@ -78,22 +77,15 @@ def plot_cosine_similarity_multi_file(file_names, activation_type="correct"):
                 else:
                     data2 = accum_data[f'{activation_type}_{act2}_activations'][:, layer, :].cpu(
                     ).numpy()
-                print(data2.shape)
 
                 all_data = np.concatenate([data1, data2], axis=0)
-                print(all_data.shape)
                 pca = PCA(n_components=5).fit(all_data)
                 data1_projected = pca.transform(data1)
                 data2_projected = pca.transform(data2)
 
-                print(data1_projected.shape)
-                print(data2_projected.shape)
-
                 # Compute cosine similarity for each time step
                 cos_sim = [cosine_similarity(data1_projected[i].reshape(
                     1, -1), data2_projected[i].reshape(1, -1))[0][0] for i in range(data1_projected.shape[0])]
-                print(len(cos_sim))
-                input()
 
                 ax.plot(cos_sim, label=f'Cosine Similarity: {act1} :: {act2}')
                 ax.set_title(
@@ -142,7 +134,6 @@ def plot_cosine_similarity(file_name, activation_type="correct"):
                 # layer
                 data1 = data[f'{activation_type}_{act1}_activations'][:, layer, :].cpu(
                 )
-                print(data1.shape)
 
                 # For combined pairs like "backward + lateral", we add the
                 # activations
@@ -154,15 +145,11 @@ def plot_cosine_similarity(file_name, activation_type="correct"):
                 else:
                     data2 = data[f'{activation_type}_{act2}_activations'][:, layer, :].cpu(
                     )
-                print(data2.shape)
 
                 all_data = np.concatenate([data1, data2], axis=0)
                 pca = PCA(n_components=5).fit(all_data)
                 data1_projected = pca.transform(data1)
                 data2_projected = pca.transform(data2)
-
-                print(data1_projected.shape)
-                print(data2_projected.shape)
 
                 # Compute cosine similarity for each time step
                 cos_sim = [
@@ -170,9 +157,6 @@ def plot_cosine_similarity(file_name, activation_type="correct"):
                         data1_projected[i].reshape(1, -1),
                         data2_projected[i].reshape(1, -1))[0][0] for i in range(
                         data1.size(0))]
-
-                print(cos_sim.shape)
-                input()
 
                 ax.plot(cos_sim, label=f'Cosine Similarity: {act1} :: {act2}')
                 ax.set_title(
@@ -386,27 +370,27 @@ def plot_activation_heatmap(file_name, activation_type="correct"):
 
 if __name__ == '__main__':
 
-    # plot_l2_norm_across_time('test_sample_1.pt', activation_type="correct")
-    # plot_l2_norm_across_time('test_sample_1.pt', activation_type="incorrect")
+    plot_l2_norm_across_time('test_sample_3.pt', activation_type="correct")
+    plot_l2_norm_across_time('test_sample_3.pt', activation_type="incorrect")
 
-    # plot_activation_heatmap('test_sample_1.pt', activation_type="correct")
-    # plot_activation_heatmap('test_sample_1.pt', activation_type="incorrect")
+    plot_activation_heatmap('test_sample_3.pt', activation_type="correct")
+    plot_activation_heatmap('test_sample_3.pt', activation_type="incorrect")
 
     file_names = [
-        'test_sample_1.pt',
+        'test_sample_3.pt',
         'test_sample_2.pt',
+        'test_sample_1.pt',
         'test_sample_4.pt',
         'test_sample_5.pt',
         'test_sample_6.pt',
+        'test_sample_7.pt',
         'test_sample_8.pt',
-        'test_sample_10.pt',
-        'test_sample_13.pt',
-        'test_sample_14.pt',
-        'test_sample_17.pt']
+        'test_sample_9.pt',
+        'test_sample_11.pt']
     plot_cosine_similarity_multi_file(
         file_names, activation_type="correct")
     plot_cosine_similarity_multi_file(
         file_names, activation_type="incorrect")
 
-    # plot_cosine_similarity('test_sample_1.pt', activation_type="correct")
-    # plot_cosine_similarity('test_sample_1.pt', activation_type="incorrect")
+    plot_cosine_similarity('test_sample_3.pt', activation_type="correct")
+    plot_cosine_similarity('test_sample_3.pt', activation_type="incorrect")

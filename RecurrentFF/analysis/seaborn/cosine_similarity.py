@@ -27,26 +27,9 @@ def compute_cosine_similarity(df, is_correct):
 
     all_comparisons = BASIC_COMPARISONS + COMPLEX_COMPARISONS
 
-    # filter df by is_correct
-    # print("----compute cosine sim")
-    # print(df.shape)
     df = df[df['is_correct'] == is_correct]
-    # print(df.shape)
     df = df[['image_timestep', 'neuron index', 'forward_activation_component',
             'backward_activation_component', 'lateral_activation_component']]
-    # print(df.columns)
-    # print(df.shape)
-
-    # print(df.shape)
-    # print(df.columns)
-    # print(df[['forward_activation_component', 'backward_activation_component',
-    #       'lateral_activation_component']].values.shape)
-    # print(df[['forward_activation_component', 'backward_activation_component',
-    #           'lateral_activation_component']].columns)
-    # input()
-
-    # print(df.columns)
-    # input()
 
     forward_tensor = df.pivot(index='image_timestep', columns='neuron index',
                               values='forward_activation_component').values
@@ -58,12 +41,6 @@ def compute_cosine_similarity(df, is_correct):
     # concatenate the three tensors
     concatenated_tensor = np.concatenate(
         (forward_tensor, backward_tensor, lateral_tensor), axis=0)
-
-    print(forward_tensor.shape)
-    print(backward_tensor.shape)
-    print(lateral_tensor.shape)
-    print(concatenated_tensor.shape)
-    # input()
 
     # Use PCA for dimensionality reduction
     pca = PCA(n_components=5)
@@ -81,7 +58,6 @@ def compute_cosine_similarity(df, is_correct):
     cos_sim_results = {}
     for act1, act2 in all_comparisons:
         activations1 = component_mappings[act1]
-        print(activations1.shape)
 
         activations2 = None
         if '+' in act2:
@@ -91,19 +67,14 @@ def compute_cosine_similarity(df, is_correct):
             activations2_1 = component_mappings[act2_parts[0]]
             activations2_2 = component_mappings[act2_parts[1]]
             activations2 = activations2_1 + activations2_2
-            print(activations2.shape)
         else:
             activations2 = component_mappings[act2]
-            print(activations2.shape)
 
         cos_sim = [
             cosine_similarity(
                 activations1[i].reshape(1, -1),
                 activations2[i].reshape(1, -1))[0][0] for i in range(
                 activations1.shape[0])]
-
-        # print(cos_sim)
-        # input()
 
         cos_sim_results[(act1, act2)] = cos_sim
 
@@ -118,7 +89,6 @@ def plot_cosine_similarity(df):
 
     df_grouped = df.groupby(
         ['layer_index', 'neuron index', 'image_timestep', 'is_correct']).mean().reset_index()
-    print(df_grouped.shape)
 
     n_layers = df['layer_index'].nunique()
 
@@ -127,7 +97,6 @@ def plot_cosine_similarity(df):
 
     for layer in df['layer_index'].unique():
         df_layer = df_grouped[df_grouped['layer_index'] == layer]
-        print(df_layer.shape)
         cos_sims_pos = compute_cosine_similarity(df_layer, True)
         cos_sims_neg = compute_cosine_similarity(df_layer, False)
 
