@@ -20,7 +20,8 @@ def plot_weight_distributions(weights_list, labels, title):
 
 
 # Load the weights
-weights = torch.load('IdentityMoneyball.pth', map_location=torch.device('cpu'))
+weights = torch.load('MNIST_l2_reg_for_back.pth',
+                     map_location=torch.device('cpu'))
 
 # Plot the distributions for each layer
 for layer in range(LAYERS):

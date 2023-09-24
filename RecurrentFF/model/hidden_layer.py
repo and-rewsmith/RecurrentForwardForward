@@ -5,6 +5,7 @@ from torch import nn
 from torch.nn import Module
 from torch.nn import functional as F
 from torch.optim import RMSprop, Adam, Adadelta, SGD
+from torch.optim.lr_scheduler import StepLR
 
 from RecurrentFF.util import (
     Activations,
@@ -75,6 +76,26 @@ def amplified_initialization(layer: nn.Linear, amplification_factor=3.0):
     nn.init.normal_(layer.weight, mean=0, std=amplified_std)
 
 
+def perturbed_identity_init(weight, scale=0.05):
+    identity = torch.eye(weight.shape[0], weight.shape[1]).to(weight.device)
+    random_perturbation = torch.randn_like(weight) * scale
+    weight.data = identity + random_perturbation
+
+
+def _custom_init(weight, settings, gain=1):
+    # Initialize with orthogonal matrix
+    nn.init.orthogonal_(weight, gain=gain)
+
+    # Initialize with identity matrix
+    identity = torch.eye(weight.shape[0], weight.shape[1])
+
+    # Ensure identity matrix is on the same device as weight
+    identity = identity
+
+    # Combine the orthogonal and identity matrices
+    weight.data = 0.7 * weight.data + 0.7 * identity
+
+
 class HiddenLayer(nn.Module):
     """
     A HiddenLayer class for a novel Forward-Forward Recurrent Network, with
@@ -136,10 +157,14 @@ class HiddenLayer(nn.Module):
             amplified_initialization(self.backward_linear, 3.0)
         else:
             nn.init.uniform_(self.backward_linear.weight, -0.05, 0.05)
+            # amplified_initialization(self.backward_linear, 1.5)
 
         # Initialize the lateral weights to be the identity matrix
         self.lateral_linear = nn.Linear(size, size)
-        nn.init.orthogonal_(self.lateral_linear.weight, gain=math.sqrt(2))
+        # perturbed_identity_init(self.lateral_linear.weight)
+        _custom_init(self.lateral_linear.weight, settings)
+        self.lateral_linear = torch.nn.utils.parametrizations.spectral_norm(
+            self.lateral_linear)
 
         self.previous_layer = None
         self.next_layer = None
@@ -152,6 +177,7 @@ class HiddenLayer(nn.Module):
                 self.parameters(),
                 lr=self.settings.model.ff_rmsprop.learning_rate,
                 momentum=self.settings.model.ff_rmsprop.momentum)
+            self.scheduler = StepLR(self.optimizer, step_size=75, gamma=0.7)
         elif self.settings.model.ff_optimizer == "adadelta":
             self.optimizer = Adadelta(
                 self.parameters(),
@@ -159,6 +185,21 @@ class HiddenLayer(nn.Module):
 
         self.param_name_dict = {param: name for name,
                                 param in self.named_parameters()}
+
+        # l2_max = 0
+        # max_expected_loss = 4
+        # percentage_contribution_to_loss = 0.001
+        # for param in self.param_name_dict:
+        #     if "forward" in self.param_name_dict[param] and "weight" in self.param_name_dict[param]:
+        #         l2_max += torch.norm(param).item()
+        #     elif "backward" in self.param_name_dict[param] and "weight" in self.param_name_dict[param]:
+        #         l2_max += torch.norm(param).item()
+        # self.lambda_l2 = (percentage_contribution_to_loss *
+        #                   max_expected_loss / l2_max)
+
+    def step_learning_rate(self):
+        self.scheduler.step()
+        # pass
 
     def _apply(self, fn):
         """
@@ -301,6 +342,16 @@ class HiddenLayer(nn.Module):
         pos_badness = layer_activations_to_badness(pos_activations)
         neg_badness = layer_activations_to_badness(neg_activations)
 
+        # l2_penalty = 0
+        # for param in self.param_name_dict:
+        #     if "forward" in self.param_name_dict[param] and "weight" in self.param_name_dict[param]:
+        #         l2_penalty += torch.norm(param)
+        #     elif "backward" in self.param_name_dict[param] and "weight" in self.param_name_dict[param]:
+        #         l2_penalty += torch.norm(param)
+
+        # torch.sum(torch.stack([torch.abs(
+        #     p).sum() for p, name in self.param_name_dict.items() if "weight" in name]))
+
         # Loss function equivelent to:
         # plot3d log(1 + exp(-n + 1)) + log(1 + exp(p - 1)) for n=0 to 3, p=0
         # to 3
@@ -308,6 +359,9 @@ class HiddenLayer(nn.Module):
             (-1 * neg_badness) + self.settings.model.loss_threshold,
             pos_badness - self.settings.model.loss_threshold
         ])).mean()
+        # total_loss = layer_loss + self.lambda_l2 * l2_penalty
+        # total_loss.backward()
+
         layer_loss.backward()
 
         self.optimizer.step()
@@ -412,6 +466,7 @@ class HiddenLayer(nn.Module):
             self.lateral_act = lateral
 
             new_activation = F.leaky_relu(forward + backward + lateral)
+            new_activation = torch.clamp(new_activation, min=-5, max=5)
             # print(
             #     f"no relu: {(forward + backward + lateral).flatten().mean()}")
             # print(f"relu: {new_activation.flatten().mean()}")
@@ -451,6 +506,7 @@ class HiddenLayer(nn.Module):
             self.lateral_act = lateral
 
             new_activation = F.leaky_relu(forward + backward + lateral)
+            new_activation = torch.clamp(new_activation, min=-5, max=5)
 
             if should_damp:
                 old_activation = new_activation
@@ -494,6 +550,7 @@ class HiddenLayer(nn.Module):
             self.lateral_act = lateral
 
             new_activation = F.leaky_relu(forward + backward + lateral)
+            new_activation = torch.clamp(new_activation, min=-5, max=5)
 
             if should_damp:
                 old_activation = new_activation
@@ -537,6 +594,7 @@ class HiddenLayer(nn.Module):
             self.lateral_act = lateral
 
             new_activation = F.leaky_relu(forward + backward + lateral)
+            new_activation = torch.clamp(new_activation, min=-5, max=5)
 
             if should_damp:
                 old_activation = new_activation

@@ -7,8 +7,8 @@ from RecurrentFF.util import set_logging
 from RecurrentFF.model.model import RecurrentFFNet
 from RecurrentFF.settings import Settings, DataConfig
 
-TEST_BATCH_SIZE = 1
-NUM_BATCHES = 1000
+TEST_BATCH_SIZE = 1000
+NUM_BATCHES = 1
 
 if __name__ == "__main__":
     settings = Settings.new()
@@ -40,7 +40,7 @@ if __name__ == "__main__":
     model = RecurrentFFNet(settings).to(settings.device.device)
 
     model.load_state_dict(torch.load(
-        "IdentityMoneyball.pth", map_location=settings.device.device))
+        "MNIST_l2_reg_for_back.pth", map_location=settings.device.device))
 
     model.predict(DataScenario.StaticSingleClass,
-                  test_loader, NUM_BATCHES, write_activations=True)
+                  test_loader, NUM_BATCHES, write_activations=False)

@@ -3,7 +3,6 @@ import logging
 import random
 import string
 
-
 import torch
 from torch import nn
 import wandb
@@ -189,6 +188,8 @@ class RecurrentFFNet(nn.Module):
                     epoch,
                     total_batch_count
                 )
+
+            self.inner_layers.step_learning_rates()
 
     def __train_batch(
             self,
