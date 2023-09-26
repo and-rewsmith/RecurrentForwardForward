@@ -1,5 +1,5 @@
 [device]
-device = "mps"
+device = "cuda"
 
 [model]
 hidden_sizes = [700, 700, 700, 700, 700]
@@ -19,7 +19,7 @@ should_load_weights = false
 
 [model.ff_rmsprop]
 momentum = 0.0
-learning_rate = 0.00005
+learning_rate = 0.000005
 
 [model.classifier_rmsprop]
 momentum = 0

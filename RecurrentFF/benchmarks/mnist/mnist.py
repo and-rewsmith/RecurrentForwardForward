@@ -215,7 +215,7 @@ if __name__ == "__main__":
 
     # Pytorch utils.
     torch.autograd.set_detect_anomaly(True)
-    torch.manual_seed(1234)
+    torch.manual_seed(5526)
 
     wandb.init(
         # set the wandb project where this run will be logged
