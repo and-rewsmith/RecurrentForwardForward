@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # Load the parquet file
-df = pd.read_parquet('~/Downloads/dataframe_9-19.parquet')
+df = pd.read_parquet('./converted_data.parquet')
 
 SAVE_BASEPATH = "./img/presentation/3A_l2_norm_activations/"
 
