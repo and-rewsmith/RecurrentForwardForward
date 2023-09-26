@@ -40,7 +40,7 @@ if __name__ == "__main__":
     model = RecurrentFFNet(settings).to(settings.device.device)
 
     model.load_state_dict(torch.load(
-        "/home/andrew/Documents/projects/RecurrentForwardForward-search/MNIST-10-pre-15-post-(more layers)-95%.pth", map_location=settings.device.device))
+        "MNIST_2023-09-26_01-22-30_PZD53H.pth", map_location=settings.device.device))
 
     model.predict(DataScenario.StaticSingleClass,
                   test_loader, NUM_BATCHES, write_activations=True)

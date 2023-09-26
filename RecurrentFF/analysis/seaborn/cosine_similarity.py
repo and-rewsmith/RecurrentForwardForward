@@ -87,6 +87,9 @@ def plot_cosine_similarity(df):
 
     df = df.drop(columns=['image', 'dataset'])
 
+    target_array = np.array([3])
+    df = df[df['label'].apply(lambda x: np.array_equal(x, target_array))]
+
     df_grouped = df.groupby(
         ['layer_index', 'neuron index', 'image_timestep', 'is_correct']).mean().reset_index()
 
@@ -171,5 +174,5 @@ def plot_cosine_similarity(df):
                       format='pdf', bbox_inches='tight')
 
 
-df = pd.read_parquet('~/Downloads/dataframe_9-19.parquet')
+df = pd.read_parquet('./converted_data.parquet')
 plot_cosine_similarity(df)

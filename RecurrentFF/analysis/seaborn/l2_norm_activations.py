@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # Load the parquet file
-df = pd.read_parquet('./converted_data.parquet')
+df = pd.read_parquet('./converted_data_926.parquet')
 
 SAVE_BASEPATH = "./img/presentation/3A_l2_norm_activations/"
 
@@ -12,6 +12,10 @@ SAVE_BASEPATH = "./img/presentation/3A_l2_norm_activations/"
 def plot_activations_l2_over_time_from_df(df):
     # Compute the squared activity for each neuron
     df['squared_activity'] = df['activation']**2
+
+    target_array = np.array([3])
+    df = df[df['label'].apply(lambda x: np.array_equal(x, target_array))]
+    print("done with filtering")
 
     # Group and calculate L2 norm for each group
     df_grouped = df.groupby(

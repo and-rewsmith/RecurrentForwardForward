@@ -30,7 +30,7 @@ def plot_cosine_similarity_multi_file(file_names, activation_type="correct"):
         # print(data['labels'])
         # input()
 
-        if data['labels'][0] == 7:
+        if data['labels'][0] == 3:
             if accum_data is None:
                 # If this is the first file, initialize accum_data with the same
                 # keys and shapes as the loaded data

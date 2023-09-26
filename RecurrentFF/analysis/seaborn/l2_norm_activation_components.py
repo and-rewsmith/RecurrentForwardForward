@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # Load the parquet file
-df = pd.read_parquet('./converted_data.parquet')
+df = pd.read_parquet('./converted_data_926.parquet')
 
 SAVE_BASEPATH = "./img/presentation/3A_l2_norm_activations/"
 
@@ -16,6 +16,10 @@ def compute_l2_norm(grouped_df, column_name):
 
 
 def plot_activations_l2_over_time_from_df(df):
+    target_array = np.array([3])
+    df = df[df['label'].apply(lambda x: np.array_equal(x, target_array))]
+    print("done with filtering")
+
     # Calculate squared activity for each component
     for component in ['activation', 'forward_activation_component', 'backward_activation_component', 'lateral_activation_component']:
         df[f'squared_{component}'] = df[component]**2
@@ -65,7 +69,7 @@ def plot_activations_l2_over_time_from_df(df):
 
         fig.tight_layout()
         fig.suptitle(
-            f'L2 Norm of Activations Over Time ({title_text})', y=1.02)
+            f'L2 Norm of Activation Components Over Time ({title_text})', y=1.02)
         fig.savefig(f'{SAVE_BASEPATH}/l2norm_activation_components_{title_text.replace(" ", "_").lower()}.pdf',
                     format='pdf', bbox_inches='tight')
         fig.savefig(f'{SAVE_BASEPATH}/l2norm_activation_components_{title_text.replace(" ", "_").lower()}.png',
