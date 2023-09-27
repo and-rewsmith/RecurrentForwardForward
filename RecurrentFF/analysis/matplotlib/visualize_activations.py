@@ -332,10 +332,100 @@ def plot_activation_percentiles_over_time(percentiles=[10, 25, 50, 75, 90]):
                 dpi=300)
             plt.close()
 
+def plot_activations_over_timesteps_limit():
+    for filename in FILENAMES:
+        identifier = filename.split(".")[0].split("_")[-1]
+        tensors = torch.load(f"{BASE_INPUT_PATH}/{filename}")
+
+        print(f"=====Filename: {filename}=====")
+
+        scenarios = ["incorrect_activations", "correct_activations"]
+
+        global_max = 0
+        for scenario in scenarios:
+            loaded = tensors[scenario]
+            timesteps = loaded.shape[0]
+
+            for t in range(timesteps):
+                timestep_tensor = loaded[t]
+                timestep_tensor = torch.abs(timestep_tensor)
+
+                max_from_timestep = torch.max(timestep_tensor).item()
+                if max_from_timestep > global_max:
+                    global_max = max_from_timestep
+
+        global_max = global_max // 6
+
+        for scenario in scenarios:
+            print(f"---------Scenario: {scenario}---------")
+
+            loaded = tensors[scenario]
+            timesteps = loaded.shape[0]
+
+            # =========================================================================
+            # Plot timesteps 15 through 21 absolute value activations
+            # =========================================================================
+
+            fig, axes = plt.subplots(1, 7, figsize=(18, 5))
+
+            # Setting figure background to none (transparent)
+            # fig.patch.set_facecolor('none')
+            # fig.patch.set_alpha(0)
+
+            for t in range(15, 22):  
+                timestep_tensor = loaded[t]
+                timestep_tensor = torch.abs(timestep_tensor)
+
+                df = pd.DataFrame(timestep_tensor.cpu())
+                sns_heatmap = sns.heatmap(
+                    df, cmap='viridis', vmin=0, vmax=global_max, cbar=t == 21,
+                    cbar_kws={'label': 'Activation Value'}, ax=axes[t-15])
+
+                # Making axes background transparent
+                # axes[t-15].set_facecolor('none')
+                # axes[t-15].patch.set_alpha(0)
+
+                if t == 21:  # Only label the last image
+                    cbar = sns_heatmap.collections[0].colorbar
+                    cbar.set_label('Activation Value', fontsize=14)
+                axes[t-15].set_title(f'Timestep {t}', fontsize=14)
+                axes[t-15].set_xlabel('Neuron #', fontsize=14)
+                axes[t-15].set_ylabel('')  
+
+                axes[t-15].invert_yaxis()  
+
+            scenario_legible = None
+            if scenario == "incorrect_activations":
+                scenario_legible = "Positive Data"
+            else:
+                scenario_legible = "Negative Data"
+
+            # set title of plot
+            plt.suptitle(
+                f'Activations Over Time ({scenario_legible})',
+                fontsize=16)
+            plt.tight_layout()
+
+            # save as very high quality png
+            plt.savefig(
+                f"./img/presentation/2G_heatmaps/{scenario}_{identifier}.png",
+                dpi=1200)
+            plt.savefig(
+                f"./img/presentation/2G_heatmaps/{scenario}_{identifier}.pdf",
+                bbox_inches='tight', pad_inches=0)
+
+
+
+
+
+
+
 
 if __name__ == "__main__":
-    plot_mean_stddev()
-    plot_activations_over_timesteps()
-    plot_activations_over_time()
-    plot_sparsity_over_time()
-    plot_activation_percentiles_over_time()
+    # plot_mean_stddev()
+    # plot_activations_over_timesteps()
+    # plot_activations_over_time()
+    # plot_sparsity_over_time()
+    # plot_activation_percentiles_over_time()
+
+    plot_activations_over_timesteps_limit()
