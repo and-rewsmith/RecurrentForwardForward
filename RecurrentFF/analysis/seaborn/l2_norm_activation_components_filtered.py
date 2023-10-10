@@ -15,7 +15,8 @@ SAVE_BASEPATH = "./img/presentation/l2_norm_activations/"
 def compute_l2_norm(grouped_df, column_name):
     """Compute L2 norm for a given column."""
     grouped_df[f'{column_name}_l2_norm'] = np.sqrt(grouped_df[column_name])
-    return grouped_df.groupby(['image_timestep', 'layer_index', 'is_correct'])[f'{column_name}_l2_norm'].mean().reset_index()
+    return grouped_df.groupby(['image_timestep', 'layer_index', 'is_correct'])[f'{column_name}_l2_norm'].mean()\
+        .reset_index()
 
 
 def plot_activations_l2_over_time_from_df(df):
@@ -24,7 +25,8 @@ def plot_activations_l2_over_time_from_df(df):
     print("done with filtering")
 
     # Calculate squared activity for each component
-    for component in ['activation', 'forward_activation_component', 'backward_activation_component', 'lateral_activation_component']:
+    for component in ['activation',
+                      'forward_activation_component', 'backward_activation_component', 'lateral_activation_component']:
         df[f'squared_{component}'] = df[component]**2
 
     # Group and calculate L2 norm for each group
@@ -32,7 +34,8 @@ def plot_activations_l2_over_time_from_df(df):
         ['data_sample_id', 'image_timestep', 'layer_index', 'is_correct'])
 
     df_avg = pd.DataFrame()
-    for component in ['squared_activation', 'squared_forward_activation_component', 'squared_backward_activation_component', 'squared_lateral_activation_component']:
+    for component in ['squared_activation', 'squared_forward_activation_component',
+                      'squared_backward_activation_component', 'squared_lateral_activation_component']:
         temp = compute_l2_norm(
             df_grouped[component].sum().reset_index(), component)
         if df_avg.empty:
