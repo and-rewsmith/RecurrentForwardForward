@@ -6,6 +6,7 @@ from sklearn.decomposition import PCA
 import seaborn as sns
 
 DATAFRAME_PATH = "./converted_data_926.parquet"
+FILTER_CLASS = 3
 
 BASIC_COMPARISONS = [
     ('forward_activation_component', 'backward_activation_component'),
@@ -84,19 +85,27 @@ def compute_cosine_similarity(df, is_correct):
 
 def plot_cosine_similarity(df):
 
-    sns.set_style("whitegrid")  # Set Seaborn style
+    # Set Seaborn style to white and increase the font scale
+    sns.set_style("white")
+    sns.set_context("paper", font_scale=1.5)
 
     df = df.drop(columns=['image', 'dataset'])
 
-    df_grouped = df.groupby(
-        ['layer_index', 'neuron index', 'image_timestep', 'is_correct']).mean().reset_index()
+    target_array = np.array([FILTER_CLASS])
+    df = df[df['label'].apply(lambda x: np.array_equal(x, target_array))]
 
+    df_grouped = df.groupby(['layer_index', 'neuron index',
+                            'image_timestep', 'is_correct']).mean().reset_index()
     n_layers = df['layer_index'].nunique()
 
     # We'll generate a list to store all the data to be plotted
     plot_data = []
+    for i, layer in enumerate(df['layer_index'].unique()):
+        if i == 0:
+            continue
+        elif i == n_layers - 1:
+            continue
 
-    for layer in df['layer_index'].unique():
         df_layer = df_grouped[df_grouped['layer_index'] == layer]
         cos_sims_pos = compute_cosine_similarity(df_layer, True)
         cos_sims_neg = compute_cosine_similarity(df_layer, False)
@@ -131,13 +140,26 @@ def plot_cosine_similarity(df):
 
     # Convert the list to a DataFrame
     plot_df = pd.DataFrame(plot_data)
+    plot_df = plot_df[plot_df['timestep'] >= 15]
+
     # Replace is_pos_data values for clarity in titles
     plot_df['is_pos_data'] = plot_df['is_pos_data'].replace(
-        {True: 'Positive', False: 'Negative'})
+        {True: 'Positive Data', False: 'Negative Data'})
 
-    # Separate the data into basic and complex
+    # Add 1 to layer values for clarity in titles
+    plot_df['layer'] = plot_df['layer'] + 1
+
     df_basic = plot_df[plot_df['type'] == 'Basic']
     df_complex = plot_df[plot_df['type'] == 'Complex']
+
+    # Define function to adjust spines and font sizes
+    def adjust_spines(ax):
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+        ax.spines['bottom'].set_visible(True)
+        ax.spines['left'].set_visible(True)
+        ax.yaxis.set_ticks_position('left')
+        ax.xaxis.set_ticks_position('bottom')
 
     # Plotting for basic comparisons
     g_basic = sns.FacetGrid(df_basic, col="layer",
@@ -145,12 +167,14 @@ def plot_cosine_similarity(df):
     g_basic = g_basic.map(sns.lineplot, 'timestep',
                           'similarity', 'comparison', palette='tab10')
     g_basic.add_legend()
-
-    # Set titles for basic plot
+    for ax in g_basic.axes.flat:
+        adjust_spines(ax)
     g_basic.set_titles(
         col_template='Layer {col_name}', row_template='{row_name} Data')
+    for ax, title in zip(g_basic.axes.flat, g_basic._margin_titles_texts):
+        ax.set_title(title.get_text(), y=1.25)  # adjust y value for spacing
     g_basic.set_axis_labels('Time Step', 'Cosine Similarity')
-
+    plt.subplots_adjust(hspace=0.4, wspace=0.4)
     g_basic.savefig("img/presentation/2E_cosine_sim/basic_comparisons.png")
     g_basic.savefig("img/presentation/2E_cosine_sim/basic_comparisons.pdf",
                     format='pdf', bbox_inches='tight')
@@ -161,12 +185,14 @@ def plot_cosine_similarity(df):
     g_complex = g_complex.map(sns.lineplot, 'timestep',
                               'similarity', 'comparison', palette='tab10')
     g_complex.add_legend()
-
-    # Set titles for complex plot
+    for ax in g_complex.axes.flat:
+        adjust_spines(ax)
     g_complex.set_titles(
         col_template='Layer {col_name}', row_template='{row_name} Data')
+    for ax, title in zip(g_complex.axes.flat, g_complex._margin_titles_texts):
+        ax.set_title(title.get_text(), y=1.25)  # adjust y value for spacing
     g_complex.set_axis_labels('Time Step', 'Cosine Similarity')
-
+    plt.subplots_adjust(hspace=0.4, wspace=0.4)
     g_complex.savefig("img/presentation/2E_cosine_sim/complex_comparisons.png")
     g_complex.savefig("img/presentation/2E_cosine_sim/complex_comparisons.pdf",
                       format='pdf', bbox_inches='tight')

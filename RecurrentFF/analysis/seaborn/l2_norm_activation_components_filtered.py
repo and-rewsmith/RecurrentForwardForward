@@ -3,8 +3,11 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
 
+DATAFRAME_PATH = "./converted_data_926.parquet"
+FILTER_CLASS = 3
+
 # Load the parquet file
-df = pd.read_parquet('./converted_data_926.parquet')
+df = pd.read_parquet(DATAFRAME_PATH)
 
 SAVE_BASEPATH = "./img/presentation/3A_l2_norm_activations/"
 
@@ -16,7 +19,7 @@ def compute_l2_norm(grouped_df, column_name):
 
 
 def plot_activations_l2_over_time_from_df(df):
-    target_array = np.array([3])
+    target_array = np.array([FILTER_CLASS])
     df = df[df['label'].apply(lambda x: np.array_equal(x, target_array))]
     print("done with filtering")
 
