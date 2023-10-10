@@ -8,12 +8,12 @@ BASE_INPUT_PATH = "./artifacts/activations"
 BASE_OUT_PATH = "./img/debug/activation_heatmaps"
 SCENARIOS = ["incorrect_activations", "correct_activations"]
 FILENAMES = ["test_sample_1.pt", "test_sample_2.pt", "test_sample_3.pt"]
+MAX_ACTIVATION_DIVISOR = 4
 
 
 def plot_mean_stddev():
     running_sum_activations = None
     for filename in FILENAMES:
-        identifier = filename.split(".")[0].split("_")[-1]
         tensors = torch.load(f"{BASE_INPUT_PATH}/{filename}")
 
         for scenario in SCENARIOS:
@@ -115,7 +115,7 @@ def plot_activations_over_timesteps():
                 if max_from_timestep > global_max:
                     global_max = max_from_timestep
 
-        global_max = global_max // 4
+        global_max = global_max // MAX_ACTIVATION_DIVISOR
 
         for scenario in scenarios:
             print(f"---------Scenario: {scenario}---------")
@@ -225,19 +225,13 @@ def plot_activations_over_time():
             # Compute L2 norms over neurons
             l2_norms = torch.norm(loaded, p=2, dim=-1)
 
-            avg_l2_norms = l2_norms
-
-            # # Now, average the L2 norms over the batches for each layer
-            # avg_l2_norms = l2_norms.mean(dim=0)
-            # print(avg_l2_norms.shape)
-
             plt.figure(figsize=(12, 8))
-            for layer in range(avg_l2_norms.shape[-1]):
-                plt.plot(avg_l2_norms[:, layer].cpu().numpy(),
+            for layer in range(l2_norms.shape[-1]):
+                plt.plot(l2_norms[:, layer].cpu().numpy(),
                          label=f"Layer {layer + 1}")
 
             # Plotting the average L2 norm over all layers
-            avg_over_all_layers = avg_l2_norms.mean(dim=-1)
+            avg_over_all_layers = l2_norms.mean(dim=-1)
             plt.plot(avg_over_all_layers.cpu().numpy(),
                      label="Average Over All Layers", linestyle='--')
 
@@ -332,6 +326,7 @@ def plot_activation_percentiles_over_time(percentiles=[10, 25, 50, 75, 90]):
                 dpi=300)
             plt.close()
 
+
 def plot_activations_over_timesteps_limit():
     for filename in FILENAMES:
         identifier = filename.split(".")[0].split("_")[-1]
@@ -354,7 +349,7 @@ def plot_activations_over_timesteps_limit():
                 if max_from_timestep > global_max:
                     global_max = max_from_timestep
 
-        global_max = global_max // 6
+        global_max = global_max // MAX_ACTIVATION_DIVISOR
 
         for scenario in scenarios:
             print(f"---------Scenario: {scenario}---------")
@@ -368,11 +363,7 @@ def plot_activations_over_timesteps_limit():
 
             fig, axes = plt.subplots(1, 7, figsize=(18, 5))
 
-            # Setting figure background to none (transparent)
-            # fig.patch.set_facecolor('none')
-            # fig.patch.set_alpha(0)
-
-            for t in range(15, 22):  
+            for t in range(15, 22):
                 timestep_tensor = loaded[t]
                 timestep_tensor = torch.abs(timestep_tensor)
 
@@ -381,18 +372,14 @@ def plot_activations_over_timesteps_limit():
                     df, cmap='viridis', vmin=0, vmax=global_max, cbar=t == 21,
                     cbar_kws={'label': 'Activation Value'}, ax=axes[t-15])
 
-                # Making axes background transparent
-                # axes[t-15].set_facecolor('none')
-                # axes[t-15].patch.set_alpha(0)
-
                 if t == 21:  # Only label the last image
                     cbar = sns_heatmap.collections[0].colorbar
                     cbar.set_label('Activation Value', fontsize=14)
                 axes[t-15].set_title(f'Timestep {t}', fontsize=14)
                 axes[t-15].set_xlabel('Neuron #', fontsize=14)
-                axes[t-15].set_ylabel('')  
+                axes[t-15].set_ylabel('')
 
-                axes[t-15].invert_yaxis()  
+                axes[t-15].invert_yaxis()
 
             scenario_legible = None
             if scenario == "incorrect_activations":
@@ -408,24 +395,17 @@ def plot_activations_over_timesteps_limit():
 
             # save as very high quality png
             plt.savefig(
-                f"./img/presentation/2G_heatmaps/{scenario}_{identifier}.png",
+                f"./img/presentation/heatmaps/{scenario}_{identifier}.png",
                 dpi=1200)
             plt.savefig(
-                f"./img/presentation/2G_heatmaps/{scenario}_{identifier}.pdf",
+                f"./img/presentation/heatmaps/{scenario}_{identifier}.pdf",
                 bbox_inches='tight', pad_inches=0)
 
 
-
-
-
-
-
-
 if __name__ == "__main__":
-    # plot_mean_stddev()
-    # plot_activations_over_timesteps()
-    # plot_activations_over_time()
-    # plot_sparsity_over_time()
-    # plot_activation_percentiles_over_time()
-
+    plot_mean_stddev()
+    plot_activations_over_timesteps()
+    plot_activations_over_time()
+    plot_sparsity_over_time()
+    plot_activation_percentiles_over_time()
     plot_activations_over_timesteps_limit()

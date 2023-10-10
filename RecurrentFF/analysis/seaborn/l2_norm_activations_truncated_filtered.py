@@ -9,7 +9,7 @@ FILTER_CLASS = 3
 # Load the parquet file
 df = pd.read_parquet(DATAFRAME_PATH)
 
-SAVE_BASEPATH = "./img/presentation/3A_l2_norm_activations/"
+SAVE_BASEPATH = "./img/presentation/l2_norm_activations/"
 
 
 def plot_activations_l2_over_time_from_df(df):
@@ -67,7 +67,7 @@ def plot_activations_l2_over_time_from_df(df):
             format='pdf', bbox_inches='tight'
         )
         plt.savefig(
-            f'{SAVE_BASEPATH}/l2norm_over_time_truncated_{label.replace(" ", "_").lower()}.png',
+            f'{SAVE_BASEPATH}/l2norm_over_time_truncated_filtered_{label.replace(" ", "_").lower()}.png',
             format='png', bbox_inches='tight'
         )
 

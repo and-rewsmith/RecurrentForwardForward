@@ -9,7 +9,7 @@ FILTER_CLASS = 3
 # Load the parquet file
 df = pd.read_parquet(DATAFRAME_PATH)
 
-SAVE_BASEPATH = "./img/presentation/3A_l2_norm_activations/"
+SAVE_BASEPATH = "./img/presentation/l2_norm_activations/"
 
 
 def compute_l2_norm(grouped_df, column_name):

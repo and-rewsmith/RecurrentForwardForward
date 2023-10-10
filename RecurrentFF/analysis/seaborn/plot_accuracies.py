@@ -67,6 +67,6 @@ plt.xticks(fontsize=34, fontweight=375)
 plt.yticks(fontsize=34, fontweight=375)
 
 # Save to PDF
-pdf_path = "./img/presentation/2F_accuracy/accuracies.pdf"
+pdf_path = "./img/presentation/accuracy/accuracies.pdf"
 plt.savefig(pdf_path, format='pdf', bbox_inches='tight')
 plt.close()

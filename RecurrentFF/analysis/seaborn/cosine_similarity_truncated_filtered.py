@@ -175,8 +175,8 @@ def plot_cosine_similarity(df):
         ax.set_title(title.get_text(), y=1.25)  # adjust y value for spacing
     g_basic.set_axis_labels('Time Step', 'Cosine Similarity')
     plt.subplots_adjust(hspace=0.4, wspace=0.4)
-    g_basic.savefig("img/presentation/2E_cosine_sim/basic_comparisons.png")
-    g_basic.savefig("img/presentation/2E_cosine_sim/basic_comparisons.pdf",
+    g_basic.savefig("img/presentation/cosine_sim/basic_comparisons.png")
+    g_basic.savefig("img/presentation/cosine_sim/basic_comparisons.pdf",
                     format='pdf', bbox_inches='tight')
 
     # Plotting for complex comparisons
@@ -193,8 +193,8 @@ def plot_cosine_similarity(df):
         ax.set_title(title.get_text(), y=1.25)  # adjust y value for spacing
     g_complex.set_axis_labels('Time Step', 'Cosine Similarity')
     plt.subplots_adjust(hspace=0.4, wspace=0.4)
-    g_complex.savefig("img/presentation/2E_cosine_sim/complex_comparisons.png")
-    g_complex.savefig("img/presentation/2E_cosine_sim/complex_comparisons.pdf",
+    g_complex.savefig("img/presentation/cosine_sim/complex_comparisons.png")
+    g_complex.savefig("img/presentation/cosine_sim/complex_comparisons.pdf",
                       format='pdf', bbox_inches='tight')
 
 

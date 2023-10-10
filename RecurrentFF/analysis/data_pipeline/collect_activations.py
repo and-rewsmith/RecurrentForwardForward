@@ -10,6 +10,8 @@ from RecurrentFF.settings import Settings, DataConfig
 TEST_BATCH_SIZE = 1
 NUM_BATCHES = 1000
 
+TENSOR_PATH = ""
+
 if __name__ == "__main__":
     settings = Settings.new()
 
@@ -40,7 +42,7 @@ if __name__ == "__main__":
     model = RecurrentFFNet(settings).to(settings.device.device)
 
     model.load_state_dict(torch.load(
-        "MNIST_2023-09-26_01-22-30_PZD53H.pth", map_location=settings.device.device))
+        TENSOR_PATH, map_location=settings.device.device))
 
     model.predict(DataScenario.StaticSingleClass,
                   test_loader, NUM_BATCHES, write_activations=True)
