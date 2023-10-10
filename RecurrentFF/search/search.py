@@ -132,7 +132,6 @@ if __name__ == "__main__":
         settings.model.ff_activation = act
         settings.model.ff_optimizer = ff_opt
         settings.model.classifier_optimizer = classifier_opt
-        settings.model.interconnect_density = density
         settings.model.damping_factor = damping_factor
 
         if ff_opt == "rmsprop":

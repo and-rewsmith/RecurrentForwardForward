@@ -9,7 +9,6 @@ skip_profiling = 1
 ff_activation = "relu"
 ff_optimizer = "rmsprop"
 classifier_optimizer = "rmsprop"
-interconnect_density = 1
 should_load_weights = false
 should_log_metrics = false 
 should_replace_neg_data = false 

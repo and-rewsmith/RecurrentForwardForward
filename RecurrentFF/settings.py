@@ -50,7 +50,6 @@ class Model(BaseModel):
     damping_factor: float
     epsilon: float
     skip_profiling: bool
-    interconnect_density: float
     should_log_metrics: bool
     should_replace_neg_data: bool
     should_load_weights: bool
