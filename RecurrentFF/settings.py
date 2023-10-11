@@ -1,3 +1,4 @@
+from typing_extensions import Self
 import toml
 
 from pydantic import BaseModel
@@ -57,14 +58,14 @@ class Model(BaseModel):
     ff_activation: str
 
     ff_optimizer: str
-    ff_rmsprop: FfRmsprop = None
-    ff_adam: FfAdam = None
-    ff_adadelta: FfAdadelta = None
+    ff_rmsprop: FfRmsprop
+    ff_adam: FfAdam
+    ff_adadelta: FfAdadelta
 
     classifier_optimizer: str
-    classifier_rmsprop: ClassifierRmsprop = None
-    classifier_adam: ClassifierAdam = None
-    classifier_adadelta: FfAdadelta = None
+    classifier_rmsprop: ClassifierRmsprop
+    classifier_adam: ClassifierAdam
+    classifier_adadelta: FfAdadelta
 
 
 class Device(BaseModel):
@@ -77,7 +78,7 @@ class Settings(BaseModel):
     data_config: DataConfig = None
 
     @classmethod
-    def from_config_file(cls, path: str):
+    def from_config_file(cls, path: str) -> Self:
         config = toml.load(path)
         model = config['model']
 
@@ -110,7 +111,7 @@ class Settings(BaseModel):
             return cls(model=Model(**model), device=Device(**config['device']))
 
     @classmethod
-    def new(cls):
+    def new(cls) -> Self:
         args = get_arguments()
         config_file = args.config_file if args.config_file is not None else CONFIG_FILE
         return cls.from_config_file(config_file)

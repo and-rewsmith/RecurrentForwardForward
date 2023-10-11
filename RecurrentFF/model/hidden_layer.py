@@ -1,11 +1,12 @@
 import math
-from typing import Dict
+from typing import Dict, Optional
+from typing_extensions import Self
 
 import torch
-from torch import nn
+from torch import Tensor, nn
 from torch.nn import Module
 from torch.nn import functional as F
-from torch.optim import RMSprop, Adam, Adadelta
+from torch.optim import RMSprop, Adam, Adadelta, Optimizer
 
 from RecurrentFF.util import (
     Activations,
@@ -20,10 +21,10 @@ from RecurrentFF.settings import (
 )
 
 
-def custom_load_state_dict(self, state_dict: Dict, strict=True):
+def custom_load_state_dict(self, state_dict: Dict, strict=True):  # type: ignore
     # This function is a replication of the original PyTorch load_state_dict logic
     # with a check to prevent infinite recursion through the linked layers.
-    def load(module: nn.Module, prefix=''):
+    def load(module: nn.Module, prefix=''):  # type: ignore
         local_metadata = {} if metadata is None else metadata.get(
             prefix[:-1], {})
         module._load_from_state_dict(
@@ -40,9 +41,9 @@ def custom_load_state_dict(self, state_dict: Dict, strict=True):
                 if child is not None:
                     load(child, prefix + name + '.')
 
-    missing_keys = []
-    unexpected_keys = []
-    error_msgs = []
+    missing_keys = []  # type: ignore
+    unexpected_keys = []  # type: ignore
+    error_msgs = []  # type: ignore
 
     # The original function uses _IncompatibleKeys to track this, but for simplicity
     # we'll just use two lists and construct it at the end if needed.
@@ -66,7 +67,7 @@ def custom_load_state_dict(self, state_dict: Dict, strict=True):
     return self
 
 
-def amplified_initialization(layer: nn.Linear, amplification_factor=3.0):
+def amplified_initialization(layer: nn.Linear, amplification_factor: float = 3.0) -> None:
     """Amplified initialization for Linear layers."""
     # Get the number of input features
     n = layer.in_features
@@ -124,9 +125,9 @@ class HiddenLayer(nn.Module):
 
         self.damping_factor = damping_factor
 
-        self.pos_activations = None
-        self.neg_activations = None
-        self.predict_activations = None
+        self.pos_activations: Optional[Activations] = None
+        self.neg_activations: Optional[Activations] = None
+        self.predict_activations: Optional[Activations] = None
         self.reset_activations(True)
 
         self.forward_linear = nn.Linear(prev_size, size)
@@ -147,6 +148,7 @@ class HiddenLayer(nn.Module):
         self.previous_layer = None
         self.next_layer = None
 
+        self.optimizer: Optimizer
         if self.settings.model.ff_optimizer == "adam":
             self.optimizer = Adam(self.parameters(),
                                   lr=self.settings.model.ff_adam.learning_rate)
@@ -163,7 +165,11 @@ class HiddenLayer(nn.Module):
         self.param_name_dict = {param: name for name,
                                 param in self.named_parameters()}
 
-    def _apply(self, fn):
+        self.forward_act: Tensor
+        self.backward_act: Tensor
+        self.lateral_act: Tensor
+
+    def _apply(self, fn):  # type: ignore
         """
         Override apply, but we don't want to apply to sibling layers as that
         will cause a stack overflow. The hidden layers are contained in a
@@ -199,7 +205,7 @@ class HiddenLayer(nn.Module):
 
         return self
 
-    def state_dict(self, *args, **kwargs):
+    def state_dict(self, *args, **kwargs):  # type: ignore
         # Temporarily unlink the previous and next layers
         previous_layer = self.previous_layer
         next_layer = self.next_layer
@@ -215,7 +221,7 @@ class HiddenLayer(nn.Module):
 
         return state
 
-    def reset_activations(self, isTraining: bool):
+    def reset_activations(self, isTraining: bool) -> None:
         activations_dim = None
         if isTraining:
             activations_dim = self.train_activations_dim
@@ -255,7 +261,7 @@ class HiddenLayer(nn.Module):
             self.pos_activations = None
             self.neg_activations = None
 
-    def advance_stored_activations(self):
+    def advance_stored_activations(self) -> None:
         if self.pos_activations is not None:
             self.pos_activations.advance()
 
@@ -265,13 +271,16 @@ class HiddenLayer(nn.Module):
         if self.predict_activations is not None:
             self.predict_activations.advance()
 
-    def set_previous_layer(self, previous_layer):
+    def set_previous_layer(self, previous_layer: Self) -> None:
         self.previous_layer = previous_layer
 
-    def set_next_layer(self, next_layer):
+    def set_next_layer(self, next_layer: Self) -> None:
         self.next_layer = next_layer
 
-    def train(self, input_data: TrainInputData, label_data: TrainLabelData, should_damp: bool):
+    def train(self,  # type: ignore[override]
+              input_data: TrainInputData,
+              label_data: TrainLabelData,
+              should_damp: bool) -> float:
         self.optimizer.zero_grad()
 
         pos_activations = None
@@ -307,17 +316,17 @@ class HiddenLayer(nn.Module):
         # Loss function equivelent to:
         # plot3d log(1 + exp(-n + 1)) + log(1 + exp(p - 1)) for n=0 to 3, p=0
         # to 3
-        layer_loss = F.softplus(torch.cat([
+        layer_loss: Tensor = F.softplus(torch.cat([
             (-1 * neg_badness) + self.settings.model.loss_threshold,
             pos_badness - self.settings.model.loss_threshold
         ])).mean()
         layer_loss.backward()
 
         self.optimizer.step()
-        return layer_loss
+        return layer_loss.item()
 
     # TODO: needs to be more DRY
-    def forward(self, mode: ForwardMode, data: torch.Tensor, labels: torch.Tensor, should_damp: bool):
+    def forward(self, mode: ForwardMode, data: torch.Tensor, labels: torch.Tensor, should_damp: bool) -> torch.Tensor:
         """
         Propagates input data forward through the network, updating the
         activation state of the current layer based on the operating mode.
@@ -371,7 +380,7 @@ class HiddenLayer(nn.Module):
             assert next_layer is not None
 
         # Middle layer.
-        new_activation = None
+        new_activation: Tensor
         if data is None and labels is None:
             next_layer_prev_timestep_activations = None
             prev_layer_prev_timestep_activations = None
@@ -401,62 +410,43 @@ class HiddenLayer(nn.Module):
             prev_act_stdized = standardize_layer_activations(
                 prev_act, self.settings.model.epsilon)
 
-            forward = F.linear(
+            self.forward_act = F.linear(
                 prev_layer_stdized,
                 self.forward_linear.weight)
-            backward = -1 * F.linear(
+            self.backward_act = -1 * F.linear(
                 next_layer_stdized,
                 self.backward_linear.weight)
-            lateral = F.linear(
+            self.lateral_act = F.linear(
                 prev_act_stdized,
                 self.lateral_linear.weight)
-
-            self.forward_act = forward
-            self.backward_act = backward
-            self.lateral_act = lateral
-
-            new_activation = F.leaky_relu(forward + backward + lateral)
-
-            if should_damp:
-                old_activation = new_activation
-                new_activation = (1 - self.damping_factor) * \
-                    prev_act + self.damping_factor * old_activation
 
         # Single layer scenario. Hidden layer connected to input layer and
         # output layer.
         elif data is not None and labels is not None:
             prev_act = None
             if mode == ForwardMode.PositiveData:
+                assert self.pos_activations is not None
                 prev_act = self.pos_activations.previous
             elif mode == ForwardMode.NegativeData:
+                assert self.neg_activations is not None
                 prev_act = self.neg_activations.previous
             elif mode == ForwardMode.PredictData:
+                assert self.predict_activations is not None
                 prev_act = self.predict_activations.previous
 
             prev_act = prev_act.detach()
             prev_act_stdized = standardize_layer_activations(
                 prev_act, self.settings.model.epsilon)
 
-            forward = F.linear(
+            self.forward_act = F.linear(
                 data,
                 self.forward_linear.weight)
-            backward = -1 * F.linear(
+            self.backward_act = -1 * F.linear(
                 labels,
                 self.backward_linear.weight)
-            lateral = F.linear(
+            self.lateral_act = F.linear(
                 prev_act_stdized,
                 self.lateral_linear.weight)
-
-            self.forward_act = forward
-            self.backward_act = backward
-            self.lateral_act = lateral
-
-            new_activation = F.leaky_relu(forward + backward + lateral)
-
-            if should_damp:
-                old_activation = new_activation
-                new_activation = (1 - self.damping_factor) * \
-                    prev_act + self.damping_factor * old_activation
 
         # Input layer scenario. Connected to input layer and hidden layer.
         elif data is not None:
@@ -480,26 +470,15 @@ class HiddenLayer(nn.Module):
             prev_act_stdized = standardize_layer_activations(
                 prev_act, self.settings.model.epsilon)
 
-            forward = F.linear(
+            self.forward_act = F.linear(
                 data,
                 self.forward_linear.weight)
-            backward = -1 * F.linear(
+            self.backward_act = -1 * F.linear(
                 next_layer_stdized,
                 self.backward_linear.weight)
-            lateral = F.linear(
+            self.lateral_act = F.linear(
                 prev_act_stdized,
                 self.lateral_linear.weight)
-
-            self.forward_act = forward
-            self.backward_act = backward
-            self.lateral_act = lateral
-
-            new_activation = F.leaky_relu(forward + backward + lateral)
-
-            if should_damp:
-                old_activation = new_activation
-                new_activation = (1 - self.damping_factor) * \
-                    prev_act + self.damping_factor * old_activation
 
         # Output layer scenario. Connected to hidden layer and output layer.
         elif labels is not None:
@@ -523,32 +502,32 @@ class HiddenLayer(nn.Module):
             prev_act_stdized = standardize_layer_activations(
                 prev_act, self.settings.model.epsilon)
 
-            forward = F.linear(
+            self.forward_act = F.linear(
                 prev_layer_stdized,
                 self.forward_linear.weight)
-            backward = -1 * F.linear(
+            self.backward_act = -1 * F.linear(
                 labels,
                 self.backward_linear.weight)
-            lateral = F.linear(
+            self.lateral_act = F.linear(
                 prev_act_stdized,
                 self.lateral_linear.weight)
 
-            self.forward_act = forward
-            self.backward_act = backward
-            self.lateral_act = lateral
+        new_activation = F.leaky_relu(
+            self.forward_act + self.backward_act + self.lateral_act)
 
-            new_activation = F.leaky_relu(forward + backward + lateral)
-
-            if should_damp:
-                old_activation = new_activation
-                new_activation = (1 - self.damping_factor) * \
-                    prev_act + self.damping_factor * old_activation
+        if should_damp:
+            old_activation = new_activation
+            new_activation = (1 - self.damping_factor) * \
+                prev_act + self.damping_factor * old_activation
 
         if mode == ForwardMode.PositiveData:
+            assert self.pos_activations is not None
             self.pos_activations.current = new_activation
         elif mode == ForwardMode.NegativeData:
+            assert self.neg_activations is not None
             self.neg_activations.current = new_activation
         elif mode == ForwardMode.PredictData:
+            assert self.predict_activations is not None
             self.predict_activations.current = new_activation
 
         return new_activation

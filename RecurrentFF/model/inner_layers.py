@@ -34,7 +34,7 @@ class LayerMetrics:
             self,
             layer_num: int,
             layer: HiddenLayer,
-            loss: int):
+            loss: float):
         pos_activations_norm = torch.norm(layer.pos_activations.current, p=2)
         neg_activations_norm = torch.norm(layer.neg_activations.current, p=2)
         forward_weights_norm = torch.norm(layer.forward_linear.weight, p=2)

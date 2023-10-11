@@ -1,7 +1,7 @@
 import argparse
 
 
-def get_arguments():
+def get_arguments() -> argparse.Namespace:
     # Create the parser
     parser = argparse.ArgumentParser()
 
