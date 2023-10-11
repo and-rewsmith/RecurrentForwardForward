@@ -1,4 +1,5 @@
 import os
+from typing import Tuple
 
 import torch
 from torch.utils.data import DataLoader, Dataset
@@ -46,7 +47,7 @@ class MovingMNISTDataset(Dataset):
         The current chunk of data in memory. The chunk is a dictionary with "sequences" and "labels" as keys.
     """
 
-    def __init__(self, root_dir, train=True):
+    def __init__(self, root_dir, train=True) -> None:
         """
         Initializes the dataset with the root directory, the training/testing mode, and the max size of the queue.
         It also initializes the data queue and loads the first chunk of data into memory.
@@ -72,7 +73,7 @@ class MovingMNISTDataset(Dataset):
         self.data_chunk = torch.load(os.path.join(
             self.root_dir, self.data_files[self.file_idx]))
 
-    def __len__(self):
+    def __len__(self) -> int:
         """
         Returns the total number of sequences in the dataset. This method also resets the counters,
         making ready for the next epoch.
@@ -87,7 +88,7 @@ class MovingMNISTDataset(Dataset):
         self.file_idx = 0
         return len(self.data_files) * DATA_PER_FILE
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx) -> Tuple[Tuple[torch.Tensor, torch.Tensor], Tuple[torch.Tensor, torch.Tensor]]:
         """
         Returns the sequence and its corresponding positive and negative labels at the given index.
         If the index is beyond the current data chunk, it loads the next chunk into memory.
@@ -131,7 +132,7 @@ class MovingMNISTDataset(Dataset):
                                         negative_one_hot_labels)
 
 
-def train_collate_fn(batch):
+def train_collate_fn(batch) -> TrainInputData:
     data_batch, label_batch = zip(*batch)
 
     data1, data2 = zip(*data_batch)
@@ -150,7 +151,7 @@ def train_collate_fn(batch):
         positive_labels, negative_labels)
 
 
-def test_collate_fn(batch):
+def test_collate_fn(batch) -> SingleStaticClassTestData:
     data_batch, label_batch = zip(*batch)
 
     pos_data, _neg_data = zip(*data_batch)
@@ -165,7 +166,7 @@ def test_collate_fn(batch):
     return SingleStaticClassTestData(pos_data, positive_labels)
 
 
-def MNIST_loaders(train_batch_size, test_batch_size):
+def MNIST_loaders(train_batch_size, test_batch_size) -> Tuple[DataLoader, DataLoader]:
     # TODO: need a transform? Similar to MNIST:
     # transform = Compose([
     #     ToTensor(),

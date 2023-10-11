@@ -14,14 +14,14 @@ from RecurrentFF.benchmarks.moving_mnist.constants import MOVING_MNIST_DATA_DIR
 BATCH_SIZE = 1
 
 
-def get_random_string(length):
+def get_random_string(length: int) -> str:
     letters_and_digits = string.ascii_letters + string.digits
     result_str = ''.join(random.choice(letters_and_digits)
                          for _ in range(length))
     return result_str
 
 
-def move_images(images, frames, velocities):
+def move_images(images: torch.Tensor, frames: int, velocities:  torch.Tensor) -> torch.Tensor:
     # Expand canvas from 28x28 to 64x64
     extended_images = torch.zeros((images.shape[0], 64, 64))
     extended_images[:, 18:46, 18:46] = images
