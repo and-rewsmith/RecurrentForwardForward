@@ -69,13 +69,15 @@ class Model(BaseModel):
 
 
 class Device(BaseModel):
-    device: str  # You may wish to modify this to suit your needs
+    device: str
 
 
 class Settings(BaseModel):
     model: Model
     device: Device
-    data_config: DataConfig = None
+
+    # needs to be None because it is not in the config file
+    data_config: DataConfig = None  # type: ignore[assignment]
 
     @classmethod
     def from_config_file(cls, path: str) -> Self:

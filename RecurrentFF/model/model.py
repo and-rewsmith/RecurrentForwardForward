@@ -2,7 +2,7 @@ from datetime import datetime
 import logging
 import random
 import string
-from typing import List
+from typing import List, Tuple, cast
 
 
 import torch
@@ -17,11 +17,12 @@ from RecurrentFF.model.data_scenario.static_single_class import (
 from RecurrentFF.model.hidden_layer import HiddenLayer
 from RecurrentFF.model.inner_layers import InnerLayers, LayerMetrics
 from RecurrentFF.util import (
+    Activations,
     ForwardMode,
     LatentAverager,
     TrainInputData,
     TrainLabelData,
-    ValidationLoader,
+    TrainTestBridgeFormatLoader,
     layer_activations_to_badness,
 )
 from RecurrentFF.settings import (
@@ -108,7 +109,7 @@ class RecurrentFFNet(nn.Module):
             data_scenario: DataScenario,
             data_loader: torch.utils.data.DataLoader,
             num_batches: int,
-            write_activations=False):
+            write_activations: bool = False) -> None:
         if data_scenario == DataScenario.StaticSingleClass:
             self.processor.brute_force_predict(
                 data_loader,
@@ -118,7 +119,7 @@ class RecurrentFFNet(nn.Module):
 
     @profile(stdout=False, filename='baseline.prof',
              skip=Settings.new().model.skip_profiling)
-    def train(self, train_loader: torch.utils.data.DataLoader, test_loader: torch.utils.data.DataLoader):
+    def train(self, train_loader: torch.utils.data.DataLoader, test_loader: torch.utils.data.DataLoader) -> None:
         """
         Trains the RecurrentFFNet model using the provided train and test data loaders.
 
@@ -146,7 +147,7 @@ class RecurrentFFNet(nn.Module):
             and is called during the training process.
         """
         total_batch_count = 0
-        best_test_accuracy = 0
+        best_test_accuracy: float = 0
         for epoch in range(0, self.settings.model.epochs):
             logging.info("Epoch: " + str(epoch))
 
@@ -172,8 +173,10 @@ class RecurrentFFNet(nn.Module):
 
             # TODO: make train batches equal to however much a single test
             # batch is w.r.t. total samples
+            #
+            # TODO: Fix this hacky data loader bridge format
             train_accuracy = self.processor.brute_force_predict(
-                ValidationLoader(train_loader), 10, False)
+                TrainTestBridgeFormatLoader(train_loader), 10, False)  # type: ignore[arg-type]
             test_accuracy = self.processor.brute_force_predict(
                 test_loader, 1, True)
 
@@ -194,7 +197,7 @@ class RecurrentFFNet(nn.Module):
             batch_num: int,
             input_data: TrainInputData,
             label_data: TrainLabelData,
-            total_batch_count):
+            total_batch_count: int) -> Tuple[LayerMetrics, List[float], List[float]]:
         logging.info("Batch: " + str(batch_num))
 
         self.inner_layers.reset_activations(True)
@@ -220,7 +223,7 @@ class RecurrentFFNet(nn.Module):
         pos_badness_per_layer = []
         neg_badness_per_layer = []
         iterations = input_data.pos_input.shape[0]
-        pos_target_latents = LatentAverager()
+        pos_target_latents_averager = LatentAverager()
         for iteration in range(0, iterations):
             logging.debug("Iteration: " + str(iteration))
 
@@ -242,39 +245,40 @@ class RecurrentFFNet(nn.Module):
             if iteration >= lower_iteration_threshold and \
                     iteration <= upper_iteration_threshold:
                 pos_badness_per_layer.append([layer_activations_to_badness(
-                    layer.pos_activations.current).mean() for layer in self.inner_layers])
+                    cast(Activations, layer.pos_activations).current).mean() for layer in self.inner_layers])
                 neg_badness_per_layer.append([layer_activations_to_badness(
-                    layer.neg_activations.current).mean() for layer in self.inner_layers])
+                    cast(Activations, layer.neg_activations).current).mean() for layer in self.inner_layers])
 
                 positive_latents = [
-                    layer.pos_activations.current for layer in self.inner_layers]
-                positive_latents = torch.cat(positive_latents, dim=1)
-                pos_target_latents.track_collapsed_latents(positive_latents)
+                    cast(Activations, layer.pos_activations).current for layer in self.inner_layers]
+                positive_latents_collapsed = torch.cat(positive_latents, dim=1)
+                pos_target_latents_averager.track_collapsed_latents(
+                    positive_latents_collapsed)
 
         if self.settings.model.should_replace_neg_data:
-            pos_target_latents = pos_target_latents.retrieve()
+            pos_target_latents = pos_target_latents_averager.retrieve()
             self.processor.train_class_predictor_from_latents(
                 pos_target_latents, label_data.pos_labels[0], total_batch_count)
 
-        pos_badness_per_layer = [
+        pos_badness_per_layer_condensed: list[float] = [
             sum(layer_badnesses) /
             len(layer_badnesses) for layer_badnesses in zip(
                 *
                 pos_badness_per_layer)]
-        neg_badness_per_layer = [
+        neg_badness_per_layer_condensed: list[float] = [
             sum(layer_badnesses) /
             len(layer_badnesses) for layer_badnesses in zip(
                 *
                 neg_badness_per_layer)]
 
-        return layer_metrics, pos_badness_per_layer, neg_badness_per_layer
+        return layer_metrics, pos_badness_per_layer_condensed, neg_badness_per_layer_condensed
 
     def __log_epoch_metrics(
             self,
             train_accuracy: float,
             test_accuracy: float,
             epoch: int,
-            total_batch_count: int):
+            total_batch_count: int) -> None:
         wandb.log({"train_acc": train_accuracy,
                    "test_acc": test_accuracy,
                    "epoch": epoch}, step=total_batch_count)
@@ -284,7 +288,7 @@ class RecurrentFFNet(nn.Module):
             layer_metrics: LayerMetrics,
             pos_badness_per_layer: List[float],
             neg_badness_per_layer: List[float],
-            total_batch_count: int):
+            total_batch_count: int) -> None:
         # Supports wandb tracking of max 3 layer badnesses
         try:
             first_layer_pos_badness = pos_badness_per_layer[0]

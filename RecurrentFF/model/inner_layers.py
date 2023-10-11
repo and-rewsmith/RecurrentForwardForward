@@ -1,8 +1,9 @@
 import logging
 import math
+from typing import Dict, Iterator, List
 
 
-from torch import nn
+from torch import Tensor, nn
 import torch
 import wandb
 from torch.nn import ModuleList
@@ -22,19 +23,22 @@ class LayerMetrics:
         self.backward_grads_norms = [0 for _ in range(0, num_layers)]
         self.lateral_weights_norms = [0 for _ in range(0, num_layers)]
         self.lateral_grads_norms = [0 for _ in range(0, num_layers)]
-        self.losses_per_layer = [0 for _ in range(0, num_layers)]
+        self.losses_per_layer: List[float] = [0 for _ in range(0, num_layers)]
 
         self.num_data_points = 0
 
-        self.update_norms = {}
-        self.momentum_norms = {}
-        self.update_angles = {}
+        self.update_norms: Dict[int, Dict[str, float]] = {}
+        self.momentum_norms: Dict[int, Dict[str, float]] = {}
+        self.update_angles: Dict[int, Dict[str, float]] = {}
 
     def ingest_layer_metrics(
             self,
             layer_num: int,
             layer: HiddenLayer,
-            loss: float):
+            loss: float) -> None:
+        assert layer.pos_activations is not None
+        assert layer.neg_activations is not None
+
         pos_activations_norm = torch.norm(layer.pos_activations.current, p=2)
         neg_activations_norm = torch.norm(layer.neg_activations.current, p=2)
         forward_weights_norm = torch.norm(layer.forward_linear.weight, p=2)
@@ -96,15 +100,15 @@ class LayerMetrics:
                     if param_name not in self.update_angles[layer_num]:
                         self.update_angles[layer_num][param_name] = 0
 
-                    self.update_angles[layer_num][param_name] += angle_in_degrees
+                    self.update_angles[layer_num][param_name] += angle_in_degrees.item()
 
-    def increment_samples_seen(self):
+    def increment_samples_seen(self) -> None:
         self.num_data_points += 1
 
-    def average_layer_loss(self):
+    def average_layer_loss(self) -> float:
         return sum(self.losses_per_layer) / self.num_data_points
 
-    def log_metrics(self, total_batch_count: int):
+    def log_metrics(self, total_batch_count: int) -> None:
         for i in range(0, len(self.pos_activations_norms)):
             layer_num = i + 1
 
@@ -204,10 +208,10 @@ class InnerLayers(nn.Module):
 
     def advance_layers_train(
             self,
-            input_data: TrainInputData,
-            label_data: TrainLabelData,
+            input_data: tuple[Tensor, Tensor],
+            label_data: tuple[Tensor, Tensor],
             should_damp: bool,
-            layer_metrics: LayerMetrics):
+            layer_metrics: LayerMetrics) -> None:
         """
         Advances the training process for all layers in the network by computing
         the loss for each layer and updating their activations.
@@ -267,7 +271,7 @@ class InnerLayers(nn.Module):
             mode: ForwardMode,
             input_data: torch.Tensor,
             label_data: torch.Tensor,
-            should_damp: bool):
+            should_damp: bool) -> None:
         """
         Executes a forward pass through all layers of the network using the
         given mode, input data, label data, and a damping flag.
@@ -314,12 +318,12 @@ class InnerLayers(nn.Module):
         for layer in self.layers:
             layer.advance_stored_activations()
 
-    def reset_activations(self, isTraining: bool):
+    def reset_activations(self, isTraining: bool) -> None:
         for layer in self.layers:
             layer.reset_activations(isTraining)
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.layers)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[HiddenLayer]:
         return (layer for layer in self.layers)

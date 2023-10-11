@@ -145,8 +145,8 @@ class HiddenLayer(nn.Module):
         self.lateral_linear = nn.Linear(size, size)
         nn.init.orthogonal_(self.lateral_linear.weight, gain=math.sqrt(2))
 
-        self.previous_layer = None
-        self.next_layer = None
+        self.previous_layer: Self = None  # type: ignore[assignment]
+        self.next_layer: Self = None  # type: ignore[assignment]
 
         self.optimizer: Optimizer
         if self.settings.model.ff_optimizer == "adam":
