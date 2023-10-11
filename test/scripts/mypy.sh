@@ -6,6 +6,8 @@ python -m pip install --upgrade pip
 
 # Install pycodestyle
 pip install mypy
+pip install types-toml
+mypy --install-types
 
 mypy --config-file ./mypi.ini RecurrentFF/model/
 
