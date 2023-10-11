@@ -2,6 +2,7 @@ from datetime import datetime
 import logging
 import random
 import string
+from typing import List
 
 
 import torch
@@ -18,6 +19,8 @@ from RecurrentFF.model.inner_layers import InnerLayers, LayerMetrics
 from RecurrentFF.util import (
     ForwardMode,
     LatentAverager,
+    TrainInputData,
+    TrainLabelData,
     ValidationLoader,
     layer_activations_to_badness,
 )
@@ -26,11 +29,8 @@ from RecurrentFF.settings import (
 )
 
 
-# TODO: try sigmoid activation function
 # TODO: try use separate optimizer for lateral connections
 # TODO: try different learning rates for lateral connections
-# TODO: figure out average activation
-# TODO: log activations (variance is much bigger than average, then not good)
 class RecurrentFFNet(nn.Module):
     """
     Implements a Recurrent Forward-Forward Network (RecurrentFFNet) based on
@@ -48,18 +48,17 @@ class RecurrentFFNet(nn.Module):
     passes operating on different data and with contrasting objectives.
 
     During training, a "positive" pass operates on real input data and adjusts
-    the weights to decrease the 'badness' in each hidden layer. The 'badness'
-    is calculated as the sum of squared activation values. On the other hand, a
-    "negative" pass operates on "negative data" and adjusts the weights to
+    the weights to decrease the 'badness' in each hidden layer. The 'badness' is
+    calculated as the sum of squared activation values. On the other hand, a
+    "negative" pass operates on fake "negative data" and adjusts the weights to
     increase the 'badness' in each hidden layer.
 
-    The hidden layers and output layer are instances of the HiddenLayer and
-    OutputLayer classes, respectively. The hidden layers are connected to each
-    other and the output layer, forming a fully connected recurrent
-    architecture.
+    The hidden layers are instances of the HiddenLayer class. The hidden layers
+    are connected to each other and the output layer, forming a fully connected
+    recurrent architecture.
     """
 
-    def __init__(self, settings):
+    def __init__(self, settings: Settings):
         logging.info("Initializing network")
         super(RecurrentFFNet, self).__init__()
 
@@ -107,7 +106,7 @@ class RecurrentFFNet(nn.Module):
     def predict(
             self,
             data_scenario: DataScenario,
-            data_loader,
+            data_loader: torch.utils.data.DataLoader,
             num_batches: int,
             write_activations=False):
         if data_scenario == DataScenario.StaticSingleClass:
@@ -119,7 +118,7 @@ class RecurrentFFNet(nn.Module):
 
     @profile(stdout=False, filename='baseline.prof',
              skip=Settings.new().model.skip_profiling)
-    def train(self, train_loader, test_loader):
+    def train(self, train_loader: torch.utils.data.DataLoader, test_loader: torch.utils.data.DataLoader):
         """
         Trains the RecurrentFFNet model using the provided train and test data loaders.
 
@@ -192,9 +191,9 @@ class RecurrentFFNet(nn.Module):
 
     def __train_batch(
             self,
-            batch_num,
-            input_data,
-            label_data,
+            batch_num: int,
+            input_data: TrainInputData,
+            label_data: TrainLabelData,
             total_batch_count):
         logging.info("Batch: " + str(batch_num))
 
@@ -272,10 +271,10 @@ class RecurrentFFNet(nn.Module):
 
     def __log_epoch_metrics(
             self,
-            train_accuracy,
-            test_accuracy,
-            epoch,
-            total_batch_count):
+            train_accuracy: float,
+            test_accuracy: float,
+            epoch: int,
+            total_batch_count: int):
         wandb.log({"train_acc": train_accuracy,
                    "test_acc": test_accuracy,
                    "epoch": epoch}, step=total_batch_count)
@@ -283,9 +282,9 @@ class RecurrentFFNet(nn.Module):
     def __log_batch_metrics(
             self,
             layer_metrics: LayerMetrics,
-            pos_badness_per_layer,
-            neg_badness_per_layer,
-            total_batch_count):
+            pos_badness_per_layer: List[float],
+            neg_badness_per_layer: List[float],
+            total_batch_count: int):
         # Supports wandb tracking of max 3 layer badnesses
         try:
             first_layer_pos_badness = pos_badness_per_layer[0]

@@ -18,7 +18,7 @@ class SingleStaticClassTestData:
     labels of dims (batch size, num classes)
     """
 
-    def __init__(self, input, labels):
+    def __init__(self, input: torch.Tensor, labels: torch.Tensor):
         self.input = input
         self.labels = labels
 
@@ -45,7 +45,7 @@ class StaticSingleClassActivityTracker():
 
         self.tracked_samples = 0
 
-    def reinitialize(self, data, labels):
+    def reinitialize(self, data: torch.Tensor, labels: torch.Tensor):
         self.data = data[0][0]  # first batch, first timestep
         self.labels = labels.squeeze(1)
 
@@ -96,9 +96,9 @@ class StaticSingleClassActivityTracker():
 
     def filter_and_persist(
             self,
-            predicted_labels,
-            anti_predictions,
-            actual_labels):
+            predicted_labels: torch.Tensor,
+            anti_predictions: torch.Tensor,
+            actual_labels: torch.Tensor):
         if predicted_labels == actual_labels:
             predicted_labels_index = predicted_labels.item()
             anti_prediction_index = anti_predictions.item()
@@ -327,7 +327,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
 
     def brute_force_predict(
             self,
-            loader,
+            loader: torch.utils.data.DataLoader,
             limit_batches=None,
             is_test_set=False,
             write_activations=False):

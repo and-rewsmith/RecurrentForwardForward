@@ -1,8 +1,8 @@
 [device]
-device = "mps"
+device = "cuda"
 
 [model]
-hidden_sizes = [2000, 2000, 2000]
+hidden_sizes = [200, 200, 200]
 epochs = 30000
 prelabel_timesteps = 3
 loss_threshold = 1.5

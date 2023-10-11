@@ -85,7 +85,7 @@ class ForwardMode(Enum):
     PredictData = 3
 
 
-def layer_activations_to_badness(layer_activations):
+def layer_activations_to_badness(layer_activations: torch.Tensor):
     """
     Computes the 'badness' of activations for a given layer in a neural network
     by taking the mean of the squared values.
@@ -128,10 +128,6 @@ class LatentAverager:
     def track_collapsed_latents(self, tensor: torch.Tensor):
         """
         Add the given tensor to the tracked sum.
-
-        :param tensor: A tensor to be tracked.
-        :type tensor: torch.Tensor
-        :raises AssertionError: If the shape of the tensor does not match the shape of the sum_tensor.
         """
         if self.sum_tensor is None:
             self.sum_tensor = tensor
@@ -144,10 +140,6 @@ class LatentAverager:
     def retrieve(self) -> torch.Tensor:
         """
         Retrieve the averaged tensor.
-
-        :return: The averaged tensor.
-        :rtype: torch.Tensor
-        :raises ValueError: If no tensors have been tracked.
         """
         if self.count == 0:
             raise ValueError("No tensors have been tracked")

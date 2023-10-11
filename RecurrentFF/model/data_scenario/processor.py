@@ -2,7 +2,6 @@ from abc import ABCMeta, abstractmethod
 from enum import Enum
 
 import torch
-from RecurrentFF.settings import Settings
 
 from RecurrentFF.util import TrainLabelData
 
@@ -13,7 +12,12 @@ class DataScenario(Enum):
 
 class DataScenarioProcessor(metaclass=ABCMeta):
     @abstractmethod
-    def brute_force_predict(self):
+    def brute_force_predict(
+            self,
+            loader: torch.utils.data.DataLoader,
+            limit_batches=None,
+            is_test_set=False,
+            write_activations=False):
         pass
 
     @abstractmethod

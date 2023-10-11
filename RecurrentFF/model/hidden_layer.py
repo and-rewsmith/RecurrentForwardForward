@@ -1,14 +1,17 @@
 import math
+from typing import Dict
 
 import torch
 from torch import nn
 from torch.nn import Module
 from torch.nn import functional as F
-from torch.optim import RMSprop, Adam, Adadelta, SGD
+from torch.optim import RMSprop, Adam, Adadelta
 
 from RecurrentFF.util import (
     Activations,
     ForwardMode,
+    TrainInputData,
+    TrainLabelData,
     layer_activations_to_badness,
     standardize_layer_activations,
 )
@@ -17,10 +20,10 @@ from RecurrentFF.settings import (
 )
 
 
-def custom_load_state_dict(self, state_dict, strict=True):
+def custom_load_state_dict(self, state_dict: Dict, strict=True):
     # This function is a replication of the original PyTorch load_state_dict logic
     # with a check to prevent infinite recursion through the linked layers.
-    def load(module, prefix=''):
+    def load(module: nn.Module, prefix=''):
         local_metadata = {} if metadata is None else metadata.get(
             prefix[:-1], {})
         module._load_from_state_dict(
@@ -106,12 +109,12 @@ class HiddenLayer(nn.Module):
     def __init__(
             self,
             settings: Settings,
-            train_batch_size,
-            test_batch_size,
-            prev_size,
-            size,
-            next_size,
-            damping_factor):
+            train_batch_size: int,
+            test_batch_size: int,
+            prev_size: int,
+            size: int,
+            next_size: int,
+            damping_factor: float):
         super(HiddenLayer, self).__init__()
 
         self.settings = settings
@@ -212,7 +215,7 @@ class HiddenLayer(nn.Module):
 
         return state
 
-    def reset_activations(self, isTraining):
+    def reset_activations(self, isTraining: bool):
         activations_dim = None
         if isTraining:
             activations_dim = self.train_activations_dim
@@ -268,7 +271,7 @@ class HiddenLayer(nn.Module):
     def set_next_layer(self, next_layer):
         self.next_layer = next_layer
 
-    def train(self, input_data, label_data, should_damp):
+    def train(self, input_data: TrainInputData, label_data: TrainLabelData, should_damp: bool):
         self.optimizer.zero_grad()
 
         pos_activations = None
@@ -313,7 +316,8 @@ class HiddenLayer(nn.Module):
         self.optimizer.step()
         return layer_loss
 
-    def forward(self, mode, data, labels, should_damp):
+    # TODO: needs to be more DRY
+    def forward(self, mode: ForwardMode, data: torch.Tensor, labels: torch.Tensor, should_damp: bool):
         """
         Propagates input data forward through the network, updating the
         activation state of the current layer based on the operating mode.
@@ -412,9 +416,6 @@ class HiddenLayer(nn.Module):
             self.lateral_act = lateral
 
             new_activation = F.leaky_relu(forward + backward + lateral)
-            # print(
-            #     f"no relu: {(forward + backward + lateral).flatten().mean()}")
-            # print(f"relu: {new_activation.flatten().mean()}")
 
             if should_damp:
                 old_activation = new_activation
