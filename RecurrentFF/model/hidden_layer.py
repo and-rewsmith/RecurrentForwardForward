@@ -1,5 +1,5 @@
 import math
-from typing import Dict, Optional
+from typing import Dict, Optional, cast
 from typing_extensions import Self
 
 import torch
@@ -323,7 +323,7 @@ class HiddenLayer(nn.Module):
         layer_loss.backward()
 
         self.optimizer.step()
-        return layer_loss.item()
+        return cast(float, layer_loss.item())
 
     # TODO: needs to be more DRY
     def forward(self, mode: ForwardMode, data: torch.Tensor, labels: torch.Tensor, should_damp: bool) -> torch.Tensor:
@@ -386,16 +386,22 @@ class HiddenLayer(nn.Module):
             prev_layer_prev_timestep_activations = None
             prev_act = None
             if mode == ForwardMode.PositiveData:
-                next_layer_prev_timestep_activations = next_layer.pos_activations.previous
-                prev_layer_prev_timestep_activations = previous_layer.pos_activations.previous
+                next_layer_prev_timestep_activations = cast(
+                    Activations, next_layer.pos_activations).previous
+                prev_layer_prev_timestep_activations = cast(
+                    Activations, previous_layer.pos_activations).previous
                 prev_act = self.pos_activations.previous
             elif mode == ForwardMode.NegativeData:
-                next_layer_prev_timestep_activations = next_layer.neg_activations.previous
-                prev_layer_prev_timestep_activations = previous_layer.neg_activations.previous
+                next_layer_prev_timestep_activations = cast(
+                    Activations, next_layer.neg_activations).previous
+                prev_layer_prev_timestep_activations = cast(
+                    Activations, previous_layer.neg_activations).previous
                 prev_act = self.neg_activations.previous
             elif mode == ForwardMode.PredictData:
-                next_layer_prev_timestep_activations = next_layer.predict_activations.previous
-                prev_layer_prev_timestep_activations = previous_layer.predict_activations.previous
+                next_layer_prev_timestep_activations = cast(
+                    Activations, next_layer.predict_activations).previous
+                prev_layer_prev_timestep_activations = cast(
+                    Activations, previous_layer.predict_activations).previous
                 prev_act = self.predict_activations.previous
 
             prev_layer_prev_timestep_activations = prev_layer_prev_timestep_activations.detach()
@@ -453,13 +459,16 @@ class HiddenLayer(nn.Module):
             prev_act = None
             next_layer_prev_timestep_activations = None
             if mode == ForwardMode.PositiveData:
-                next_layer_prev_timestep_activations = next_layer.pos_activations.previous
+                next_layer_prev_timestep_activations = cast(
+                    Activations, next_layer.pos_activations).previous
                 prev_act = self.pos_activations.previous
             elif mode == ForwardMode.NegativeData:
-                next_layer_prev_timestep_activations = next_layer.neg_activations.previous
+                next_layer_prev_timestep_activations = cast(
+                    Activations, next_layer.neg_activations).previous
                 prev_act = self.neg_activations.previous
             elif mode == ForwardMode.PredictData:
-                next_layer_prev_timestep_activations = next_layer.predict_activations.previous
+                next_layer_prev_timestep_activations = cast(
+                    Activations, next_layer.predict_activations).previous
                 prev_act = self.predict_activations.previous
 
             next_layer_prev_timestep_activations = next_layer_prev_timestep_activations.detach()
@@ -485,13 +494,16 @@ class HiddenLayer(nn.Module):
             prev_layer_prev_timestep_activations = None
             prev_act = None
             if mode == ForwardMode.PositiveData:
-                prev_layer_prev_timestep_activations = previous_layer.pos_activations.previous
+                prev_layer_prev_timestep_activations = cast(
+                    Activations, previous_layer.pos_activations).previous
                 prev_act = self.pos_activations.previous
             elif mode == ForwardMode.NegativeData:
-                prev_layer_prev_timestep_activations = previous_layer.neg_activations.previous
+                prev_layer_prev_timestep_activations = cast(
+                    Activations, previous_layer.neg_activations).previous
                 prev_act = self.neg_activations.previous
             elif mode == ForwardMode.PredictData:
-                prev_layer_prev_timestep_activations = previous_layer.predict_activations.previous
+                prev_layer_prev_timestep_activations = cast(
+                    Activations, previous_layer.predict_activations).previous
                 prev_act = self.predict_activations.previous
 
             prev_layer_prev_timestep_activations = prev_layer_prev_timestep_activations.detach()
