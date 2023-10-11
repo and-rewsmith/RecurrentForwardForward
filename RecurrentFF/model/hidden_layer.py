@@ -390,19 +390,19 @@ class HiddenLayer(nn.Module):
                     Activations, next_layer.pos_activations).previous
                 prev_layer_prev_timestep_activations = cast(
                     Activations, previous_layer.pos_activations).previous
-                prev_act = self.pos_activations.previous
+                prev_act = cast(Activations, self.pos_activations).previous
             elif mode == ForwardMode.NegativeData:
                 next_layer_prev_timestep_activations = cast(
                     Activations, next_layer.neg_activations).previous
                 prev_layer_prev_timestep_activations = cast(
                     Activations, previous_layer.neg_activations).previous
-                prev_act = self.neg_activations.previous
+                prev_act = cast(Activations, self.neg_activations).previous
             elif mode == ForwardMode.PredictData:
                 next_layer_prev_timestep_activations = cast(
                     Activations, next_layer.predict_activations).previous
                 prev_layer_prev_timestep_activations = cast(
                     Activations, previous_layer.predict_activations).previous
-                prev_act = self.predict_activations.previous
+                prev_act = cast(Activations, self.predict_activations).previous
 
             prev_layer_prev_timestep_activations = prev_layer_prev_timestep_activations.detach()
             prev_layer_stdized = standardize_layer_activations(
