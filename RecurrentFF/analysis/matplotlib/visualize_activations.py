@@ -8,12 +8,12 @@ BASE_INPUT_PATH = "./artifacts/activations"
 BASE_OUT_PATH = "./img/debug/activation_heatmaps"
 SCENARIOS = ["incorrect_activations", "correct_activations"]
 FILENAMES = ["test_sample_1.pt", "test_sample_2.pt", "test_sample_3.pt"]
+MAX_ACTIVATION_DIVISOR = 4
 
 
 def plot_mean_stddev():
     running_sum_activations = None
     for filename in FILENAMES:
-        identifier = filename.split(".")[0].split("_")[-1]
         tensors = torch.load(f"{BASE_INPUT_PATH}/{filename}")
 
         for scenario in SCENARIOS:
@@ -115,7 +115,7 @@ def plot_activations_over_timesteps():
                 if max_from_timestep > global_max:
                     global_max = max_from_timestep
 
-        global_max = global_max // 4
+        global_max = global_max // MAX_ACTIVATION_DIVISOR
 
         for scenario in scenarios:
             print(f"---------Scenario: {scenario}---------")
@@ -225,19 +225,13 @@ def plot_activations_over_time():
             # Compute L2 norms over neurons
             l2_norms = torch.norm(loaded, p=2, dim=-1)
 
-            avg_l2_norms = l2_norms
-
-            # # Now, average the L2 norms over the batches for each layer
-            # avg_l2_norms = l2_norms.mean(dim=0)
-            # print(avg_l2_norms.shape)
-
             plt.figure(figsize=(12, 8))
-            for layer in range(avg_l2_norms.shape[-1]):
-                plt.plot(avg_l2_norms[:, layer].cpu().numpy(),
+            for layer in range(l2_norms.shape[-1]):
+                plt.plot(l2_norms[:, layer].cpu().numpy(),
                          label=f"Layer {layer + 1}")
 
             # Plotting the average L2 norm over all layers
-            avg_over_all_layers = avg_l2_norms.mean(dim=-1)
+            avg_over_all_layers = l2_norms.mean(dim=-1)
             plt.plot(avg_over_all_layers.cpu().numpy(),
                      label="Average Over All Layers", linestyle='--')
 
@@ -333,9 +327,85 @@ def plot_activation_percentiles_over_time(percentiles=[10, 25, 50, 75, 90]):
             plt.close()
 
 
+def plot_activations_over_timesteps_limit():
+    for filename in FILENAMES:
+        identifier = filename.split(".")[0].split("_")[-1]
+        tensors = torch.load(f"{BASE_INPUT_PATH}/{filename}")
+
+        print(f"=====Filename: {filename}=====")
+
+        scenarios = ["incorrect_activations", "correct_activations"]
+
+        global_max = 0
+        for scenario in scenarios:
+            loaded = tensors[scenario]
+            timesteps = loaded.shape[0]
+
+            for t in range(timesteps):
+                timestep_tensor = loaded[t]
+                timestep_tensor = torch.abs(timestep_tensor)
+
+                max_from_timestep = torch.max(timestep_tensor).item()
+                if max_from_timestep > global_max:
+                    global_max = max_from_timestep
+
+        global_max = global_max // MAX_ACTIVATION_DIVISOR
+
+        for scenario in scenarios:
+            print(f"---------Scenario: {scenario}---------")
+
+            loaded = tensors[scenario]
+            timesteps = loaded.shape[0]
+
+            # =========================================================================
+            # Plot timesteps 15 through 21 absolute value activations
+            # =========================================================================
+
+            fig, axes = plt.subplots(1, 7, figsize=(18, 5))
+
+            for t in range(15, 22):
+                timestep_tensor = loaded[t]
+                timestep_tensor = torch.abs(timestep_tensor)
+
+                df = pd.DataFrame(timestep_tensor.cpu())
+                sns_heatmap = sns.heatmap(
+                    df, cmap='viridis', vmin=0, vmax=global_max, cbar=t == 21,
+                    cbar_kws={'label': 'Activation Value'}, ax=axes[t-15])
+
+                if t == 21:  # Only label the last image
+                    cbar = sns_heatmap.collections[0].colorbar
+                    cbar.set_label('Activation Value', fontsize=14)
+                axes[t-15].set_title(f'Timestep {t}', fontsize=14)
+                axes[t-15].set_xlabel('Neuron #', fontsize=14)
+                axes[t-15].set_ylabel('')
+
+                axes[t-15].invert_yaxis()
+
+            scenario_legible = None
+            if scenario == "incorrect_activations":
+                scenario_legible = "Positive Data"
+            else:
+                scenario_legible = "Negative Data"
+
+            # set title of plot
+            plt.suptitle(
+                f'Activations Over Time ({scenario_legible})',
+                fontsize=16)
+            plt.tight_layout()
+
+            # save as very high quality png
+            plt.savefig(
+                f"./img/presentation/heatmaps/{scenario}_{identifier}.png",
+                dpi=1200)
+            plt.savefig(
+                f"./img/presentation/heatmaps/{scenario}_{identifier}.pdf",
+                bbox_inches='tight', pad_inches=0)
+
+
 if __name__ == "__main__":
     plot_mean_stddev()
     plot_activations_over_timesteps()
     plot_activations_over_time()
     plot_sparsity_over_time()
     plot_activation_percentiles_over_time()
+    plot_activations_over_timesteps_limit()

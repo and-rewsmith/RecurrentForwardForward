@@ -1,10 +1,11 @@
 from enum import Enum
 import logging
+from typing import Generator
 
 import torch
 
 
-def set_logging():
+def set_logging() -> None:
     """
     Must be called after argparse.
     """
@@ -12,7 +13,7 @@ def set_logging():
                         format='%(asctime)s - %(levelname)s - %(message)s')
 
 
-def standardize_layer_activations(layer_activations, epsilon):
+def standardize_layer_activations(layer_activations: torch.Tensor, epsilon: float) -> torch.Tensor:
     squared_activations = layer_activations ** 2
     mean_squared = torch.mean(squared_activations, dim=1, keepdim=True)
     l2_norm = torch.sqrt(mean_squared + epsilon)
@@ -21,11 +22,11 @@ def standardize_layer_activations(layer_activations, epsilon):
     return normalized_activations
 
 
-class ValidationLoader:
-    def __init__(self, train_loader):
+class TrainTestBridgeFormatLoader:
+    def __init__(self, train_loader: torch.utils.data.DataLoader) -> None:
         self.train_loader = train_loader
 
-    def __iter__(self):
+    def __iter__(self) -> Generator[tuple[torch.Tensor, torch.Tensor], None, None]:
         for input_data, label_data in self.train_loader:
             pos_input = input_data.pos_input
             pos_labels = label_data.pos_labels
@@ -38,44 +39,44 @@ class TrainInputData:
     input of dims (frames, batch size, input size)
     """
 
-    def __init__(self, pos_input, neg_input):
+    def __init__(self, pos_input: torch.Tensor, neg_input: torch.Tensor) -> None:
         self.pos_input = pos_input
         self.neg_input = neg_input
 
-    def __iter__(self):
+    def __iter__(self) -> Generator[torch.Tensor, None, None]:
         yield self.pos_input
         yield self.neg_input
 
-    def move_to_device_inplace(self, device):
+    def move_to_device_inplace(self, device: str) -> None:
         self.pos_input = self.pos_input.to(device)
         self.neg_input = self.neg_input.to(device)
 
 
 # input of dims (frames, batch size, num classes)
 class TrainLabelData:
-    def __init__(self, pos_labels, neg_labels):
+    def __init__(self, pos_labels: torch.Tensor, neg_labels: torch.Tensor) -> None:
         self.pos_labels = pos_labels
         self.neg_labels = neg_labels
 
-    def __iter__(self):
+    def __iter__(self) -> Generator[torch.Tensor, None, None]:
         yield self.pos_labels
         yield self.neg_labels
 
-    def move_to_device_inplace(self, device):
+    def move_to_device_inplace(self, device: str) -> None:
         self.pos_labels = self.pos_labels.to(device)
         self.neg_labels = self.neg_labels.to(device)
 
 
 class Activations:
-    def __init__(self, current, previous):
+    def __init__(self, current: torch.Tensor, previous: torch.Tensor) -> None:
         self.current = current
         self.previous = previous
 
-    def __iter__(self):
+    def __iter__(self) -> Generator[torch.Tensor, None, None]:
         yield self.current
         yield self.previous
 
-    def advance(self):
+    def advance(self) -> None:
         self.previous = self.current
 
 
@@ -85,7 +86,7 @@ class ForwardMode(Enum):
     PredictData = 3
 
 
-def layer_activations_to_badness(layer_activations):
+def layer_activations_to_badness(layer_activations: torch.Tensor) -> torch.Tensor:
     """
     Computes the 'badness' of activations for a given layer in a neural network
     by taking the mean of the squared values.
@@ -118,20 +119,16 @@ class LatentAverager:
     It's useful for collapsing latents in a series of computations.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Initialize the LatentAverager with an empty sum_tensor and a zero count.
         """
-        self.sum_tensor = None
+        self.sum_tensor: torch.Tensor = None  # type: ignore[assignment]
         self.count = 0
 
-    def track_collapsed_latents(self, tensor: torch.Tensor):
+    def track_collapsed_latents(self, tensor: torch.Tensor) -> None:
         """
         Add the given tensor to the tracked sum.
-
-        :param tensor: A tensor to be tracked.
-        :type tensor: torch.Tensor
-        :raises AssertionError: If the shape of the tensor does not match the shape of the sum_tensor.
         """
         if self.sum_tensor is None:
             self.sum_tensor = tensor
@@ -144,10 +141,6 @@ class LatentAverager:
     def retrieve(self) -> torch.Tensor:
         """
         Retrieve the averaged tensor.
-
-        :return: The averaged tensor.
-        :rtype: torch.Tensor
-        :raises ValueError: If no tensors have been tracked.
         """
         if self.count == 0:
             raise ValueError("No tensors have been tracked")

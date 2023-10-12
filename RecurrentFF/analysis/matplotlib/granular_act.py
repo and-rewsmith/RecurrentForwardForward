@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
@@ -6,6 +8,9 @@ from torch.nn import functional as F
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.decomposition import PCA
 
+
+# IMPORTANT NOTE: This file assumes the leaky relu activation. If this changes
+# then we need to update. This is likely to be forgotten.
 
 OUTPUT_ACTIVATION_LIMIT_LOWER = -0.5
 OUTPUT_ACTIVATION_LIMIT_UPPER = 8
@@ -22,15 +27,19 @@ def plot_cosine_similarity_multi_file(file_names, activation_type="correct"):
     for file_name in file_names:
         # Load the tensor for each file
         data = torch.load(f"{BASE_PT_PATH}/{file_name}")
-        if accum_data is None:
-            # If this is the first file, initialize accum_data with the same
-            # keys and shapes as the loaded data
-            accum_data = {key: torch.zeros_like(
-                value.float()) for key, value in data.items()}
 
-        # Accumulate activations from each file
-        for key in accum_data.keys():
-            accum_data[key] += data[key].float()
+        if data['labels'][0] == 3:
+            if accum_data is None:
+                # If this is the first file, initialize accum_data with the same
+                # keys and shapes as the loaded data
+                accum_data = {key: torch.zeros_like(
+                    value.float()) for key, value in data.items()}
+
+            # Accumulate activations from each file
+            for key in accum_data.keys():
+                accum_data[key] += data[key].float()
+
+            print("adding")
 
     # Compute the average
     n_files = len(file_names)
@@ -61,6 +70,17 @@ def plot_cosine_similarity_multi_file(file_names, activation_type="correct"):
                 [basic_comparisons, complex_comparisons]):
             ax = axes[layer, col]
 
+            d1 = accum_data[f'{activation_type}_forward_activations'][:, layer, :].cpu(
+            ).numpy()
+            d2 = accum_data[f'{activation_type}_backward_activations'][:, layer, :].cpu(
+            ).numpy()
+            d3 = accum_data[f'{activation_type}_lateral_activations'][:, layer, :].cpu(
+            ).numpy()
+
+            # concat all the data
+            all_data = np.concatenate([d1, d2, d3], axis=0)
+            pca = PCA(n_components=5).fit(all_data)
+
             for act1, act2 in comparisons:
                 # Fetch the data for the first activation type for the current
                 # layer
@@ -78,8 +98,8 @@ def plot_cosine_similarity_multi_file(file_names, activation_type="correct"):
                     data2 = accum_data[f'{activation_type}_{act2}_activations'][:, layer, :].cpu(
                     ).numpy()
 
-                all_data = np.concatenate([data1, data2], axis=0)
-                pca = PCA(n_components=5).fit(all_data)
+                # all_data = np.concatenate([data1, data2], axis=0)
+                # pca = PCA(n_components=5).fit(all_data)
                 data1_projected = pca.transform(data1)
                 data2_projected = pca.transform(data2)
 
@@ -201,10 +221,6 @@ def plot_l2_norm_across_time(file_name, activation_type="correct"):
 
             sum_activations += activation_data
 
-        # # Plot the L2 norm of the summed activations
-        # l2_norm_sum = np.linalg.norm(sum_activations, axis=1)
-        # ax_l2.plot(l2_norm_sum, label="Summed Activations", linestyle="--")
-
         # Plot the L2 norm of the summed activations after applying leaky_relu
         leaky_relu_sum_activations = F.leaky_relu(
             torch.tensor(sum_activations)).numpy()
@@ -233,11 +249,6 @@ def plot_l2_norm_across_time(file_name, activation_type="correct"):
                          label=f"{activation.capitalize()} Activation")
 
             sum_activations_mean += activation_data
-
-        # # Plot the mean of the summed activations
-        # mean_sum_activation = np.mean(sum_activations_mean, axis=1)
-        # ax_mean.plot(mean_sum_activation,
-        #              label="Summed Activations", linestyle="--")
 
         # Plot the mean of the summed activations after applying leaky_relu
         mean_leaky_sum_activation = np.mean(leaky_relu_sum_activations, axis=1)
@@ -368,6 +379,11 @@ def plot_activation_heatmap(file_name, activation_type="correct"):
         f"img/debug/activation_cancellations/heatmap_{activation_type}_{file_name.replace('.pt', '')}.png")
 
 
+def get_filenames_from_directory(directory_path):
+    with os.scandir(directory_path) as entries:
+        return [entry.name for entry in entries if entry.is_file()]
+
+
 if __name__ == '__main__':
 
     plot_l2_norm_across_time('test_sample_3.pt', activation_type="correct")
@@ -376,17 +392,7 @@ if __name__ == '__main__':
     plot_activation_heatmap('test_sample_3.pt', activation_type="correct")
     plot_activation_heatmap('test_sample_3.pt', activation_type="incorrect")
 
-    file_names = [
-        'test_sample_3.pt',
-        'test_sample_2.pt',
-        'test_sample_1.pt',
-        'test_sample_4.pt',
-        'test_sample_5.pt',
-        'test_sample_6.pt',
-        'test_sample_7.pt',
-        'test_sample_8.pt',
-        'test_sample_9.pt',
-        'test_sample_11.pt']
+    file_names = get_filenames_from_directory(BASE_PT_PATH)
     plot_cosine_similarity_multi_file(
         file_names, activation_type="correct")
     plot_cosine_similarity_multi_file(

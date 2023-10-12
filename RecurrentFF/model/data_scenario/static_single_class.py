@@ -1,14 +1,16 @@
 import logging
+from typing import List, Optional, cast
+from pyparsing import Iterator
 
 import torch
 from torch import nn
 from torch.nn import functional as F
-from torch.optim import RMSprop
+from torch.optim import RMSprop, Optimizer
 import wandb
 
 from RecurrentFF.model.data_scenario.processor import DataScenarioProcessor
 from RecurrentFF.model.inner_layers import InnerLayers
-from RecurrentFF.util import LatentAverager, TrainLabelData, layer_activations_to_badness, ForwardMode
+from RecurrentFF.util import Activations, LatentAverager, TrainLabelData, layer_activations_to_badness, ForwardMode
 from RecurrentFF.settings import Settings
 
 
@@ -18,34 +20,34 @@ class SingleStaticClassTestData:
     labels of dims (batch size, num classes)
     """
 
-    def __init__(self, input, labels):
+    def __init__(self, input: torch.Tensor, labels: torch.Tensor) -> None:
         self.input = input
         self.labels = labels
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[torch.Tensor]:
         yield self.input
         yield self.labels
 
 
 class StaticSingleClassActivityTracker():
 
-    def __init__(self):
-        self.data = None
-        self.labels = None
+    def __init__(self) -> None:
+        self.data: Optional[torch.Tensor]
+        self.labels: Optional[torch.Tensor]
 
-        self.activations = []
-        self.forward_activations = []
-        self.backward_activations = []
-        self.lateral_activations = []
+        self.activations: List[torch.Tensor] = []
+        self.forward_activations: List[torch.Tensor] = []
+        self.backward_activations: List[torch.Tensor] = []
+        self.lateral_activations: List[torch.Tensor] = []
 
-        self.partial_activations = []
-        self.partial_forward_activations = []
-        self.partial_backward_activations = []
-        self.partial_lateral_activations = []
+        self.partial_activations: List[torch.Tensor] = []
+        self.partial_forward_activations: List[torch.Tensor] = []
+        self.partial_backward_activations: List[torch.Tensor] = []
+        self.partial_lateral_activations: List[torch.Tensor] = []
 
         self.tracked_samples = 0
 
-    def reinitialize(self, data, labels):
+    def reinitialize(self, data: torch.Tensor, labels: torch.Tensor) -> None:
         self.data = data[0][0]  # first batch, first timestep
         self.labels = labels.squeeze(1)
 
@@ -61,13 +63,14 @@ class StaticSingleClassActivityTracker():
 
         self.tracked_samples += 1
 
-    def track_partial_activations(self, layers: InnerLayers):
+    def track_partial_activations(self, layers: InnerLayers) -> None:
         build = []
         build_forward = []
         build_backward = []
         build_lateral = []
         for layer in layers:
-            build.append(layer.predict_activations.current)
+            # TODO: cleanup cast
+            build.append(cast(Activations, layer.predict_activations).current)
             build_forward.append(layer.forward_act)
             build_backward.append(layer.backward_act)
             build_lateral.append(layer.lateral_act)
@@ -80,7 +83,7 @@ class StaticSingleClassActivityTracker():
         self.partial_lateral_activations.append(
             torch.stack(build_lateral).squeeze(1))
 
-    def cut_activations(self):
+    def cut_activations(self) -> None:
         self.activations.append(torch.stack(self.partial_activations))
         self.forward_activations.append(
             torch.stack(self.partial_forward_activations))
@@ -96,12 +99,14 @@ class StaticSingleClassActivityTracker():
 
     def filter_and_persist(
             self,
-            predicted_labels,
-            anti_predictions,
-            actual_labels):
+            predicted_labels: torch.Tensor,
+            anti_predictions: torch.Tensor,
+            actual_labels: torch.Tensor) -> None:
+        assert self.data is not None and self.labels is not None
+
         if predicted_labels == actual_labels:
-            predicted_labels_index = predicted_labels.item()
-            anti_prediction_index = anti_predictions.item()
+            predicted_labels_index = int(predicted_labels.item())
+            anti_prediction_index = int(anti_predictions.item())
 
             correct_activations = self.activations[predicted_labels_index]
             correct_forward_activations = self.forward_activations[predicted_labels_index]
@@ -226,11 +231,14 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
         self.settings = settings
         self.inner_layers = inner_layers
 
-        self.classification_weights = nn.Linear(
+        # pytorch types are incorrect hence ignore statement
+        self.classification_weights = nn.Linear(  # type: ignore[call-overload]
             sum(
                 self.settings.model.hidden_sizes),
             self.settings.data_config.num_classes).to(
             device=self.settings.device.device)
+
+        self.optimizer: Optimizer
 
         if self.settings.model.classifier_optimizer == "rmsprop":
             self.optimizer = RMSprop(
@@ -250,7 +258,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
             self,
             latents: torch.Tensor,
             labels: torch.Tensor,
-            total_batch_count: int):
+            total_batch_count: int) -> None:
         """
         Trains the classification model using the given latent vectors and
         corresponding labels.
@@ -290,7 +298,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
             self,
             input_batch: torch.Tensor,
             input_labels: TrainLabelData,
-            total_batch_count: int):
+            total_batch_count: int) -> None:
         """
         Replaces the negative labels in the given input labels with incorrect
         class labels, based on the latent representations of the input batch.
@@ -327,10 +335,10 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
 
     def brute_force_predict(
             self,
-            loader,
-            limit_batches=None,
-            is_test_set=False,
-            write_activations=False):
+            loader: torch.utils.data.DataLoader,
+            limit_batches: Optional[int] = None,
+            is_test_set: bool = False,
+            write_activations: bool = False) -> float:
         """
         This function predicts the class labels for the provided test data using
         the trained RecurrentFFNet model. It does so by enumerating all possible
@@ -431,9 +439,9 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                         if iteration >= lower_iteration_threshold and iteration <= upper_iteration_threshold:
                             layer_badnesses = []
                             for layer in self.inner_layers:
-                                activations = layer.pos_activations.current \
+                                activations = cast(Activations, layer.pos_activations).current \
                                     if forward_mode == ForwardMode.PositiveData \
-                                    else layer.predict_activations.current
+                                    else cast(Activations, layer.predict_activations).current
 
                                 layer_badnesses.append(
                                     layer_activations_to_badness(
@@ -446,23 +454,25 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                         activity_tracker.cut_activations()
 
                     # tensor of shape (batch_size, iterations, num_layers)
-                    badnesses = torch.stack(badnesses, dim=1)
-                    # average over iterations
-                    badnesses = badnesses.mean(dim=1)
-                    # average over layers
-                    badness = badnesses.mean(dim=1)
+                    badnesses_stacked = torch.stack(badnesses, dim=1)
+                    badnesses_mean_over_iterations = badnesses_stacked.mean(
+                        dim=1)
+                    badness_mean_over_layers = badnesses_mean_over_iterations.mean(
+                        dim=1)
 
                     logging.debug("Badness for prediction" + " " +
-                                  str(label) + ": " + str(badness))
-                    all_labels_badness.append(badness)
+                                  str(label) + ": " + str(badness_mean_over_layers))
+                    all_labels_badness.append(badness_mean_over_layers)
 
-                all_labels_badness = torch.stack(all_labels_badness, dim=1)
+                all_labels_badness_stacked = torch.stack(
+                    all_labels_badness, dim=1)
 
                 # select the label with the maximum badness
-                predicted_labels = torch.argmin(all_labels_badness, dim=1)
+                predicted_labels = torch.argmin(
+                    all_labels_badness_stacked, dim=1)
                 if write_activations:
                     anti_predictions = torch.argmax(
-                        all_labels_badness, dim=1)
+                        all_labels_badness_stacked, dim=1)
                     activity_tracker.filter_and_persist(
                         predicted_labels, anti_predictions, labels)
 
@@ -477,8 +487,8 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
         total_correct = sum(correct for correct, _total in accuracy_contexts)
         total_submissions = sum(
             total for _correct, total in accuracy_contexts)
-        accuracy = total_correct / total_submissions * \
-            100 if total_submissions else exit(1)
+        accuracy: float = total_correct / total_submissions * \
+            100
 
         if is_test_set:
             logging.info(f'Test accuracy: {accuracy}%')
@@ -488,7 +498,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
         return accuracy
 
     def get_preinit_upper_clamped_tensor(
-            self, upper_clamped_tensor_shape: tuple):
+            self, upper_clamped_tensor_shape: tuple) -> torch.Tensor:
         labels = torch.full(
             upper_clamped_tensor_shape,
             1.0 / self.settings.data_config.num_classes,
@@ -535,9 +545,9 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
 
             if iteration >= lower_iteration_threshold and iteration <= upper_iteration_threshold:
                 latents = [
-                    layer.pos_activations.current for layer in self.inner_layers]
-                latents = torch.cat(latents, dim=1).to(
+                    cast(Activations, layer.pos_activations).current for layer in self.inner_layers]
+                latents_collapsed = torch.cat(latents, dim=1).to(
                     device=self.settings.device.device)
-                target_latents.track_collapsed_latents(latents)
+                target_latents.track_collapsed_latents(latents_collapsed)
 
         return target_latents.retrieve()
