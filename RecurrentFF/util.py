@@ -2,6 +2,7 @@ from enum import Enum
 import logging
 from typing import Generator
 
+from torch import Tensor
 import torch
 
 
@@ -20,6 +21,20 @@ def standardize_layer_activations(layer_activations: torch.Tensor, epsilon: floa
 
     normalized_activations = layer_activations / l2_norm
     return normalized_activations
+
+
+def scale_labels_by_timestep_train(label_data: tuple[Tensor, Tensor], iteration, max_iterations) -> tuple[Tensor, Tensor]:
+    # tensor of shape (batch_size, classes)
+    pos_labels = scale_labels_by_timestep(
+        label_data[0], iteration, max_iterations)
+    neg_labels = scale_labels_by_timestep(
+        label_data[1], iteration, max_iterations)
+    return (pos_labels, neg_labels)
+
+
+def scale_labels_by_timestep(label_data: Tensor, iteration: int, max_iterations: int) -> Tensor:
+    # tensor of shape (batch_size, classes)
+    return label_data * (iteration / max_iterations)
 
 
 class TrainTestBridgeFormatLoader:

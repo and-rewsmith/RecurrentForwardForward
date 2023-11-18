@@ -7,7 +7,7 @@ import numpy as np
 BASE_INPUT_PATH = "./artifacts/activations"
 BASE_OUT_PATH = "./img/debug/activation_heatmaps"
 SCENARIOS = ["incorrect_activations", "correct_activations"]
-FILENAMES = ["test_sample_1.pt", "test_sample_2.pt", "test_sample_3.pt"]
+FILENAMES = ["test_sample_4.pt", "test_sample_2.pt", "test_sample_3.pt"]
 MAX_ACTIVATION_DIVISOR = 4
 
 

@@ -1,9 +1,9 @@
+from __future__ import annotations
 from datetime import datetime
 import logging
 import random
 import string
-from typing import List, Tuple, cast
-
+from typing import List, Self, Tuple, cast
 
 import torch
 from torch import nn
@@ -28,6 +28,45 @@ from RecurrentFF.util import (
 from RecurrentFF.settings import (
     Settings,
 )
+
+
+def generate_activation_initialization_samples(noise: torch.Tensor, processor: StaticSingleClassProcessor, inner_layers: InnerLayers, settings: Settings):
+    logging.info(
+        "Generating stable state network activations for training and prediction")
+
+    for layer in inner_layers:
+        layer.reset_activations(True)
+
+    label_sample_shape = (settings.data_config.train_batch_size,
+                          settings.data_config.num_classes)
+
+    # generate equally weighted labels
+    preinit_upper_clamped_tensor = processor.get_preinit_upper_clamped_tensor(
+        label_sample_shape)
+
+    # run the network on the noise for timesteps until stable state
+    for _preinit_step in range(
+            0, 1000):
+        inner_layers.advance_layers_forward(
+            ForwardMode.PositiveData, noise, preinit_upper_clamped_tensor, False)
+
+    # return the stable state activations
+    activations = []
+    for layer in inner_layers:
+        activations.append(layer.pos_activations.current[0].unsqueeze(0))
+
+    # network activations of shape (layer, batch, representation)
+    activations = torch.stack(activations, dim=0)
+
+    # iterate through activations layer dim and create StableStateNetworkActivations
+    stable_state_network_activations = []
+    for layer_index in range(0, activations.shape[0]):
+        stable_state_network_activations.append(
+            activations[layer_index])
+
+    logging.info("Finished generating stable state network activations")
+
+    return stable_state_network_activations
 
 
 # TODO: try use separate optimizer for lateral connections
@@ -65,6 +104,10 @@ class RecurrentFFNet(nn.Module):
 
         self.settings = settings
 
+        self.noise = torch.randn(
+            1,
+            self.settings.data_config.data_size).to(settings.device.device).repeat(self.settings.data_config.train_batch_size, 1) / 250
+
         inner_layers = nn.ModuleList()
         prev_size = self.settings.data_config.data_size
         for i, size in enumerate(self.settings.model.hidden_sizes):
@@ -96,7 +139,7 @@ class RecurrentFFNet(nn.Module):
         # when we eventually support changing/multiclass scenarios this will be
         # configurable
         self.processor = StaticSingleClassProcessor(
-            self.inner_layers, self.settings)
+            self.inner_layers, self.settings, self.noise)
 
         self.weights_file_name = self.settings.data_config.dataset + \
             "_" + datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + "_" + ''.join(
@@ -116,6 +159,13 @@ class RecurrentFFNet(nn.Module):
                 num_batches,
                 is_test_set=True,
                 write_activations=write_activations)
+
+    def attach_stable_state_preinitializations(self) -> None:
+        stable_state_activations = generate_activation_initialization_samples(
+            self.noise, self.processor, self.inner_layers, self.settings)
+        for i, layer in enumerate(self.inner_layers):
+            layer.stable_state_activations = stable_state_activations[
+                i]
 
     @profile(stdout=False, filename='baseline.prof',
              skip=Settings.new().model.skip_profiling)
@@ -151,9 +201,22 @@ class RecurrentFFNet(nn.Module):
         for epoch in range(0, self.settings.model.epochs):
             logging.info("Epoch: " + str(epoch))
 
+            self.attach_stable_state_preinitializations()
+
             for batch_num, (input_data, label_data) in enumerate(train_loader):
                 input_data.move_to_device_inplace(self.settings.device.device)
                 label_data.move_to_device_inplace(self.settings.device.device)
+
+                broadcasted_noise = self.noise.unsqueeze(0).expand(
+                    self.settings.data_config.iterations, -1, -1)
+
+                input_data.pos_input += broadcasted_noise
+                input_data.neg_input += broadcasted_noise
+
+                # print(input_data.pos_input.shape)
+                # print(input_data.neg_input.shape)
+                # print(broadcasted_noise.shape)
+                # input()
 
                 if self.settings.model.should_replace_neg_data:
                     self.processor.replace_negative_data_inplace(
@@ -236,6 +299,8 @@ class RecurrentFFNet(nn.Module):
                 label_data.pos_labels[iteration],
                 label_data.neg_labels[iteration])
 
+            # label_data_rescaled = scale_labels_by_timestep_train(
+            #     label_data_sample, iteration, iterations)
             self.inner_layers.advance_layers_train(
                 input_data_sample, label_data_sample, True, layer_metrics)
 

@@ -10,7 +10,7 @@ import wandb
 
 from RecurrentFF.model.data_scenario.processor import DataScenarioProcessor
 from RecurrentFF.model.inner_layers import InnerLayers
-from RecurrentFF.util import Activations, LatentAverager, TrainLabelData, layer_activations_to_badness, ForwardMode
+from RecurrentFF.util import Activations, LatentAverager, TrainLabelData, layer_activations_to_badness, ForwardMode, scale_labels_by_timestep
 from RecurrentFF.settings import Settings
 
 
@@ -227,9 +227,11 @@ def formulate_incorrect_class(prob_tensor: torch.Tensor,
 
 
 class StaticSingleClassProcessor(DataScenarioProcessor):
-    def __init__(self, inner_layers: InnerLayers, settings: Settings):
+    def __init__(self, inner_layers: InnerLayers, settings: Settings, noise: torch.Tensor):
         self.settings = settings
         self.inner_layers = inner_layers
+
+        self.noise = noise
 
         # pytorch types are incorrect hence ignore statement
         self.classification_weights = nn.Linear(  # type: ignore[call-overload]
@@ -384,6 +386,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
         accuracy_contexts = []
 
         for batch, test_data in enumerate(loader):
+
             if limit_batches is not None and batch == limit_batches:
                 break
 
@@ -391,6 +394,13 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                 data, labels = test_data
                 data = data.to(self.settings.device.device)
                 labels = labels.to(self.settings.device.device)
+
+                batch_size_for_noise = self.settings.data_config.test_batch_size if is_test_set else self.settings.data_config.train_batch_size
+
+                broadcasted_noise = self.noise[0].unsqueeze(0).unsqueeze(0).expand(
+                    self.settings.data_config.iterations, batch_size_for_noise, -1)
+
+                data += broadcasted_noise
 
                 if write_activations:
                     activity_tracker.reinitialize(data, labels)
@@ -430,8 +440,12 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                         iterations // 10
                     badnesses = []
                     for iteration in range(0, iterations):
+                        # one_hot_labels_rescaled = scale_labels_by_timestep(
+                        #     one_hot_labels, iteration, iterations)
+
                         self.inner_layers.advance_layers_forward(
                             forward_mode, data[iteration], one_hot_labels, True)
+
                         if write_activations:
                             activity_tracker.track_partial_activations(
                                 self.inner_layers)

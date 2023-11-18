@@ -13,7 +13,7 @@ DATA_SIZE = 784
 NUM_CLASSES = 10
 TRAIN_BATCH_SIZE = 500
 TEST_BATCH_SIZE = 5000
-ITERATIONS = 10
+ITERATIONS = 15
 DATASET = "MNIST"
 
 # If you want to load weights fill this in.
@@ -235,6 +235,7 @@ if __name__ == "__main__":
 
     # Create and run model.
     model = RecurrentFFNet(settings).to(settings.device.device)
+    # model.attach_stable_state_preinitializations(train_loader)
 
     if settings.model.should_load_weights:
         model.load_state_dict(torch.load(WEIGHTS_PATH))
