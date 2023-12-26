@@ -80,6 +80,20 @@ def amplified_initialization(layer: nn.Linear, amplification_factor: float = 3.0
     nn.init.normal_(layer.weight, mean=0, std=amplified_std)
 
 
+def _custom_init(weight, settings, gain=1):
+    # Initialize with orthogonal matrix
+    nn.init.orthogonal_(weight, gain=gain)
+
+    # Initialize with identity matrix
+    identity = torch.eye(weight.shape[0], weight.shape[1])
+
+    # Ensure identity matrix is on the same device as weight
+    identity = identity
+
+    # Combine the orthogonal and identity matrices
+    weight.data = 0.7 * weight.data + 0.7 * identity
+
+
 class HiddenLayer(nn.Module):
     """
     A HiddenLayer class for a novel Forward-Forward Recurrent Network, with
@@ -144,7 +158,9 @@ class HiddenLayer(nn.Module):
 
         # Initialize the lateral weights to be the identity matrix
         self.lateral_linear = nn.Linear(size, size)
-        nn.init.orthogonal_(self.lateral_linear.weight, gain=math.sqrt(2))
+        _custom_init(self.lateral_linear.weight, self.settings)
+        self.lateral_linear = torch.nn.utils.parametrizations.spectral_norm(
+            self.lateral_linear)
 
         self.previous_layer: Self = None  # type: ignore[assignment]
         self.next_layer: Self = None  # type: ignore[assignment]

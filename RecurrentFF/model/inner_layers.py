@@ -10,7 +10,7 @@ from torch.nn import ModuleList
 
 from RecurrentFF.model.hidden_layer import HiddenLayer
 from RecurrentFF.settings import Settings
-from RecurrentFF.util import ForwardMode, TrainInputData, TrainLabelData
+from RecurrentFF.util import ForwardMode
 
 
 class LayerMetrics:
@@ -43,12 +43,14 @@ class LayerMetrics:
         neg_activations_norm = torch.norm(layer.neg_activations.current, p=2)
         forward_weights_norm = torch.norm(layer.forward_linear.weight, p=2)
         backward_weights_norm = torch.norm(layer.backward_linear.weight, p=2)
-        lateral_weights_norm = torch.norm(layer.lateral_linear.weight, p=2)
+        lateral_weights_norm = torch.norm(
+            layer.lateral_linear.parametrizations.weight.original, p=2)
 
         forward_grad_norm = torch.norm(layer.forward_linear.weight.grad, p=2)
         backward_grads_norm = torch.norm(
             layer.backward_linear.weight.grad, p=2)
-        lateral_grads_norm = torch.norm(layer.lateral_linear.weight.grad, p=2)
+        lateral_grads_norm = torch.norm(
+            layer.lateral_linear.parametrizations.weight.original.grad, p=2)
 
         self.pos_activations_norms[layer_num] += pos_activations_norm
         self.neg_activations_norms[layer_num] += neg_activations_norm
