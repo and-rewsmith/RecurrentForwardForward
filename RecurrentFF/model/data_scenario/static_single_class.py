@@ -333,6 +333,82 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
         input_labels.neg_labels = negative_labels.repeat(
             frames, 1, 1)  # Repeat along the new dimension
 
+    def matt_05_14_2024_predict(self):
+        """
+        pseudocode:
+
+        ```
+        inputs = sequence of inputs corresponding to the gray screen for 2 sec, then 150ms on, then 2sec grayscreen etc...
+        labels = 0 for each grayscreen timepoint, 1 for each flash on timepoint
+        labels = filter(labels, timescale)
+        hidden = np.zeros(# of hidden units across all layers)
+        hiddenall = []
+        for inp, lab in zip(inputs, labels):
+            hidden = FFcell(inp, lab, hidden)
+            hiddenall.append(hidden)
+        ```
+
+        (!! ATTENTION !!) 
+        IMPORTANT NOTES TO MATT:
+         - The references to gray screen and stimulus on make me think you are
+           dealing with: 1) 2d gray 28x28 image; 2) a flash of bright 28x28
+           image. Keep in mind the network needs data similar to the MNIST
+           digits to induce cancellation.
+        - The data and labels have been defined upfront. This may not be the way
+          you had in mind but if you have issues adjusting lmk.
+        - There are some callouts for you in this code, please note.
+
+        """
+        # batch size 1, single 28x28 image of random pixels, collapsed to a single dim
+        iterations = 10
+        batch_size = 1
+        data = torch.rand(
+            (iterations, batch_size, self.settings.data_config.data_size)).to(self.settings.device.device)
+
+        # 1d one hot encoded MNIST labels (no batch dim)
+        labels_dim = iterations
+        labels = torch.zeros(
+            self.settings.data_config.num_classes).to(self.settings.device.device)
+
+        forward_mode = ForwardMode.PredictData
+
+        hidden_states = []
+
+        with torch.no_grad():
+
+            self.inner_layers.reset_activations(False)
+
+            # (!! ATTENTION MATT !!): may want to perform some preinitialization (presentation phase)
+            #
+            # if you don't want to do this you can comment this block out
+            #
+            # including just in case
+            upper_clamped_tensor = self.get_preinit_upper_clamped_tensor(
+                (batch_size, self.settings.data_config.num_classes))
+            for _preinit_step in range(0, self.settings.model.prelabel_timesteps):
+                self.inner_layers.advance_layers_forward(
+                    forward_mode, data[0], upper_clamped_tensor, False)
+
+            for iteration in range(0, iterations):
+                self.inner_layers.advance_layers_forward(
+                    forward_mode, data[iteration], labels, True)
+
+                # (!! ATTENTION MATT !!): Hidden_states will contain the
+                # activations of all layers.
+                #
+                # If for some reason you need the activation _components_, these
+                # can also be extracted. Either search this as a reference or ping
+                # me for assistance:
+                #
+                # ```
+                #     def track_partial_activations(self, layers: InnerLayers) -> None:
+                # ```
+                hidden_states.append(
+                    torch.cat([layer.predict_activations.current for layer in self.inner_layers], dim=0))
+
+        # each element in hidden states is 5 layers and 700 units
+        assert hidden_states[0].shape == (5, 700)
+
     def brute_force_predict(
             self,
             loader: torch.utils.data.DataLoader,
