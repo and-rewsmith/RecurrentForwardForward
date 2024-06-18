@@ -16,7 +16,7 @@ should_log_metrics = true
 should_replace_neg_data = false
 should_load_weights = false
 lr_step_size = 1
-lr_gamma = 0.95
+lr_gamma = 0.90
 
 [model.ff_rmsprop]
 momentum = 0.0

@@ -7,6 +7,7 @@ from torch import Tensor, nn
 import torch
 import wandb
 from torch.nn import ModuleList
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from RecurrentFF.model.hidden_layer import HiddenLayer
 from RecurrentFF.settings import Settings
@@ -239,32 +240,39 @@ class InnerLayers(nn.Module):
             is accumulated to compute the total loss for the network. After
             training each layer, their stored activations are advanced by
             calling the 'advance_stored_activations' method.
+
+            The training process is parallelized using ThreadPoolExecutor.
         """
-        for i, layer in enumerate(self.layers):
-            logging.debug("Training layer " + str(i))
-            loss = None
-            if i == 0 and len(self.layers) == 1:
-                loss = layer.train(input_data, label_data, should_damp)
-            elif i == 0:
-                loss = layer.train(input_data, None, should_damp)
-            elif i == len(self.layers) - 1:
-                loss = layer.train(None, label_data, should_damp)
+        def train_layer(layer, layer_index):
+            if layer_index == 0 and len(self.layers) == 1:
+                return layer.train(input_data, label_data, should_damp)
+            elif layer_index == 0:
+                return layer.train(input_data, None, should_damp)
+            elif layer_index == len(self.layers) - 1:
+                return layer.train(None, label_data, should_damp)
             else:
-                loss = layer.train(None, None, should_damp)
+                return layer.train(None, None, should_damp)
 
-            layer_num = i + 1
-            logging.debug("Loss for layer " +
-                          str(layer_num) + ": " + str(loss))
+        with ThreadPoolExecutor() as executor:
+            # Start the training operations and hold their futures
+            futures = {executor.submit(train_layer, layer, i): i for i, layer in enumerate(self.layers)}
 
-            layer_metrics.ingest_layer_metrics(i, layer, loss)
+            # As each future completes, process its result
+            for future in as_completed(futures):
+                layer_index = futures[future]
+                try:
+                    loss = future.result()
+                    logging.debug(f"Loss for layer {layer_index + 1}: {loss}")
+                    layer_metrics.ingest_layer_metrics(layer_index, self.layers[layer_index], loss)
+                except Exception as exc:
+                    logging.error(f'Layer {layer_index + 1} generated an exception: {exc}')
 
         layer_metrics.increment_samples_seen()
 
-        logging.debug("Trained activations for layer " +
-                      str(i))
-
         for layer in self.layers:
             layer.advance_stored_activations()
+
+        logging.debug("Completed training and advancing activations for all layers.")
 
     def advance_layers_forward(
             self,
@@ -304,6 +312,10 @@ class InnerLayers(nn.Module):
             This method doesn't return any value. It modifies the internal state
             of the layers by performing a forward pass and advancing their
             stored activations.
+
+            This is not parallelized because empirically it is slower. Likely
+            this is because the overhead of creating threads is not worth it for
+            the small amount of computation done in each thread.
         """
         for i, layer in enumerate(self.layers):
             if i == 0 and len(self.layers) == 1:
