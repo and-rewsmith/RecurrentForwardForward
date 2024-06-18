@@ -8,6 +8,7 @@ from torch.nn import Module
 from torch.nn import functional as F
 from torch.optim import RMSprop, Adam, Adadelta, Optimizer
 from torch.optim.lr_scheduler import StepLR
+from profilehooks import profile
 
 from RecurrentFF.util import (
     Activations,
@@ -284,6 +285,8 @@ class HiddenLayer(nn.Module):
     def set_next_layer(self, next_layer: Self) -> None:
         self.next_layer = next_layer
 
+    @profile(stdout=False, filename='baseline.prof',
+             skip=Settings.new().model.skip_profiling)
     def train(self,  # type: ignore[override]
               input_data: TrainInputData,
               label_data: TrainLabelData,

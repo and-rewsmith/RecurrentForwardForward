@@ -8,7 +8,6 @@ from typing import List, Tuple, cast
 import torch
 from torch import nn
 import wandb
-from profilehooks import profile
 
 from RecurrentFF.model.data_scenario.processor import DataScenario
 from RecurrentFF.model.data_scenario.static_single_class import (
@@ -117,8 +116,6 @@ class RecurrentFFNet(nn.Module):
                 is_test_set=True,
                 write_activations=write_activations)
 
-    @profile(stdout=False, filename='baseline.prof',
-             skip=Settings.new().model.skip_profiling)
     def train(self, train_loader: torch.utils.data.DataLoader, test_loader: torch.utils.data.DataLoader) -> None:
         """
         Trains the RecurrentFFNet model using the provided train and test data loaders.
