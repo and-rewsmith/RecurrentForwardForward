@@ -183,7 +183,6 @@ class HiddenLayer(nn.Module):
         return self
 
     def eval(self):
-        """Set the module in evaluation mode."""
         return self.train(False)
 
     def _apply(self, fn):  # type: ignore

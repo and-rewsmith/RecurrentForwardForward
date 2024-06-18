@@ -109,6 +109,7 @@ class RecurrentFFNet(nn.Module):
             data_loader: torch.utils.data.DataLoader,
             num_batches: int,
             write_activations: bool = False) -> None:
+        self.eval()
         if data_scenario == DataScenario.StaticSingleClass:
             self.processor.brute_force_predict(
                 data_loader,
