@@ -11,9 +11,9 @@ from RecurrentFF.settings import Settings, DataConfig
 
 DATA_SIZE = 784
 NUM_CLASSES = 10
-TRAIN_BATCH_SIZE = 25
+TRAIN_BATCH_SIZE = 500
 TEST_BATCH_SIZE = 5000
-ITERATIONS = 15
+ITERATIONS = 10
 DATASET = "MNIST"
 
 # If you want to load weights fill this in.
