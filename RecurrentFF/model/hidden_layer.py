@@ -425,13 +425,16 @@ class HiddenLayer(nn.Module):
 
             self.forward_act = F.linear(
                 prev_layer_stdized,
-                self.forward_linear.weight)
+                self.forward_linear.weight,
+                self.forward_linear.bias)
             self.backward_act = -1 * F.linear(
                 next_layer_stdized,
-                self.backward_linear.weight)
+                self.backward_linear.weight,
+                self.backward_linear.bias)
             self.lateral_act = F.linear(
                 prev_act_stdized,
-                self.lateral_linear.weight)
+                self.lateral_linear.weight,
+                self.lateral_linear.bias)
 
         # Single layer scenario. Hidden layer connected to input layer and
         # output layer.
@@ -452,13 +455,16 @@ class HiddenLayer(nn.Module):
 
             self.forward_act = F.linear(
                 data,
-                self.forward_linear.weight)
+                self.forward_linear.weight,
+                self.forward_linear.bias)
             self.backward_act = -1 * F.linear(
                 labels,
-                self.backward_linear.weight)
+                self.backward_linear.weight,
+                self.backward_linear.bias)
             self.lateral_act = F.linear(
                 prev_act_stdized,
-                self.lateral_linear.weight)
+                self.lateral_linear.weight,
+                self.lateral_linear.bias)
 
         # Input layer scenario. Connected to input layer and hidden layer.
         elif data is not None:
@@ -486,13 +492,16 @@ class HiddenLayer(nn.Module):
 
             self.forward_act = F.linear(
                 data,
-                self.forward_linear.weight)
+                self.forward_linear.weight,
+                self.forward_linear.bias)
             self.backward_act = -1 * F.linear(
                 next_layer_stdized,
-                self.backward_linear.weight)
+                self.backward_linear.weight,
+                self.backward_linear.bias)
             self.lateral_act = F.linear(
                 prev_act_stdized,
-                self.lateral_linear.weight)
+                self.lateral_linear.weight,
+                self.lateral_linear.bias)
 
         # Output layer scenario. Connected to hidden layer and output layer.
         elif labels is not None:
@@ -520,13 +529,16 @@ class HiddenLayer(nn.Module):
 
             self.forward_act = F.linear(
                 prev_layer_stdized,
-                self.forward_linear.weight)
+                self.forward_linear.weight,
+                self.forward_linear.bias)
             self.backward_act = -1 * F.linear(
                 labels,
-                self.backward_linear.weight)
+                self.backward_linear.weight,
+                self.backward_linear.bias)
             self.lateral_act = F.linear(
                 prev_act_stdized,
-                self.lateral_linear.weight)
+                self.lateral_linear.weight,
+                self.lateral_linear.bias)
 
         new_activation = F.leaky_relu(
             self.forward_act + self.backward_act + self.lateral_act)
