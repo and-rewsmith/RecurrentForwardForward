@@ -239,4 +239,4 @@ if __name__ == "__main__":
     if settings.model.should_load_weights:
         model.load_state_dict(torch.load(WEIGHTS_PATH))
 
-    model.train(train_loader, test_loader)
+    model.train_model(train_loader, test_loader)

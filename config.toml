@@ -17,6 +17,7 @@ should_replace_neg_data = false
 should_load_weights = false
 lr_step_size = 1
 lr_gamma = 0.90
+dropout = 0.1
 
 [model.ff_rmsprop]
 momentum = 0.0

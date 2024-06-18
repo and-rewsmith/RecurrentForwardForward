@@ -116,7 +116,7 @@ class RecurrentFFNet(nn.Module):
                 is_test_set=True,
                 write_activations=write_activations)
 
-    def train(self, train_loader: torch.utils.data.DataLoader, test_loader: torch.utils.data.DataLoader) -> None:
+    def train_model(self, train_loader: torch.utils.data.DataLoader, test_loader: torch.utils.data.DataLoader) -> None:
         """
         Trains the RecurrentFFNet model using the provided train and test data loaders.
 
@@ -143,10 +143,12 @@ class RecurrentFFNet(nn.Module):
             layer's activations into a 'badness' score. This function operates on the RecurrentFFNet model level
             and is called during the training process.
         """
+
         total_batch_count = 0
         best_test_accuracy: float = 0
         for epoch in range(0, self.settings.model.epochs):
             logging.info("Epoch: " + str(epoch))
+            self.train()
 
             for batch_num, (input_data, label_data) in enumerate(train_loader):
                 input_data.move_to_device_inplace(self.settings.device.device)
@@ -167,6 +169,8 @@ class RecurrentFFNet(nn.Module):
                         total_batch_count)
 
                 total_batch_count += 1
+
+            self.eval()
 
             # TODO: make train batches equal to however much a single test
             # batch is w.r.t. total samples

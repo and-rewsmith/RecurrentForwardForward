@@ -132,6 +132,10 @@ class HiddenLayer(nn.Module):
         self.predict_activations: Optional[Activations] = None
         self.reset_activations(True)
 
+        self.forward_dropout = nn.Dropout(p=self.settings.model.dropout)
+        self.backward_dropout = nn.Dropout(p=self.settings.model.dropout)
+        self.lateral_dropout = nn.Dropout(p=self.settings.model.dropout)
+
         self.forward_linear = nn.Linear(prev_size, size)
         nn.init.kaiming_uniform_(
             self.forward_linear.weight, nonlinearity='relu')
@@ -173,6 +177,14 @@ class HiddenLayer(nn.Module):
         self.forward_act: Tensor
         self.backward_act: Tensor
         self.lateral_act: Tensor
+
+    def train(self, mode=True):
+        self.training = mode
+        return self
+
+    def eval(self):
+        """Set the module in evaluation mode."""
+        return self.train(False)
 
     def _apply(self, fn):  # type: ignore
         """
@@ -287,10 +299,10 @@ class HiddenLayer(nn.Module):
 
     @profile(stdout=False, filename='baseline.prof',
              skip=Settings.new().model.skip_profiling)
-    def train(self,  # type: ignore[override]
-              input_data: TrainInputData,
-              label_data: TrainLabelData,
-              should_damp: bool) -> float:
+    def train_layer(self,  # type: ignore[override]
+                    input_data: TrainInputData,
+                    label_data: TrainLabelData,
+                    should_damp: bool) -> float:
         self.optimizer.zero_grad()
 
         pos_activations = None
@@ -542,6 +554,10 @@ class HiddenLayer(nn.Module):
                 prev_act_stdized,
                 self.lateral_linear.weight,
                 self.lateral_linear.bias)
+
+        self.forward_act = self.forward_dropout(self.forward_act)
+        self.backward_act = self.backward_dropout(self.backward_act)
+        self.lateral_act = self.lateral_dropout(self.lateral_act)
 
         new_activation = F.leaky_relu(
             self.forward_act + self.backward_act + self.lateral_act)

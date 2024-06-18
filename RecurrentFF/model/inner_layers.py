@@ -245,13 +245,13 @@ class InnerLayers(nn.Module):
         """
         def train_layer(layer, layer_index):
             if layer_index == 0 and len(self.layers) == 1:
-                return layer.train(input_data, label_data, should_damp)
+                return layer.train_layer(input_data, label_data, should_damp)
             elif layer_index == 0:
-                return layer.train(input_data, None, should_damp)
+                return layer.train_layer(input_data, None, should_damp)
             elif layer_index == len(self.layers) - 1:
-                return layer.train(None, label_data, should_damp)
+                return layer.train_layer(None, label_data, should_damp)
             else:
-                return layer.train(None, None, should_damp)
+                return layer.train_layer(None, None, should_damp)
 
         with ThreadPoolExecutor() as executor:
             # Start the training operations and hold their futures
