@@ -2,7 +2,7 @@
 device = "mps"
 
 [model]
-hidden_sizes = [701, 702, 703, 704, 705]
+hidden_sizes = [1, 2, 3, 4, 5]
 epochs = 30000
 prelabel_timesteps = 10
 loss_threshold = 1.5
