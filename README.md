@@ -17,7 +17,7 @@ Here is the architecture diagram from the original paper, which is what I have i
 
 ```
 pip install -e .
-python -m RecurrentFF.benchmarks.mnist.mnist
+python -m RecurrentFF.benchmarks.mnist.mnist --config-file config_tutorial.toml
 ```
 
 ## Model TODO:
