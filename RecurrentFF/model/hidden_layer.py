@@ -32,7 +32,11 @@ class WeightInitialization(Enum):
 
 class ResidualConnection(nn.Module):
 
-    def __init__(self, source: 'HiddenLayer', target_size: int, dropout_percentage: float, initialization: WeightInitialization):
+    def __init__(self,
+                 source: 'HiddenLayer',
+                 target_size: int,
+                 dropout_percentage: float,
+                 initialization: WeightInitialization):
         super(ResidualConnection, self).__init__()
 
         self.weight_initialization = initialization
@@ -48,25 +52,28 @@ class ResidualConnection(nn.Module):
         elif initialization == WeightInitialization.Lateral:
             raise AssertionError("Lateral connections should not be initialized with this constructor")
 
-    def train(self, mode=True):
+    def train(self: Self, mode: bool = True) -> Self:
         self.training = mode
-        return
+        return self
 
-    def eval(self):
+    def eval(self: Self) -> Self:
         return self.train(False)
 
-    def forward(self, mode: ForwardMode):
+    def forward(self, mode: ForwardMode) -> torch.Tensor:
         if mode == ForwardMode.PositiveData:
+            assert self.source.pos_activations is not None
             source_activations = self.source.pos_activations.previous.detach()
         elif mode == ForwardMode.NegativeData:
+            assert self.source.neg_activations is not None
             source_activations = self.source.neg_activations.previous.detach()
         elif mode == ForwardMode.PredictData:
+            assert self.source.predict_activations is not None
             source_activations = self.source.predict_activations.previous.detach()
 
         source_activations_stdized = standardize_layer_activations(
             source_activations, self.source.settings.model.epsilon)
 
-        out = self.dropout(F.linear(source_activations_stdized, self.weights.weight, self.weights.bias))
+        out: torch.Tensor = self.dropout(F.linear(source_activations_stdized, self.weights.weight, self.weights.bias))
 
         if self.weight_initialization == WeightInitialization.Backward:
             out = -1 * out
@@ -260,10 +267,10 @@ class HiddenLayer(nn.Module):
         self.backward_act: Tensor
         self.lateral_act: Tensor
 
-    def init_residual_connection(self, residual_connection: ResidualConnection):
+    def init_residual_connection(self, residual_connection: ResidualConnection) -> None:
         self.residual_connections.append(residual_connection)
 
-    def init_optimizer(self):
+    def init_optimizer(self) -> None:
         self.optimizer: Optimizer
         if self.settings.model.ff_optimizer == "adam":
             self.optimizer = Adam(self.parameters(),
@@ -284,11 +291,11 @@ class HiddenLayer(nn.Module):
         self.param_name_dict = {param: name for name,
                                 param in self.named_parameters()}
 
-    def train(self, mode=True):
+    def train(self: Self, mode: bool = True) -> Self:
         self.training = mode
         return self
 
-    def eval(self):
+    def eval(self: Self) -> Self:
         return self.train(False)
 
     def _apply(self, fn):  # type: ignore
