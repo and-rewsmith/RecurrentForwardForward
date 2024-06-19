@@ -65,13 +65,13 @@ class ResidualConnection(nn.Module):
     def forward(self, mode: ForwardMode) -> torch.Tensor:
         if mode == ForwardMode.PositiveData:
             assert self.source.pos_activations is not None
-            source_activations = self.source.pos_activations.previous.detach()
+            source_activations = self.source.pos_activations.previous
         elif mode == ForwardMode.NegativeData:
             assert self.source.neg_activations is not None
-            source_activations = self.source.neg_activations.previous.detach()
+            source_activations = self.source.neg_activations.previous
         elif mode == ForwardMode.PredictData:
             assert self.source.predict_activations is not None
-            source_activations = self.source.predict_activations.previous.detach()
+            source_activations = self.source.predict_activations.previous
 
         source_activations_stdized = standardize_layer_activations(
             source_activations, self.source.settings.model.epsilon)
@@ -541,15 +541,14 @@ class HiddenLayer(nn.Module):
                     Activations, previous_layer.predict_activations).previous
                 prev_act = cast(Activations, self.predict_activations).previous
 
-            prev_layer_prev_timestep_activations = prev_layer_prev_timestep_activations.detach()
+            prev_layer_prev_timestep_activations = prev_layer_prev_timestep_activations
             prev_layer_stdized = standardize_layer_activations(
                 prev_layer_prev_timestep_activations, self.settings.model.epsilon)
 
-            next_layer_prev_timestep_activations = next_layer_prev_timestep_activations.detach()
+            next_layer_prev_timestep_activations = next_layer_prev_timestep_activations
             next_layer_stdized = standardize_layer_activations(
                 next_layer_prev_timestep_activations, self.settings.model.epsilon)
 
-            prev_act = prev_act.detach()
             prev_act_stdized = standardize_layer_activations(
                 prev_act, self.settings.model.epsilon)
 
@@ -579,7 +578,6 @@ class HiddenLayer(nn.Module):
                 assert self.predict_activations is not None
                 prev_act = cast(Activations, self.predict_activations).previous
 
-            prev_act = prev_act.detach()
             prev_act_stdized = standardize_layer_activations(
                 prev_act, self.settings.model.epsilon)
 
@@ -612,11 +610,10 @@ class HiddenLayer(nn.Module):
                     Activations, next_layer.predict_activations).previous
                 prev_act = cast(Activations, self.predict_activations).previous
 
-            next_layer_prev_timestep_activations = next_layer_prev_timestep_activations.detach()
+            next_layer_prev_timestep_activations = next_layer_prev_timestep_activations
             next_layer_stdized = standardize_layer_activations(
                 next_layer_prev_timestep_activations, self.settings.model.epsilon)
 
-            prev_act = prev_act.detach()
             prev_act_stdized = standardize_layer_activations(
                 prev_act, self.settings.model.epsilon)
 
@@ -649,11 +646,10 @@ class HiddenLayer(nn.Module):
                     Activations, previous_layer.predict_activations).previous
                 prev_act = cast(Activations, self.predict_activations).previous
 
-            prev_layer_prev_timestep_activations = prev_layer_prev_timestep_activations.detach()
+            prev_layer_prev_timestep_activations = prev_layer_prev_timestep_activations
             prev_layer_stdized = standardize_layer_activations(
                 prev_layer_prev_timestep_activations, self.settings.model.epsilon)
 
-            prev_act = prev_act.detach()
             prev_act_stdized = standardize_layer_activations(
                 prev_act, self.settings.model.epsilon)
 
@@ -688,12 +684,12 @@ class HiddenLayer(nn.Module):
 
         if mode == ForwardMode.PositiveData:
             assert self.pos_activations is not None
-            self.pos_activations.current = new_activation
+            self.pos_activations.current = new_activation.detach()
         elif mode == ForwardMode.NegativeData:
             assert self.neg_activations is not None
-            self.neg_activations.current = new_activation
+            self.neg_activations.current = new_activation.detach()
         elif mode == ForwardMode.PredictData:
             assert self.predict_activations is not None
-            self.predict_activations.current = new_activation
+            self.predict_activations.current = new_activation.detach()
 
         return new_activation
