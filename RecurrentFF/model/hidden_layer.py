@@ -455,22 +455,28 @@ class HiddenLayer(nn.Module):
         def generate_loss(activations: torch.Tensor) -> torch.Tensor:
             # Compute the mean across the batch dimension
             mean_act = torch.mean(activations, dim=0)
+            # print("mean_act", mean_act)
 
             # Subtract mean from activations and square the result
             deviations = (activations - mean_act) ** 2
+            # print("deviations", deviations[0])
 
             # Outer product along feature dimension for each batch
             # This computes the pairwise squared differences efficiently
             loss = torch.einsum('bi,bj->bij', deviations, deviations)
+            # print("loss", loss[0])
 
             # Sum over all batches and features, exclude the diagonal elements
             # Diagonal elements correspond to the squared terms which we want to avoid
             batch_size, n_features = activations.shape
             loss = torch.sum(loss) - \
                 torch.sum(torch.einsum('bii->b', loss)) / 2
+            # print("loss", loss)
 
             # Normalize the loss
+            # print("batch size * n_features * (n_features - 1)", batch_size * n_features * (n_features - 1))
             loss = loss / (batch_size * n_features * (n_features - 1))
+            # print("loss", loss)
 
             return loss
 
@@ -554,8 +560,12 @@ class HiddenLayer(nn.Module):
 
         layer_loss: Tensor = ff_layer_loss + lpl_loss_predictive + \
             lpl_loss_hebbian + lpl_loss_decorrelative
+        print(ff_layer_loss)
+        print(lpl_loss_predictive)
+        print(lpl_loss_hebbian)
+        print(lpl_loss_decorrelative)
         print(self.size)
-        print(pos_activations)
+        print(pos_activations[0])
         # print(layer_loss)
         # for name, param in self.named_parameters():
         #     print(name, param.grad)
@@ -565,7 +575,7 @@ class HiddenLayer(nn.Module):
         #         print(tensor.shape)
         #         optimizer_params.append(tensor)
         # print("optimizer params")
-        # input()
+        input()
         # input()
         # print()
         layer_loss.backward()
@@ -576,8 +586,8 @@ class HiddenLayer(nn.Module):
         # input()
 
         # print all grads of parameters
-        for name, param in self.named_parameters():
-            print(name, param.grad)
+        # for name, param in self.named_parameters():
+        #     print(name, param.grad)
         self.optimizer.step()
         return cast(float, layer_loss.item())
 
