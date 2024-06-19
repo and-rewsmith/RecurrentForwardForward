@@ -172,6 +172,10 @@ class RecurrentFFNet(nn.Module):
             self.train()
 
             for batch_num, (input_data, label_data) in enumerate(train_loader):
+
+                if batch_num == 1:
+                    break
+
                 input_data.move_to_device_inplace(self.settings.device.device)
                 label_data.move_to_device_inplace(self.settings.device.device)
 
@@ -229,19 +233,17 @@ class RecurrentFFNet(nn.Module):
         for preinit_step in range(0, self.settings.model.prelabel_timesteps):
             logging.debug("Preinitialization step: " +
                           str(preinit_step))
-            print("Preinitialization step: " +
-                  str(preinit_step))
 
             pos_input = input_data.pos_input[0]
-            # neg_input = input_data.neg_input[0]
+            neg_input = input_data.neg_input[0]
 
             preinit_upper_clamped_tensor = self.processor.get_preinit_upper_clamped_tensor(
                 label_data.pos_labels[0].shape)
 
             self.inner_layers.advance_layers_forward(
-                pos_input, preinit_upper_clamped_tensor, False)
-            # self.inner_layers.advance_layers_forward(
-            #     neg_input, preinit_upper_clamped_tensor, False)
+                ForwardMode.PositiveData, pos_input, preinit_upper_clamped_tensor, False)
+            self.inner_layers.advance_layers_forward(
+                ForwardMode.NegativeData, neg_input, preinit_upper_clamped_tensor, False)
 
         num_layers = len(self.settings.model.hidden_sizes)
         layer_metrics = LayerMetrics(num_layers)

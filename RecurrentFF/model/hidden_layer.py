@@ -279,6 +279,11 @@ class HiddenLayer(nn.Module):
 
     def init_optimizer(self) -> None:
         self.optimizer: Optimizer
+        # param_optimizer = [(name, param) for name, param in self.named_parameters()]
+        # for (name, param) in param_optimizer:
+        #     print(name)
+        #     print(param.shape)
+        # input()
         if self.settings.model.ff_optimizer == "adam":
             self.optimizer = Adam(self.parameters(),
                                   lr=self.settings.model.ff_adam.learning_rate)
@@ -416,7 +421,7 @@ class HiddenLayer(nn.Module):
     def set_next_layer(self, next_layer: Self) -> None:
         self.next_layer = next_layer
 
-    def generate_lpl_loss_predictive(self) -> Tensor:
+    def generate_lpl_loss_predictive(self, current_activations_with_grad: torch.Tensor) -> Tensor:
         def generate_loss(current_act: Tensor, previous_act: Tensor) -> Tensor:
             loss = (current_act - previous_act) ** 2
             loss = torch.sum(loss, dim=1)
@@ -425,12 +430,13 @@ class HiddenLayer(nn.Module):
                 (2 * current_act.shape[0] * current_act.shape[1])
             return loss
 
+        assert current_activations_with_grad.requires_grad == True
+        assert self.pos_activations.previous.requires_grad == False
         pos_loss = generate_loss(
-            self.pos_activations.current, self.pos_activations.previous)
-
+            current_activations_with_grad, self.pos_activations.previous)
         return pos_loss
 
-    def generate_lpl_loss_hebbian(self) -> Tensor:
+    def generate_lpl_loss_hebbian(self, current_activations_with_grad: torch.Tensor) -> Tensor:
         def generate_loss(activations: Tensor) -> Tensor:
             mean_act = torch.mean(activations, dim=0)
             mean_subtracted = activations - mean_act
@@ -441,11 +447,11 @@ class HiddenLayer(nn.Module):
             loss = -torch.log(sigma_squared).sum() / sigma_squared.shape[0]
             return loss
 
-        pos_loss = generate_loss(self.pos_activations.current)
-
+        assert current_activations_with_grad.requires_grad == True
+        pos_loss = generate_loss(current_activations_with_grad)
         return pos_loss
 
-    def generate_lpl_loss_decorrelative(self) -> Tensor:
+    def generate_lpl_loss_decorrelative(self, current_activations_with_grad: torch.Tensor) -> Tensor:
         def generate_loss(activations: torch.Tensor) -> torch.Tensor:
             # Compute the mean across the batch dimension
             mean_act = torch.mean(activations, dim=0)
@@ -468,8 +474,8 @@ class HiddenLayer(nn.Module):
 
             return loss
 
-        pos_loss = generate_loss(self.pos_activations.current)
-
+        assert current_activations_with_grad.requires_grad == True
+        pos_loss = generate_loss(current_activations_with_grad)
         return pos_loss
 
     # @profile(stdout=False, filename='baseline.prof',
@@ -526,13 +532,17 @@ class HiddenLayer(nn.Module):
             pos_badness - self.settings.model.loss_threshold
         ).mean()
         ff_layer_loss = self.settings.model.loss_scale_ff * ff_layer_loss
-
         lpl_loss_predictive: Tensor = self.settings.model.loss_scale_predictive * \
-            self.generate_lpl_loss_predictive()
+            self.generate_lpl_loss_predictive(pos_activations)
         lpl_loss_hebbian: Tensor = self.settings.model.loss_scale_hebbian * \
-            self.generate_lpl_loss_hebbian()
+            self.generate_lpl_loss_hebbian(pos_activations)
         lpl_loss_decorrelative: Tensor = self.settings.model.loss_scale_decorrelative * \
-            self.generate_lpl_loss_decorrelative()
+            self.generate_lpl_loss_decorrelative(pos_activations)
+
+        assert ff_layer_loss.requires_grad == True
+        assert lpl_loss_predictive.requires_grad == True
+        assert lpl_loss_hebbian.requires_grad == True
+        assert lpl_loss_decorrelative.requires_grad == True
 
         if random.random() < 0.005:
             # print("pos_act: ", pos_activations)
@@ -544,13 +554,30 @@ class HiddenLayer(nn.Module):
 
         layer_loss: Tensor = ff_layer_loss + lpl_loss_predictive + \
             lpl_loss_hebbian + lpl_loss_decorrelative
+        print(self.size)
+        print(pos_activations)
+        # print(layer_loss)
+        # for name, param in self.named_parameters():
+        #     print(name, param.grad)
+        # optimizer_params = []
+        # for d in self.optimizer.param_groups:
+        #     for tensor in d['params']:
+        #         print(tensor.shape)
+        #         optimizer_params.append(tensor)
+        # print("optimizer params")
+        # input()
+        # input()
+        # print()
         layer_loss.backward()
 
         # params = dict(self.named_parameters())
-        # params['pos_activations'] = pos_activations
-        # dot = make_dot(layer_loss, params=dict(params))
+        # dot = make_dot(layer_loss, params=params)
         # dot.render('computation_graph', format='png')
+        # input()
 
+        # print all grads of parameters
+        for name, param in self.named_parameters():
+            print(name, param.grad)
         self.optimizer.step()
         return cast(float, layer_loss.item())
 
