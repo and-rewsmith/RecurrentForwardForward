@@ -172,6 +172,9 @@ class RecurrentFFNet(nn.Module):
             self.train()
 
             for batch_num, (input_data, label_data) in enumerate(train_loader):
+                # if batch_num == 1:
+                #     break
+
                 input_data.move_to_device_inplace(self.settings.device.device)
                 label_data.move_to_device_inplace(self.settings.device.device)
 
@@ -229,8 +232,6 @@ class RecurrentFFNet(nn.Module):
         for preinit_step in range(0, self.settings.model.prelabel_timesteps):
             logging.debug("Preinitialization step: " +
                           str(preinit_step))
-            print("Preinitialization step: " +
-                  str(preinit_step))
 
             pos_input = input_data.pos_input[0]
             # neg_input = input_data.neg_input[0]
