@@ -7,11 +7,10 @@ from torch import Tensor, nn
 import torch
 import wandb
 from torch.nn import ModuleList
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from RecurrentFF.model.hidden_layer import HiddenLayer
 from RecurrentFF.settings import Settings
-from RecurrentFF.util import ForwardMode, TrainInputData, TrainLabelData
+from RecurrentFF.util import ForwardMode
 
 
 class LayerMetrics:
@@ -253,44 +252,6 @@ class InnerLayers(nn.Module):
 
         for layer in self.layers:
             layer.advance_stored_activations()
-
-        # def train_layer(layer, layer_index):
-        #     if layer_index == 0 and len(self.layers) == 1:
-        #         return layer.train_layer(input_data, label_data, should_damp)
-        #     elif layer_index == 0:
-        #         return layer.train_layer(input_data, None, should_damp)
-        #     elif layer_index == len(self.layers) - 1:
-        #         return layer.train_layer(None, label_data, should_damp)
-        #     else:
-        #         return layer.train_layer(None, None, should_damp)
-
-        # print("========starting ex")
-        # with ThreadPoolExecutor() as executor:
-        #     # Start the training operations and hold their futures
-        #     print("----submitting")
-        #     futures = {executor.submit(train_layer, layer, i): i for i, layer in enumerate(self.layers)}
-        #     print("----submitted")
-
-        #     # As each future completes, process its result
-        #     for future in as_completed(futures):
-        #         layer_index = futures[future]
-        #         try:
-        #             print("----get result")
-        #             loss = future.result()
-        #             print("----+got result")
-        #             logging.debug(f"Loss for layer {layer_index + 1}: {loss}")
-        #             layer_metrics.ingest_layer_metrics(layer_index, self.layers[layer_index], loss)
-        #         except Exception as exc:
-        #             logging.error(f'Layer {layer_index + 1} generated an exception: {exc}')
-
-        # print("========done ex")
-
-        # layer_metrics.increment_samples_seen()
-
-        # for layer in self.layers:
-        #     layer.advance_stored_activations()
-
-        # logging.debug("Completed training and advancing activations for all layers.")
 
     def advance_layers_forward(
             self,
