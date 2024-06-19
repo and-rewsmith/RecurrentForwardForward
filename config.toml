@@ -18,6 +18,9 @@ should_load_weights = false
 lr_step_size = 10000
 lr_gamma = 0.90
 dropout = 0.0
+loss_scale_predictive = 1
+loss_scale_hebbian = 1
+loss_scale_decorrelative = 1
 
 [model.ff_rmsprop]
 momentum = 0.0

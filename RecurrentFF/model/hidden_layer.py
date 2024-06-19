@@ -1,5 +1,6 @@
 from enum import Enum
 import math
+import random
 from typing import Dict, Optional, cast
 from typing_extensions import Self
 
@@ -412,8 +413,69 @@ class HiddenLayer(nn.Module):
     def set_next_layer(self, next_layer: Self) -> None:
         self.next_layer = next_layer
 
+    def generate_lpl_loss_predictive(self) -> Tensor:
+        def generate_loss(current_act: Tensor, previous_act: Tensor) -> Tensor:
+            loss = (current_act - previous_act.detach()) ** 2
+            loss = torch.sum(loss, dim=1)
+            loss = torch.sum(loss, dim=0)
+            loss = loss / \
+                (2 * current_act.shape[0] * current_act.shape[1])
+            return loss
+
+        pos_loss = generate_loss(
+            self.pos_activations.current, self.pos_activations.previous)
+
+        return pos_loss
+
+    def generate_lpl_loss_hebbian(self) -> Tensor:
+        def generate_loss(activations: Tensor) -> Tensor:
+            # activations = activations.detach()
+            mean_act = torch.mean(activations, dim=0).detach()
+            mean_subtracted = activations - mean_act
+
+            sigma_squared = torch.sum(
+                mean_subtracted ** 2, dim=0) / (activations.shape[0] - 1)
+
+            loss = -torch.log(sigma_squared).sum() / sigma_squared.shape[0]
+            return loss
+
+        pos_loss = generate_loss(self.pos_activations.current)
+
+        return pos_loss
+
+    def generate_lpl_loss_decorrelative(self) -> Tensor:
+        def generate_loss(activations: torch.Tensor) -> torch.Tensor:
+            # Ensure activations are detached from the computation graph
+            # activations = activations.detach()
+
+            # Compute the mean across the batch dimension
+            mean_act = torch.mean(activations, dim=0)
+
+            # Subtract mean from activations and square the result
+            deviations = (activations - mean_act) ** 2
+
+            # Outer product along feature dimension for each batch
+            # This computes the pairwise squared differences efficiently
+            loss = torch.einsum('bi,bj->bij', deviations, deviations)
+
+            # Sum over all batches and features, exclude the diagonal elements
+            # Diagonal elements correspond to the squared terms which we want to avoid
+            batch_size, n_features = activations.shape
+            loss = torch.sum(loss) - \
+                torch.sum(torch.einsum('bii->b', loss)) / 2
+
+            # Normalize the loss
+            loss = loss / (batch_size * n_features * (n_features - 1))
+
+            return loss
+
+        pos_loss = generate_loss(self.pos_activations.current)
+
+        return pos_loss
+
     # @profile(stdout=False, filename='baseline.prof',
     #          skip=Settings.new().model.skip_profiling)
+
     def train_layer(self,  # type: ignore[override]
                     input_data: TrainInputData,
                     label_data: TrainLabelData,
@@ -421,42 +483,56 @@ class HiddenLayer(nn.Module):
         self.optimizer.zero_grad()
 
         pos_activations = None
-        neg_activations = None
+        # neg_activations = None
         if input_data is not None and label_data is not None:
             (pos_input, neg_input) = input_data
             (pos_labels, neg_labels) = label_data
             pos_activations = self.forward(
                 ForwardMode.PositiveData, pos_input, pos_labels, should_damp)
-            neg_activations = self.forward(
-                ForwardMode.NegativeData, neg_input, neg_labels, should_damp)
+            # neg_activations = self.forward(
+            #     ForwardMode.NegativeData, neg_input, neg_labels, should_damp)
         elif input_data is not None:
             (pos_input, neg_input) = input_data
             pos_activations = self.forward(
                 ForwardMode.PositiveData, pos_input, None, should_damp)
-            neg_activations = self.forward(
-                ForwardMode.NegativeData, neg_input, None, should_damp)
+            # neg_activations = self.forward(
+            #     ForwardMode.NegativeData, neg_input, None, should_damp)
         elif label_data is not None:
             (pos_labels, neg_labels) = label_data
             pos_activations = self.forward(
                 ForwardMode.PositiveData, None, pos_labels, should_damp)
-            neg_activations = self.forward(
-                ForwardMode.NegativeData, None, neg_labels, should_damp)
+            # neg_activations = self.forward(
+            #     ForwardMode.NegativeData, None, neg_labels, should_damp)
         else:
             pos_activations = self.forward(
                 ForwardMode.PositiveData, None, None, should_damp)
-            neg_activations = self.forward(
-                ForwardMode.NegativeData, None, None, should_damp)
+            # neg_activations = self.forward(
+            #     ForwardMode.NegativeData, None, None, should_damp)
 
         pos_badness = layer_activations_to_badness(pos_activations)
-        neg_badness = layer_activations_to_badness(neg_activations)
+        # neg_badness = layer_activations_to_badness(neg_activations)
 
-        # Loss function equivelent to:
-        # plot3d log(1 + exp(-n + 1)) + log(1 + exp(p - 1)) for n=0 to 3, p=0
-        # to 3
-        layer_loss: Tensor = F.softplus(torch.cat([
-            (-1 * neg_badness) + self.settings.model.loss_threshold,
+        ff_layer_loss: Tensor = F.softplus(
             pos_badness - self.settings.model.loss_threshold
-        ])).mean()
+        ).mean()
+        ff_layer_loss = self.settings.model.loss_scale_ff * ff_layer_loss
+
+        lpl_loss_predictive: Tensor = self.settings.model.loss_scale_predictive * \
+            self.generate_lpl_loss_predictive()
+        lpl_loss_hebbian: Tensor = self.settings.model.loss_scale_hebbian * \
+            self.generate_lpl_loss_hebbian()
+        lpl_loss_decorrelative: Tensor = self.settings.model.loss_scale_decorrelative * \
+            self.generate_lpl_loss_decorrelative()
+
+        if random.random() < 0.005:
+            print("ff_layer_loss: ", ff_layer_loss)
+            print("lpl_loss_predictive: ", lpl_loss_predictive)
+            print("lpl_loss_hebbian: ", lpl_loss_hebbian)
+            print("lpl_loss_decorrelative: ", lpl_loss_decorrelative)
+            print()
+
+        layer_loss: Tensor = ff_layer_loss + lpl_loss_predictive + \
+            lpl_loss_hebbian + lpl_loss_decorrelative
         layer_loss.backward()
 
         self.optimizer.step()
