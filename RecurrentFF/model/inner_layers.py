@@ -10,7 +10,7 @@ from torch.nn import ModuleList
 
 from RecurrentFF.model.hidden_layer import HiddenLayer
 from RecurrentFF.settings import Settings
-from RecurrentFF.util import ForwardMode, TrainInputData, TrainLabelData
+from RecurrentFF.util import ForwardMode
 
 
 class LayerMetrics:
@@ -222,35 +222,25 @@ class InnerLayers(nn.Module):
         or label data is used, respectively. For layers in the middle of a
         multi-layer network, neither the input data nor the label data is used.
 
-        Args:
-            input_data (torch.Tensor): The input data for the network.
-
-            label_data (torch.Tensor): The target labels for the network.
-
-            should_damp (bool): A flag to determine whether the activation
-            damping should be applied during training.
-
-        Returns:
-            total_loss (float): The accumulated loss over all layers in the
-            network during the current training step.
-
         Note:
             The layer's 'train' method is expected to return a loss value, which
             is accumulated to compute the total loss for the network. After
             training each layer, their stored activations are advanced by
             calling the 'advance_stored_activations' method.
+
+            The training process is parallelized using ThreadPoolExecutor.
         """
         for i, layer in enumerate(self.layers):
             logging.debug("Training layer " + str(i))
             loss = None
             if i == 0 and len(self.layers) == 1:
-                loss = layer.train(input_data, label_data, should_damp)
+                loss = layer.train_layer(input_data, label_data, should_damp)
             elif i == 0:
-                loss = layer.train(input_data, None, should_damp)
+                loss = layer.train_layer(input_data, None, should_damp)
             elif i == len(self.layers) - 1:
-                loss = layer.train(None, label_data, should_damp)
+                loss = layer.train_layer(None, label_data, should_damp)
             else:
-                loss = layer.train(None, None, should_damp)
+                loss = layer.train_layer(None, None, should_damp)
 
             layer_num = i + 1
             logging.debug("Loss for layer " +
@@ -259,9 +249,6 @@ class InnerLayers(nn.Module):
             layer_metrics.ingest_layer_metrics(i, layer, loss)
 
         layer_metrics.increment_samples_seen()
-
-        logging.debug("Trained activations for layer " +
-                      str(i))
 
         for layer in self.layers:
             layer.advance_stored_activations()
@@ -304,6 +291,10 @@ class InnerLayers(nn.Module):
             This method doesn't return any value. It modifies the internal state
             of the layers by performing a forward pass and advancing their
             stored activations.
+
+            This is not parallelized because empirically it is slower. Likely
+            this is because the overhead of creating threads is not worth it for
+            the small amount of computation done in each thread.
         """
         for i, layer in enumerate(self.layers):
             if i == 0 and len(self.layers) == 1:

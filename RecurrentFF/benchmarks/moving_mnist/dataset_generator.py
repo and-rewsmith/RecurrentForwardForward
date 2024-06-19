@@ -59,7 +59,7 @@ if __name__ == "__main__":
                         format='%(asctime)s - %(levelname)s - %(message)s')
 
     # Pytorch utils.
-    torch.autograd.set_detect_anomaly(True)
+    # torch.autograd.set_detect_anomaly(True)
     torch.manual_seed(1234)
 
     transform = Compose([

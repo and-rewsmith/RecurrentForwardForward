@@ -1,34 +1,37 @@
+[device]
+device = "mps"
+
 [model]
-hidden_sizes = [4, 4, 4]
-epochs = 2
-prelabel_timesteps = 8
-loss_threshold = 1
+hidden_sizes = [200, 200, 200]
+epochs = 30000
+prelabel_timesteps = 3
+loss_threshold = 1.5
 damping_factor = 0.7
 epsilon = 0.00000001
 skip_profiling = 1
 ff_activation = "relu"
 ff_optimizer = "rmsprop"
-classifier_optimizer = "rmsprop"
+classifier_optimizer = "adam"
+should_log_metrics = true 
+should_replace_neg_data = false
 should_load_weights = false
-should_log_metrics = false 
-should_replace_neg_data = false 
 lr_step_size = 1000
 lr_gamma = 0.1
 dropout = 0.0
 
 [model.ff_rmsprop]
-momentum = 0.25
-learning_rate = 0.00001
+momentum = 0.0
+learning_rate = 0.00005
 
 [model.classifier_rmsprop]
 momentum = 0
-learning_rate = 0.01
+learning_rate = 0.00001
 
 [model.ff_adam]
 learning_rate = 0.00001
 
 [model.classifier_adam]
-learning_rate = 0.001
+learning_rate = 0.01
 
 [model.ff_adadelta]
 learning_rate = 0.0001
@@ -36,13 +39,10 @@ learning_rate = 0.0001
 [model.classifier_adadelta]
 learning_rate = 0.00001
 
-[device]
-device = "cpu"
-
 [data_config]
 data_size = 784
 num_classes = 10
-train_batch_size = 10000
+train_batch_size = 500
 test_batch_size = 5000
-iterations = 30
+iterations = 10
 dataset = "MNIST"

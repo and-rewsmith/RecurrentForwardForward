@@ -287,7 +287,7 @@ if __name__ == "__main__":
     set_logging()
 
     # Pytorch utils.
-    torch.autograd.set_detect_anomaly(True)
+    # torch.autograd.set_detect_anomaly(True)
     torch.manual_seed(1234)
 
     wandb.init(
@@ -309,4 +309,4 @@ if __name__ == "__main__":
     # Create and run model.
     model = RecurrentFFNet(settings).to(settings.device.device)
 
-    model.train(train_loader, test_loader)
+    model.train_model(train_loader, test_loader)

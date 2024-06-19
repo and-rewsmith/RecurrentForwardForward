@@ -13,7 +13,7 @@ DATA_SIZE = 784
 NUM_CLASSES = 10
 TRAIN_BATCH_SIZE = 500
 TEST_BATCH_SIZE = 5000
-ITERATIONS = 10
+ITERATIONS = 15
 DATASET = "MNIST"
 
 # If you want to load weights fill this in.
@@ -214,7 +214,7 @@ if __name__ == "__main__":
     set_logging()
 
     # Pytorch utils.
-    torch.autograd.set_detect_anomaly(True)
+    # torch.autograd.set_detect_anomaly(True)
     torch.manual_seed(1234)
 
     wandb.init(
@@ -239,4 +239,4 @@ if __name__ == "__main__":
     if settings.model.should_load_weights:
         model.load_state_dict(torch.load(WEIGHTS_PATH))
 
-    model.train(train_loader, test_loader)
+    model.train_model(train_loader, test_loader)

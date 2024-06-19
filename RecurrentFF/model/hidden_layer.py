@@ -1,3 +1,4 @@
+from enum import Enum
 import math
 from typing import Dict, Optional, cast
 from typing_extensions import Self
@@ -8,6 +9,7 @@ from torch.nn import Module
 from torch.nn import functional as F
 from torch.optim import RMSprop, Adam, Adadelta, Optimizer
 from torch.optim.lr_scheduler import StepLR
+from profilehooks import profile
 
 from RecurrentFF.util import (
     Activations,
@@ -20,6 +22,111 @@ from RecurrentFF.util import (
 from RecurrentFF.settings import (
     Settings,
 )
+
+
+class WeightInitialization(Enum):
+    Forward = 1
+    Backward = 2
+    Lateral = 3
+
+
+class ResidualConnection(nn.Module):
+    """
+    ResidualConnection class for inter-layer skip connections across HiddenLayers.
+    """
+
+    def __init__(self,
+                 source: 'HiddenLayer',
+                 target_size: int,
+                 dropout_percentage: float,
+                 initialization: WeightInitialization):
+        super(ResidualConnection, self).__init__()
+
+        self.weight_initialization = initialization
+        self.source = source
+        self.weights = nn.Linear(source.size, target_size)
+        self.dropout = nn.Dropout(p=dropout_percentage)
+
+        if initialization == WeightInitialization.Forward:
+            nn.init.kaiming_uniform_(
+                self.weights.weight, nonlinearity='relu')
+        elif initialization == WeightInitialization.Backward:
+            nn.init.uniform_(self.weights.weight, -0.05, 0.05)
+        elif initialization == WeightInitialization.Lateral:
+            raise AssertionError("Lateral connections should not be initialized with this constructor")
+
+    def train(self: Self, mode: bool = True) -> Self:
+        self.training = mode
+        return self
+
+    def eval(self: Self) -> Self:
+        return self.train(False)
+
+    def forward(self, mode: ForwardMode) -> torch.Tensor:
+        if mode == ForwardMode.PositiveData:
+            assert self.source.pos_activations is not None
+            source_activations = self.source.pos_activations.previous.detach()
+        elif mode == ForwardMode.NegativeData:
+            assert self.source.neg_activations is not None
+            source_activations = self.source.neg_activations.previous.detach()
+        elif mode == ForwardMode.PredictData:
+            assert self.source.predict_activations is not None
+            source_activations = self.source.predict_activations.previous.detach()
+
+        source_activations_stdized = standardize_layer_activations(
+            source_activations, self.source.settings.model.epsilon)
+
+        out: torch.Tensor = self.dropout(F.linear(source_activations_stdized, self.weights.weight, self.weights.bias))
+
+        if self.weight_initialization == WeightInitialization.Backward:
+            out = -1 * out
+
+        return out
+
+    def _apply(self, fn):  # type: ignore
+        """
+        Override apply, but we don't want to apply to sibling layers as that
+        will cause a stack overflow. The hidden layers are contained in a
+        collection in the higher-level RecurrentFFNet. They will all get the
+        apply call from there.
+        """
+        # Remove 'source' temporarily
+        source = self.source
+        self.source = None
+
+        # Apply `fn` to each parameter and buffer of this layer
+        for param in self._parameters.values():
+            if param is not None:
+                # Tensors stored in modules are graph leaves, and we don't
+                # want to create copy nodes, so we have to unpack the data.
+                param.data = fn(param.data)
+                if param._grad is not None:
+                    param._grad.data = fn(param._grad.data)
+
+        for key, buf in self._buffers.items():
+            if buf is not None:
+                self._buffers[key] = fn(buf)
+
+        # Apply `fn` to submodules
+        for module in self.children():
+            module._apply(fn)
+
+        # Restore 'source'
+        self.source = source
+
+        return self
+
+    def state_dict(self, *args, **kwargs):  # type: ignore
+        # Remove 'source' temporarily
+        source = self.source
+        self.source = None
+
+        # Get the state dict without the linked layers
+        state = super().state_dict(*args, **kwargs)
+
+        # Restore 'source'
+        self.source = source
+        return state
 
 
 def custom_load_state_dict(self, state_dict: Dict, strict=True):  # type: ignore
@@ -119,6 +226,12 @@ class HiddenLayer(nn.Module):
             damping_factor: float):
         super(HiddenLayer, self).__init__()
 
+        self.size = size
+        self.next_size = next_size
+        self.prev_size = prev_size
+
+        self.residual_connections = nn.ModuleList()
+
         self.settings = settings
 
         self.train_activations_dim = (train_batch_size, size)
@@ -130,6 +243,10 @@ class HiddenLayer(nn.Module):
         self.neg_activations: Optional[Activations] = None
         self.predict_activations: Optional[Activations] = None
         self.reset_activations(True)
+
+        self.forward_dropout = nn.Dropout(p=self.settings.model.dropout)
+        self.backward_dropout = nn.Dropout(p=self.settings.model.dropout)
+        self.lateral_dropout = nn.Dropout(p=self.settings.model.dropout)
 
         self.forward_linear = nn.Linear(prev_size, size)
         nn.init.kaiming_uniform_(
@@ -149,6 +266,14 @@ class HiddenLayer(nn.Module):
         self.previous_layer: Self = None  # type: ignore[assignment]
         self.next_layer: Self = None  # type: ignore[assignment]
 
+        self.forward_act: Tensor
+        self.backward_act: Tensor
+        self.lateral_act: Tensor
+
+    def init_residual_connection(self, residual_connection: ResidualConnection) -> None:
+        self.residual_connections.append(residual_connection)
+
+    def init_optimizer(self) -> None:
         self.optimizer: Optimizer
         if self.settings.model.ff_optimizer == "adam":
             self.optimizer = Adam(self.parameters(),
@@ -169,9 +294,12 @@ class HiddenLayer(nn.Module):
         self.param_name_dict = {param: name for name,
                                 param in self.named_parameters()}
 
-        self.forward_act: Tensor
-        self.backward_act: Tensor
-        self.lateral_act: Tensor
+    def train(self: Self, mode: bool = True) -> Self:
+        self.training = mode
+        return self
+
+    def eval(self: Self) -> Self:
+        return self.train(False)
 
     def _apply(self, fn):  # type: ignore
         """
@@ -284,10 +412,12 @@ class HiddenLayer(nn.Module):
     def set_next_layer(self, next_layer: Self) -> None:
         self.next_layer = next_layer
 
-    def train(self,  # type: ignore[override]
-              input_data: TrainInputData,
-              label_data: TrainLabelData,
-              should_damp: bool) -> float:
+    # @profile(stdout=False, filename='baseline.prof',
+    #          skip=Settings.new().model.skip_profiling)
+    def train_layer(self,  # type: ignore[override]
+                    input_data: TrainInputData,
+                    label_data: TrainLabelData,
+                    should_damp: bool) -> float:
         self.optimizer.zero_grad()
 
         pos_activations = None
@@ -540,8 +670,16 @@ class HiddenLayer(nn.Module):
                 self.lateral_linear.weight,
                 self.lateral_linear.bias)
 
-        new_activation = F.leaky_relu(
-            self.forward_act + self.backward_act + self.lateral_act)
+        self.forward_act = self.forward_dropout(self.forward_act)
+        self.backward_act = self.backward_dropout(self.backward_act)
+        self.lateral_act = self.lateral_dropout(self.lateral_act)
+
+        summation_act = self.forward_act + self.backward_act + self.lateral_act
+
+        for residual_connection in self.residual_connections:
+            summation_act = summation_act + residual_connection.forward(mode)
+
+        new_activation = F.leaky_relu(summation_act)
 
         if should_damp:
             old_activation = new_activation

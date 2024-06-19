@@ -22,7 +22,7 @@ def run(settings: Settings):
     set_logging()
 
     # Pytorch utils.
-    torch.autograd.set_detect_anomaly(True)
+    # torch.autograd.set_detect_anomaly(True)
     torch.manual_seed(1234)
 
     print(settings.model_dump())
@@ -47,7 +47,7 @@ def run(settings: Settings):
     model = RecurrentFFNet(settings).to(settings.device.device)
 
     try:
-        model.train(train_loader, test_loader)
+        model.train_model(train_loader, test_loader)
         print("======================FINISHED RUN============================")
     except KeyboardInterrupt:
         print("======================FINISHED RUN============================")

@@ -8,13 +8,12 @@ from typing import List, Tuple, cast
 import torch
 from torch import nn
 import wandb
-from profilehooks import profile
 
 from RecurrentFF.model.data_scenario.processor import DataScenario
 from RecurrentFF.model.data_scenario.static_single_class import (
     StaticSingleClassProcessor,
 )
-from RecurrentFF.model.hidden_layer import HiddenLayer
+from RecurrentFF.model.hidden_layer import HiddenLayer, ResidualConnection, WeightInitialization
 from RecurrentFF.model.inner_layers import InnerLayers, LayerMetrics
 from RecurrentFF.util import (
     Activations,
@@ -91,6 +90,26 @@ class RecurrentFFNet(nn.Module):
             hidden_layer = inner_layers[i]
             hidden_layer.set_next_layer(inner_layers[i + 1])
 
+        # initialize the residual connections
+        for i in range(0, len(inner_layers)):
+            for j in range(0, len(inner_layers)):
+                # TODO: Perform testing for residual connections and determine best scheme. Examples:
+                # if i != j and abs(i - j) != 1:
+                # if abs(i-j) == 4:
+                if False:
+                    source = inner_layers[i]
+                    target = inner_layers[j]
+                    if i < j:
+                        weight_init = WeightInitialization.Forward
+                    else:
+                        weight_init = WeightInitialization.Backward
+                    residual_connection = ResidualConnection(source, target.size, settings.model.dropout, weight_init)
+                    inner_layers[i].init_residual_connection(residual_connection)
+
+        # initialize optimizers
+        for layer in inner_layers:
+            layer.init_optimizer()
+
         self.inner_layers = InnerLayers(self.settings, inner_layers)
 
         # when we eventually support changing/multiclass scenarios this will be
@@ -110,6 +129,7 @@ class RecurrentFFNet(nn.Module):
             data_loader: torch.utils.data.DataLoader,
             num_batches: int,
             write_activations: bool = False) -> None:
+        self.eval()
         if data_scenario == DataScenario.StaticSingleClass:
             self.processor.brute_force_predict(
                 data_loader,
@@ -117,9 +137,7 @@ class RecurrentFFNet(nn.Module):
                 is_test_set=True,
                 write_activations=write_activations)
 
-    @profile(stdout=False, filename='baseline.prof',
-             skip=Settings.new().model.skip_profiling)
-    def train(self, train_loader: torch.utils.data.DataLoader, test_loader: torch.utils.data.DataLoader) -> None:
+    def train_model(self, train_loader: torch.utils.data.DataLoader, test_loader: torch.utils.data.DataLoader) -> None:
         """
         Trains the RecurrentFFNet model using the provided train and test data loaders.
 
@@ -146,10 +164,12 @@ class RecurrentFFNet(nn.Module):
             layer's activations into a 'badness' score. This function operates on the RecurrentFFNet model level
             and is called during the training process.
         """
+
         total_batch_count = 0
         best_test_accuracy: float = 0
         for epoch in range(0, self.settings.model.epochs):
             logging.info("Epoch: " + str(epoch))
+            self.train()
 
             for batch_num, (input_data, label_data) in enumerate(train_loader):
                 input_data.move_to_device_inplace(self.settings.device.device)
@@ -170,6 +190,8 @@ class RecurrentFFNet(nn.Module):
                         total_batch_count)
 
                 total_batch_count += 1
+
+            self.eval()
 
             # TODO: make train batches equal to however much a single test
             # batch is w.r.t. total samples
