@@ -409,8 +409,8 @@ class HiddenLayer(nn.Module):
     def set_next_layer(self, next_layer: Self) -> None:
         self.next_layer = next_layer
 
-    @profile(stdout=False, filename='baseline.prof',
-             skip=Settings.new().model.skip_profiling)
+    # @profile(stdout=False, filename='baseline.prof',
+    #          skip=Settings.new().model.skip_profiling)
     def train_layer(self,  # type: ignore[override]
                     input_data: TrainInputData,
                     label_data: TrainLabelData,
