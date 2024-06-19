@@ -13,7 +13,7 @@ from RecurrentFF.model.data_scenario.processor import DataScenario
 from RecurrentFF.model.data_scenario.static_single_class import (
     StaticSingleClassProcessor,
 )
-from RecurrentFF.model.hidden_layer import HiddenLayer
+from RecurrentFF.model.hidden_layer import HiddenLayer, ResidualConnection, WeightInitialization
 from RecurrentFF.model.inner_layers import InnerLayers, LayerMetrics
 from RecurrentFF.util import (
     Activations,
@@ -89,6 +89,25 @@ class RecurrentFFNet(nn.Module):
         for i in range(0, len(inner_layers) - 1):
             hidden_layer = inner_layers[i]
             hidden_layer.set_next_layer(inner_layers[i + 1])
+
+        # initialize the residual connections
+        for i in range(0, len(inner_layers)):
+            for j in range(0, len(inner_layers)):
+                # TODOPRE: should swap
+                # if i != j and abs(i - j) != 1:
+                if abs(i-j) == 2:
+                    source = inner_layers[i]
+                    target = inner_layers[j]
+                    if i < j:
+                        weight_init = WeightInitialization.Forward
+                    else:
+                        weight_init = WeightInitialization.Backward
+                    residual_connection = ResidualConnection(source, target.size, settings.model.dropout, weight_init)
+                    inner_layers[i].init_residual_connection(residual_connection)
+
+        # initialize optimizers
+        for layer in inner_layers:
+            layer.init_optimizer()
 
         self.inner_layers = InnerLayers(self.settings, inner_layers)
 

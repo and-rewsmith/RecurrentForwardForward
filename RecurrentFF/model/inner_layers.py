@@ -223,18 +223,6 @@ class InnerLayers(nn.Module):
         or label data is used, respectively. For layers in the middle of a
         multi-layer network, neither the input data nor the label data is used.
 
-        Args:
-            input_data (torch.Tensor): The input data for the network.
-
-            label_data (torch.Tensor): The target labels for the network.
-
-            should_damp (bool): A flag to determine whether the activation
-            damping should be applied during training.
-
-        Returns:
-            total_loss (float): The accumulated loss over all layers in the
-            network during the current training step.
-
         Note:
             The layer's 'train' method is expected to return a loss value, which
             is accumulated to compute the total loss for the network. After
@@ -243,36 +231,66 @@ class InnerLayers(nn.Module):
 
             The training process is parallelized using ThreadPoolExecutor.
         """
-        def train_layer(layer, layer_index):
-            if layer_index == 0 and len(self.layers) == 1:
-                return layer.train_layer(input_data, label_data, should_damp)
-            elif layer_index == 0:
-                return layer.train_layer(input_data, None, should_damp)
-            elif layer_index == len(self.layers) - 1:
-                return layer.train_layer(None, label_data, should_damp)
+        for i, layer in enumerate(self.layers):
+            logging.debug("Training layer " + str(i))
+            loss = None
+            if i == 0 and len(self.layers) == 1:
+                loss = layer.train_layer(input_data, label_data, should_damp)
+            elif i == 0:
+                loss = layer.train_layer(input_data, None, should_damp)
+            elif i == len(self.layers) - 1:
+                loss = layer.train_layer(None, label_data, should_damp)
             else:
-                return layer.train_layer(None, None, should_damp)
+                loss = layer.train_layer(None, None, should_damp)
 
-        with ThreadPoolExecutor() as executor:
-            # Start the training operations and hold their futures
-            futures = {executor.submit(train_layer, layer, i): i for i, layer in enumerate(self.layers)}
+            layer_num = i + 1
+            logging.debug("Loss for layer " +
+                          str(layer_num) + ": " + str(loss))
 
-            # As each future completes, process its result
-            for future in as_completed(futures):
-                layer_index = futures[future]
-                try:
-                    loss = future.result()
-                    logging.debug(f"Loss for layer {layer_index + 1}: {loss}")
-                    layer_metrics.ingest_layer_metrics(layer_index, self.layers[layer_index], loss)
-                except Exception as exc:
-                    logging.error(f'Layer {layer_index + 1} generated an exception: {exc}')
+            layer_metrics.ingest_layer_metrics(i, layer, loss)
 
         layer_metrics.increment_samples_seen()
 
         for layer in self.layers:
             layer.advance_stored_activations()
 
-        logging.debug("Completed training and advancing activations for all layers.")
+        # def train_layer(layer, layer_index):
+        #     if layer_index == 0 and len(self.layers) == 1:
+        #         return layer.train_layer(input_data, label_data, should_damp)
+        #     elif layer_index == 0:
+        #         return layer.train_layer(input_data, None, should_damp)
+        #     elif layer_index == len(self.layers) - 1:
+        #         return layer.train_layer(None, label_data, should_damp)
+        #     else:
+        #         return layer.train_layer(None, None, should_damp)
+
+        # print("========starting ex")
+        # with ThreadPoolExecutor() as executor:
+        #     # Start the training operations and hold their futures
+        #     print("----submitting")
+        #     futures = {executor.submit(train_layer, layer, i): i for i, layer in enumerate(self.layers)}
+        #     print("----submitted")
+
+        #     # As each future completes, process its result
+        #     for future in as_completed(futures):
+        #         layer_index = futures[future]
+        #         try:
+        #             print("----get result")
+        #             loss = future.result()
+        #             print("----+got result")
+        #             logging.debug(f"Loss for layer {layer_index + 1}: {loss}")
+        #             layer_metrics.ingest_layer_metrics(layer_index, self.layers[layer_index], loss)
+        #         except Exception as exc:
+        #             logging.error(f'Layer {layer_index + 1} generated an exception: {exc}')
+
+        # print("========done ex")
+
+        # layer_metrics.increment_samples_seen()
+
+        # for layer in self.layers:
+        #     layer.advance_stored_activations()
+
+        # logging.debug("Completed training and advancing activations for all layers.")
 
     def advance_layers_forward(
             self,
