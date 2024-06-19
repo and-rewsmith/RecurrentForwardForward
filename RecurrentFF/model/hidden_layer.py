@@ -31,6 +31,9 @@ class WeightInitialization(Enum):
 
 
 class ResidualConnection(nn.Module):
+    """
+    ResidualConnection class for inter-layer skip connections across HiddenLayers.
+    """
 
     def __init__(self,
                  source: 'HiddenLayer',
