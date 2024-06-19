@@ -22,7 +22,7 @@ def run(settings: Settings):
     set_logging()
 
     # Pytorch utils.
-    torch.autograd.set_detect_anomaly(True)
+    # torch.autograd.set_detect_anomaly(True)
     torch.manual_seed(1234)
 
     print(settings.model_dump())

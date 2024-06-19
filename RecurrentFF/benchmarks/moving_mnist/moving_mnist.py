@@ -213,7 +213,7 @@ if __name__ == '__main__':
     set_logging()
 
     # Pytorch utils.
-    torch.autograd.set_detect_anomaly(True)
+    # torch.autograd.set_detect_anomaly(True)
     torch.manual_seed(1234)
 
     wandb.init(
