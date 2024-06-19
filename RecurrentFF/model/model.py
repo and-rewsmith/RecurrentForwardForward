@@ -93,9 +93,10 @@ class RecurrentFFNet(nn.Module):
         # initialize the residual connections
         for i in range(0, len(inner_layers)):
             for j in range(0, len(inner_layers)):
-                # TODOPRE: should swap
+                # TODO: Perform testing for residual connections and determine best scheme. Examples:
                 # if i != j and abs(i - j) != 1:
-                if abs(i-j) == 2:
+                # if abs(i-j) == 4:
+                if False:
                     source = inner_layers[i]
                     target = inner_layers[j]
                     if i < j:
