@@ -1,3 +1,4 @@
+from dataclasses import make_dataclass
 from enum import Enum
 import math
 import random
@@ -11,6 +12,8 @@ from torch.nn import functional as F
 from torch.optim import RMSprop, Adam, Adadelta, Optimizer
 from torch.optim.lr_scheduler import StepLR
 from profilehooks import profile
+from torchviz import make_dot
+
 
 from RecurrentFF.util import (
     Activations,
@@ -66,13 +69,13 @@ class ResidualConnection(nn.Module):
     def forward(self, mode: ForwardMode) -> torch.Tensor:
         if mode == ForwardMode.PositiveData:
             assert self.source.pos_activations is not None
-            source_activations = self.source.pos_activations.previous.detach()
+            source_activations = self.source.pos_activations.previous
         elif mode == ForwardMode.NegativeData:
             assert self.source.neg_activations is not None
-            source_activations = self.source.neg_activations.previous.detach()
+            source_activations = self.source.neg_activations.previous
         elif mode == ForwardMode.PredictData:
             assert self.source.predict_activations is not None
-            source_activations = self.source.predict_activations.previous.detach()
+            source_activations = self.source.predict_activations.previous
 
         source_activations_stdized = standardize_layer_activations(
             source_activations, self.source.settings.model.epsilon)
@@ -363,19 +366,19 @@ class HiddenLayer(nn.Module):
             activations_dim = self.train_activations_dim
 
             pos_activations_current = torch.zeros(
-                activations_dim[0], activations_dim[1]).to(
+                activations_dim[0], activations_dim[1], requires_grad=False).to(
                 self.settings.device.device)
             pos_activations_previous = torch.zeros(
-                activations_dim[0], activations_dim[1]).to(
+                activations_dim[0], activations_dim[1], requires_grad=False).to(
                 self.settings.device.device)
             self.pos_activations = Activations(
                 pos_activations_current, pos_activations_previous)
 
             neg_activations_current = torch.zeros(
-                activations_dim[0], activations_dim[1]).to(
+                activations_dim[0], activations_dim[1], requires_grad=False).to(
                 self.settings.device.device)
             neg_activations_previous = torch.zeros(
-                activations_dim[0], activations_dim[1]).to(
+                activations_dim[0], activations_dim[1], requires_grad=False).to(
                 self.settings.device.device)
             self.neg_activations = Activations(
                 neg_activations_current, neg_activations_previous)
@@ -386,10 +389,10 @@ class HiddenLayer(nn.Module):
             activations_dim = self.test_activations_dim
 
             predict_activations_current = torch.zeros(
-                activations_dim[0], activations_dim[1]).to(
+                activations_dim[0], activations_dim[1], requires_grad=False).to(
                 self.settings.device.device)
             predict_activations_previous = torch.zeros(
-                activations_dim[0], activations_dim[1]).to(
+                activations_dim[0], activations_dim[1], requires_grad=False).to(
                 self.settings.device.device)
             self.predict_activations = Activations(
                 predict_activations_current, predict_activations_previous)
@@ -415,7 +418,7 @@ class HiddenLayer(nn.Module):
 
     def generate_lpl_loss_predictive(self) -> Tensor:
         def generate_loss(current_act: Tensor, previous_act: Tensor) -> Tensor:
-            loss = (current_act - previous_act.detach()) ** 2
+            loss = (current_act - previous_act) ** 2
             loss = torch.sum(loss, dim=1)
             loss = torch.sum(loss, dim=0)
             loss = loss / \
@@ -429,8 +432,7 @@ class HiddenLayer(nn.Module):
 
     def generate_lpl_loss_hebbian(self) -> Tensor:
         def generate_loss(activations: Tensor) -> Tensor:
-            # activations = activations.detach()
-            mean_act = torch.mean(activations, dim=0).detach()
+            mean_act = torch.mean(activations, dim=0)
             mean_subtracted = activations - mean_act
 
             sigma_squared = torch.sum(
@@ -445,9 +447,6 @@ class HiddenLayer(nn.Module):
 
     def generate_lpl_loss_decorrelative(self) -> Tensor:
         def generate_loss(activations: torch.Tensor) -> torch.Tensor:
-            # Ensure activations are detached from the computation graph
-            # activations = activations.detach()
-
             # Compute the mean across the batch dimension
             mean_act = torch.mean(activations, dim=0)
 
@@ -485,20 +484,31 @@ class HiddenLayer(nn.Module):
         pos_activations = None
         # neg_activations = None
         if input_data is not None and label_data is not None:
-            (pos_input, neg_input) = input_data
-            (pos_labels, neg_labels) = label_data
+            try:
+                (pos_input, neg_input) = input_data
+                (pos_labels, neg_labels) = label_data
+            except ValueError:
+                pos_input = input_data
+                pos_labels = label_data
+
             pos_activations = self.forward(
                 ForwardMode.PositiveData, pos_input, pos_labels, should_damp)
             # neg_activations = self.forward(
             #     ForwardMode.NegativeData, neg_input, neg_labels, should_damp)
         elif input_data is not None:
-            (pos_input, neg_input) = input_data
+            try:
+                (pos_input, neg_input) = input_data
+            except ValueError:
+                pos_input = input_data
             pos_activations = self.forward(
                 ForwardMode.PositiveData, pos_input, None, should_damp)
             # neg_activations = self.forward(
             #     ForwardMode.NegativeData, neg_input, None, should_damp)
         elif label_data is not None:
-            (pos_labels, neg_labels) = label_data
+            try:
+                (pos_labels, neg_labels) = label_data
+            except ValueError:
+                pos_labels = label_data
             pos_activations = self.forward(
                 ForwardMode.PositiveData, None, pos_labels, should_damp)
             # neg_activations = self.forward(
@@ -525,6 +535,7 @@ class HiddenLayer(nn.Module):
             self.generate_lpl_loss_decorrelative()
 
         if random.random() < 0.005:
+            # print("pos_act: ", pos_activations)
             print("ff_layer_loss: ", ff_layer_loss)
             print("lpl_loss_predictive: ", lpl_loss_predictive)
             print("lpl_loss_hebbian: ", lpl_loss_hebbian)
@@ -534,6 +545,11 @@ class HiddenLayer(nn.Module):
         layer_loss: Tensor = ff_layer_loss + lpl_loss_predictive + \
             lpl_loss_hebbian + lpl_loss_decorrelative
         layer_loss.backward()
+
+        # params = dict(self.named_parameters())
+        # params['pos_activations'] = pos_activations
+        # dot = make_dot(layer_loss, params=dict(params))
+        # dot.render('computation_graph', format='png')
 
         self.optimizer.step()
         return cast(float, layer_loss.item())
@@ -617,15 +633,14 @@ class HiddenLayer(nn.Module):
                     Activations, previous_layer.predict_activations).previous
                 prev_act = cast(Activations, self.predict_activations).previous
 
-            prev_layer_prev_timestep_activations = prev_layer_prev_timestep_activations.detach()
+            prev_layer_prev_timestep_activations = prev_layer_prev_timestep_activations
             prev_layer_stdized = standardize_layer_activations(
                 prev_layer_prev_timestep_activations, self.settings.model.epsilon)
 
-            next_layer_prev_timestep_activations = next_layer_prev_timestep_activations.detach()
+            next_layer_prev_timestep_activations = next_layer_prev_timestep_activations
             next_layer_stdized = standardize_layer_activations(
                 next_layer_prev_timestep_activations, self.settings.model.epsilon)
 
-            prev_act = prev_act.detach()
             prev_act_stdized = standardize_layer_activations(
                 prev_act, self.settings.model.epsilon)
 
@@ -655,7 +670,6 @@ class HiddenLayer(nn.Module):
                 assert self.predict_activations is not None
                 prev_act = cast(Activations, self.predict_activations).previous
 
-            prev_act = prev_act.detach()
             prev_act_stdized = standardize_layer_activations(
                 prev_act, self.settings.model.epsilon)
 
@@ -688,11 +702,10 @@ class HiddenLayer(nn.Module):
                     Activations, next_layer.predict_activations).previous
                 prev_act = cast(Activations, self.predict_activations).previous
 
-            next_layer_prev_timestep_activations = next_layer_prev_timestep_activations.detach()
+            next_layer_prev_timestep_activations = next_layer_prev_timestep_activations
             next_layer_stdized = standardize_layer_activations(
                 next_layer_prev_timestep_activations, self.settings.model.epsilon)
 
-            prev_act = prev_act.detach()
             prev_act_stdized = standardize_layer_activations(
                 prev_act, self.settings.model.epsilon)
 
@@ -725,11 +738,10 @@ class HiddenLayer(nn.Module):
                     Activations, previous_layer.predict_activations).previous
                 prev_act = cast(Activations, self.predict_activations).previous
 
-            prev_layer_prev_timestep_activations = prev_layer_prev_timestep_activations.detach()
+            prev_layer_prev_timestep_activations = prev_layer_prev_timestep_activations
             prev_layer_stdized = standardize_layer_activations(
                 prev_layer_prev_timestep_activations, self.settings.model.epsilon)
 
-            prev_act = prev_act.detach()
             prev_act_stdized = standardize_layer_activations(
                 prev_act, self.settings.model.epsilon)
 
@@ -764,12 +776,12 @@ class HiddenLayer(nn.Module):
 
         if mode == ForwardMode.PositiveData:
             assert self.pos_activations is not None
-            self.pos_activations.current = new_activation
+            self.pos_activations.current = new_activation.detach()
         elif mode == ForwardMode.NegativeData:
             assert self.neg_activations is not None
-            self.neg_activations.current = new_activation
+            self.neg_activations.current = new_activation.detach()
         elif mode == ForwardMode.PredictData:
             assert self.predict_activations is not None
-            self.predict_activations.current = new_activation
+            self.predict_activations.current = new_activation.detach()
 
         return new_activation

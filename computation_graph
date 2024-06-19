@@ -1,0 +1,72 @@
+digraph {
+	graph [size="12,12"]
+	node [align=left fontname=monospace fontsize=10 height=0.2 ranksep=0.1 shape=box style=filled]
+	5135880304 [label="
+ ()" fillcolor=darkolivegreen1]
+	5135741136 [label=AddBackward0]
+	5135740944 -> 5135741136
+	5135740944 [label=AddBackward0]
+	5135742096 -> 5135740944
+	5135742096 [label=AddBackward0]
+	5135742144 -> 5135742096
+	5135742144 [label=MulBackward0]
+	5135742336 -> 5135742144
+	5135742336 [label=MeanBackward0]
+	5135742432 -> 5135742336
+	5135742432 [label=SoftplusBackward0]
+	5135742528 -> 5135742432
+	5135742528 [label=SubBackward0]
+	5135742624 -> 5135742528
+	5135742624 [label=MeanBackward1]
+	5135742720 -> 5135742624
+	5135742720 [label=PowBackward0]
+	5135742816 -> 5135742720
+	5135742816 [label=AddBackward0]
+	5135742912 -> 5135742816
+	5135742912 [label=MulBackward0]
+	5135743008 -> 5135742912
+	5135743008 [label=LeakyReluBackward0]
+	5135743104 -> 5135743008
+	5135743104 [label=AddBackward0]
+	5135743200 -> 5135743104
+	5135743200 [label=AddBackward0]
+	5135743344 -> 5135743200
+	5135743344 [label=LinearBackward0]
+	5135333504 -> 5135743344
+	5135249680 [label="forward_linear.weight
+ (705, 704)" fillcolor=lightblue]
+	5135249680 -> 5135333504
+	5135333504 [label=AccumulateGrad]
+	5135333552 -> 5135743344
+	5135249392 [label="forward_linear.bias
+ (705)" fillcolor=lightblue]
+	5135249392 -> 5135333552
+	5135333552 [label=AccumulateGrad]
+	5135743296 -> 5135743200
+	5135743296 [label=MulBackward0]
+	5135743392 -> 5135743296
+	5135743392 [label=LinearBackward0]
+	5135334320 -> 5135743392
+	5135485936 [label="backward_linear.weight
+ (705, 10)" fillcolor=lightblue]
+	5135485936 -> 5135334320
+	5135334320 [label=AccumulateGrad]
+	5135333600 -> 5135743392
+	5135483728 [label="backward_linear.bias
+ (705)" fillcolor=lightblue]
+	5135483728 -> 5135333600
+	5135333600 [label=AccumulateGrad]
+	5135743152 -> 5135743104
+	5135743152 [label=LinearBackward0]
+	5135333456 -> 5135743152
+	5135484496 [label="lateral_linear.weight
+ (705, 705)" fillcolor=lightblue]
+	5135484496 -> 5135333456
+	5135333456 [label=AccumulateGrad]
+	5135333744 -> 5135743152
+	5135483824 [label="lateral_linear.bias
+ (705)" fillcolor=lightblue]
+	5135483824 -> 5135333744
+	5135333744 [label=AccumulateGrad]
+	5135741136 -> 5135880304
+}

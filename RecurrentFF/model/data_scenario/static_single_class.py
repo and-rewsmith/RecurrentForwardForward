@@ -378,7 +378,8 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                 and is_test_set, "Cannot write activations for batch size > 1"
             activity_tracker = StaticSingleClassActivityTracker()
 
-        forward_mode = ForwardMode.PredictData if is_test_set else ForwardMode.PositiveData
+        # forward_mode = ForwardMode.PredictData if is_test_set else ForwardMode.PositiveData
+        forward_mode = ForwardMode.PositiveData
 
         # tuple: (correct, total)
         accuracy_contexts = []
@@ -405,7 +406,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
 
                 # evaluate badness for each possible label
                 for label in range(self.settings.data_config.num_classes):
-                    self.inner_layers.reset_activations(not is_test_set)
+                    self.inner_layers.reset_activations(True)
 
                     upper_clamped_tensor = self.get_preinit_upper_clamped_tensor(
                         (data.shape[1], self.settings.data_config.num_classes))
@@ -413,7 +414,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                     for _preinit_step in range(
                             0, self.settings.model.prelabel_timesteps):
                         self.inner_layers.advance_layers_forward(
-                            forward_mode, data[0], upper_clamped_tensor, False)
+                            data[0], upper_clamped_tensor, False)
                         if write_activations:
                             activity_tracker.track_partial_activations(
                                 self.inner_layers)
@@ -431,7 +432,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                     badnesses = []
                     for iteration in range(0, iterations):
                         self.inner_layers.advance_layers_forward(
-                            forward_mode, data[iteration], one_hot_labels, True)
+                            data[iteration], one_hot_labels, True)
                         if write_activations:
                             activity_tracker.track_partial_activations(
                                 self.inner_layers)

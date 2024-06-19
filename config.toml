@@ -2,7 +2,7 @@
 device = "mps"
 
 [model]
-hidden_sizes = [700, 700, 700, 700, 700]
+hidden_sizes = [701, 702, 703, 704, 705]
 epochs = 30000
 prelabel_timesteps = 10
 loss_threshold = 1.5
@@ -18,9 +18,10 @@ should_load_weights = false
 lr_step_size = 10000
 lr_gamma = 0.90
 dropout = 0.0
-loss_scale_predictive = 1
-loss_scale_hebbian = 1
-loss_scale_decorrelative = 1
+loss_scale_ff = 0
+loss_scale_predictive = 0
+loss_scale_hebbian = 0
+loss_scale_decorrelative = 0
 
 [model.ff_rmsprop]
 momentum = 0.0
