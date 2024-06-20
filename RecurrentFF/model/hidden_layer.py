@@ -542,21 +542,21 @@ class HiddenLayer(nn.Module):
         ff_layer_loss = self.settings.model.loss_scale_ff * ff_layer_loss
 
         # y = 4exp(-log(x+1.5))
-        ff_layer_loss_min: Tensor = torch.sqrt(torch.square(pos_activations) + 0.001).mean()
-        ff_layer_loss_min = 4 * torch.exp(-torch.log(ff_layer_loss_min + self.settings.model.loss_threshold))
+        # ff_layer_loss_min: Tensor = torch.sqrt(torch.square(pos_activations) + 0.001).mean()
+        # ff_layer_loss_min = 4 * torch.exp(-torch.log(ff_layer_loss_min + self.settings.model.loss_threshold))
 
-        # lpl_loss_predictive: Tensor = self.settings.model.loss_scale_predictive * \
-        #     self.generate_lpl_loss_predictive(pos_activations)
-        # lpl_loss_hebbian: Tensor = self.settings.model.loss_scale_hebbian * \
-        #     self.generate_lpl_loss_hebbian(pos_activations)
-        # lpl_loss_decorrelative: Tensor = self.settings.model.loss_scale_decorrelative * \
-        #     self.generate_lpl_loss_decorrelative(pos_activations)
+        lpl_loss_predictive: Tensor = self.settings.model.loss_scale_predictive * \
+            self.generate_lpl_loss_predictive(pos_activations)
+        lpl_loss_hebbian: Tensor = self.settings.model.loss_scale_hebbian * \
+            self.generate_lpl_loss_hebbian(pos_activations)
+        lpl_loss_decorrelative: Tensor = self.settings.model.loss_scale_decorrelative * \
+            self.generate_lpl_loss_decorrelative(pos_activations)
 
         assert ff_layer_loss.requires_grad == True
-        assert ff_layer_loss_min.requires_grad == True
-        # assert lpl_loss_predictive.requires_grad == True
-        # assert lpl_loss_hebbian.requires_grad == True
-        # assert lpl_loss_decorrelative.requires_grad == True
+        # assert ff_layer_loss_min.requires_grad == True
+        assert lpl_loss_predictive.requires_grad == True
+        assert lpl_loss_hebbian.requires_grad == True
+        assert lpl_loss_decorrelative.requires_grad == True
 
         # if random.random() < 0.005:
         #     # print("pos_act: ", pos_activations)
@@ -566,9 +566,9 @@ class HiddenLayer(nn.Module):
         #     print("lpl_loss_decorrelative: ", lpl_loss_decorrelative)
         #     print()
 
-        # layer_loss: Tensor = ff_layer_loss + lpl_loss_predictive + \
-        #     lpl_loss_hebbian + lpl_loss_decorrelative + ff_layer_loss_min
-        layer_loss: Tensor = ff_layer_loss + ff_layer_loss_min
+        layer_loss: Tensor = ff_layer_loss + lpl_loss_predictive + \
+            lpl_loss_hebbian + lpl_loss_decorrelative
+        # layer_loss: Tensor = ff_layer_loss + ff_layer_loss_min
 
         # print(ff_layer_loss)
         # print(lpl_loss_predictive)
