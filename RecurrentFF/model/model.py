@@ -17,7 +17,6 @@ from RecurrentFF.model.hidden_layer import HiddenLayer, ResidualConnection, Weig
 from RecurrentFF.model.inner_layers import InnerLayers, LayerMetrics
 from RecurrentFF.util import (
     Activations,
-    ForwardMode,
     LatentAverager,
     TrainInputData,
     TrainLabelData,
@@ -172,6 +171,9 @@ class RecurrentFFNet(nn.Module):
             self.train()
 
             for batch_num, (input_data, label_data) in enumerate(train_loader):
+                if batch_num == 1:
+                    break
+
                 input_data.move_to_device_inplace(self.settings.device.device)
                 label_data.move_to_device_inplace(self.settings.device.device)
 
@@ -215,6 +217,8 @@ class RecurrentFFNet(nn.Module):
                 )
 
             self.inner_layers.step_learning_rates()
+
+        return train_accuracy
 
     def __train_batch(
             self,

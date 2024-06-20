@@ -3,7 +3,7 @@ device = "mps"
 
 [model]
 hidden_sizes = [100, 100, 100, 100, 100]
-epochs = 30000
+epochs = 50
 prelabel_timesteps = 10
 loss_threshold = 1.5
 damping_factor = 0.7
@@ -42,3 +42,11 @@ learning_rate = 0.0001
 
 [model.classifier_adadelta]
 learning_rate = 0.00001
+
+[data_config]
+data_size = 784
+num_classes = 10
+train_batch_size = 500
+test_batch_size = 500
+dataset = "MNIST"
+iterations = 10
