@@ -439,12 +439,16 @@ class HiddenLayer(nn.Module):
     def generate_lpl_loss_hebbian(self, current_activations_with_grad: torch.Tensor) -> Tensor:
         def generate_loss(activations: Tensor) -> Tensor:
             mean_act = torch.mean(activations, dim=0)
+            # print("mean_act:", mean_act)
             mean_subtracted = activations - mean_act
+            # print("mean: ", mean_subtracted)
 
             sigma_squared = torch.sum(
                 mean_subtracted ** 2, dim=0) / (activations.shape[0] - 1)
+            # print("sigma: ", sigma_squared)
 
-            loss = -torch.log(sigma_squared).sum() / sigma_squared.shape[0]
+            loss = -torch.log(sigma_squared + 0.00000001).sum() / sigma_squared.shape[0]
+            # print("loss: ", loss)
             return loss
 
         assert current_activations_with_grad.requires_grad == True
@@ -532,40 +536,56 @@ class HiddenLayer(nn.Module):
             #     ForwardMode.NegativeData, None, None, should_damp)
 
         pos_badness = layer_activations_to_badness(pos_activations)
-        # neg_badness = layer_activations_to_badness(neg_activations)
-
         ff_layer_loss: Tensor = F.softplus(
             pos_badness - self.settings.model.loss_threshold
         ).mean()
         ff_layer_loss = self.settings.model.loss_scale_ff * ff_layer_loss
-        lpl_loss_predictive: Tensor = self.settings.model.loss_scale_predictive * \
-            self.generate_lpl_loss_predictive(pos_activations)
-        lpl_loss_hebbian: Tensor = self.settings.model.loss_scale_hebbian * \
-            self.generate_lpl_loss_hebbian(pos_activations)
-        lpl_loss_decorrelative: Tensor = self.settings.model.loss_scale_decorrelative * \
-            self.generate_lpl_loss_decorrelative(pos_activations)
+
+        # y = 4exp(-log(x+1.5))
+        ff_layer_loss_min: Tensor = torch.sqrt(torch.square(pos_activations) + 0.001).mean()
+        ff_layer_loss_min = 4 * torch.exp(-torch.log(ff_layer_loss_min + self.settings.model.loss_threshold))
+
+        # lpl_loss_predictive: Tensor = self.settings.model.loss_scale_predictive * \
+        #     self.generate_lpl_loss_predictive(pos_activations)
+        # lpl_loss_hebbian: Tensor = self.settings.model.loss_scale_hebbian * \
+        #     self.generate_lpl_loss_hebbian(pos_activations)
+        # lpl_loss_decorrelative: Tensor = self.settings.model.loss_scale_decorrelative * \
+        #     self.generate_lpl_loss_decorrelative(pos_activations)
 
         assert ff_layer_loss.requires_grad == True
-        assert lpl_loss_predictive.requires_grad == True
-        assert lpl_loss_hebbian.requires_grad == True
-        assert lpl_loss_decorrelative.requires_grad == True
+        assert ff_layer_loss_min.requires_grad == True
+        # assert lpl_loss_predictive.requires_grad == True
+        # assert lpl_loss_hebbian.requires_grad == True
+        # assert lpl_loss_decorrelative.requires_grad == True
 
-        if random.random() < 0.005:
-            # print("pos_act: ", pos_activations)
-            print("ff_layer_loss: ", ff_layer_loss)
-            print("lpl_loss_predictive: ", lpl_loss_predictive)
-            print("lpl_loss_hebbian: ", lpl_loss_hebbian)
-            print("lpl_loss_decorrelative: ", lpl_loss_decorrelative)
-            print()
+        # if random.random() < 0.005:
+        #     # print("pos_act: ", pos_activations)
+        #     print("ff_layer_loss: ", ff_layer_loss)
+        #     print("lpl_loss_predictive: ", lpl_loss_predictive)
+        #     print("lpl_loss_hebbian: ", lpl_loss_hebbian)
+        #     print("lpl_loss_decorrelative: ", lpl_loss_decorrelative)
+        #     print()
 
-        layer_loss: Tensor = ff_layer_loss + lpl_loss_predictive + \
-            lpl_loss_hebbian + lpl_loss_decorrelative
-        print(ff_layer_loss)
-        print(lpl_loss_predictive)
-        print(lpl_loss_hebbian)
-        print(lpl_loss_decorrelative)
-        print(self.size)
-        print(pos_activations[0])
+        # layer_loss: Tensor = ff_layer_loss + lpl_loss_predictive + \
+        #     lpl_loss_hebbian + lpl_loss_decorrelative + ff_layer_loss_min
+        layer_loss: Tensor = ff_layer_loss + ff_layer_loss_min
+
+        # print(ff_layer_loss)
+        # print(lpl_loss_predictive)
+        # print(lpl_loss_hebbian)
+        # print(lpl_loss_decorrelative)
+
+        # important block
+        #
+        # print("ff_layer_loss: ", ff_layer_loss)
+        # print("lpl_loss_predictive: ", lpl_loss_predictive)
+        # print("lpl_loss_hebbian: ", lpl_loss_hebbian)
+        # print("lpl_loss_decorrelative: ", lpl_loss_decorrelative)
+        # print(self.size)
+
+        # print(pos_activations[0])
+        # input()
+
         # print(layer_loss)
         # for name, param in self.named_parameters():
         #     print(name, param.grad)
@@ -575,7 +595,6 @@ class HiddenLayer(nn.Module):
         #         print(tensor.shape)
         #         optimizer_params.append(tensor)
         # print("optimizer params")
-        input()
         # input()
         # print()
         layer_loss.backward()
