@@ -171,9 +171,6 @@ class RecurrentFFNet(nn.Module):
             self.train()
 
             for batch_num, (input_data, label_data) in enumerate(train_loader):
-                if batch_num == 1:
-                    break
-
                 input_data.move_to_device_inplace(self.settings.device.device)
                 label_data.move_to_device_inplace(self.settings.device.device)
 
