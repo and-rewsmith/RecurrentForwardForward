@@ -469,16 +469,12 @@ class HiddenLayer(nn.Module):
     def generate_lpl_loss_hebbian(self, current_activations_with_grad: torch.Tensor) -> Tensor:
         def generate_loss(activations: Tensor) -> Tensor:
             mean_act = torch.mean(activations, dim=0)
-            # print("mean_act:", mean_act)
             mean_subtracted = activations - mean_act
-            # print("mean: ", mean_subtracted)
 
             sigma_squared = torch.sum(
                 mean_subtracted ** 2, dim=0) / (activations.shape[0] - 1)
-            # print("sigma: ", sigma_squared)
 
             loss = -torch.log(sigma_squared + 0.00000001).sum() / sigma_squared.shape[0]
-            # print("loss: ", loss)
             return loss
 
         assert current_activations_with_grad.requires_grad == True
@@ -489,28 +485,22 @@ class HiddenLayer(nn.Module):
         def generate_loss(activations: torch.Tensor) -> torch.Tensor:
             # Compute the mean across the batch dimension
             mean_act = torch.mean(activations, dim=0)
-            # print("mean_act", mean_act)
 
             # Subtract mean from activations and square the result
             deviations = (activations - mean_act) ** 2
-            # print("deviations", deviations[0])
 
             # Outer product along feature dimension for each batch
             # This computes the pairwise squared differences efficiently
             loss = torch.einsum('bi,bj->bij', deviations, deviations)
-            # print("loss", loss[0])
 
             # Sum over all batches and features, exclude the diagonal elements
             # Diagonal elements correspond to the squared terms which we want to avoid
             batch_size, n_features = activations.shape
             loss = torch.sum(loss) - \
                 torch.sum(torch.einsum('bii->b', loss)) / 2
-            # print("loss", loss)
 
             # Normalize the loss
-            # print("batch size * n_features * (n_features - 1)", batch_size * n_features * (n_features - 1))
             loss = loss / (batch_size * n_features * (n_features - 1))
-            # print("loss", loss)
 
             return loss
 
