@@ -1,3 +1,4 @@
+import copy
 import logging
 from typing import List, Optional, cast
 from pyparsing import Iterator
@@ -384,6 +385,13 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
         # tuple: (correct, total)
         accuracy_contexts = []
 
+        # save acts
+        activations_saved = []
+        for layer in self.inner_layers:
+            layer_acts = copy.deepcopy(layer.pos_activations)
+            activations_saved.append(layer_acts)
+        torch.save(self.inner_layers.state_dict(), "./tmp_model.pt")
+
         for batch, test_data in enumerate(loader):
             if limit_batches is not None and batch == limit_batches:
                 break
@@ -406,6 +414,12 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
             # evaluate badness for each possible label
             for label in range(self.settings.data_config.num_classes):
                 # self.inner_layers.reset_activations(True)
+
+                # load acts
+                self.inner_layers.load_state_dict(torch.load(
+                    "./tmp_model.pt", map_location=self.settings.device.device))
+                for i, layer in enumerate(self.inner_layers):
+                    layer.pos_activations = copy.deepcopy(activations_saved[i])
 
                 upper_clamped_tensor = self.get_preinit_upper_clamped_tensor(
                     (data.shape[1], self.settings.data_config.num_classes))

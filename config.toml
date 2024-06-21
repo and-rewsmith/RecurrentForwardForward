@@ -3,7 +3,7 @@ device = "mps"
 
 [model]
 hidden_sizes = [100, 100, 100, 100, 100]
-epochs = 50
+epochs = 25
 prelabel_timesteps = 10
 loss_threshold = 1.5
 damping_factor = 0.7

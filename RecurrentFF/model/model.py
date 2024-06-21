@@ -171,6 +171,9 @@ class RecurrentFFNet(nn.Module):
             self.train()
 
             for batch_num, (input_data, label_data) in enumerate(train_loader):
+                # if batch_num == 1:
+                #     break
+
                 input_data.move_to_device_inplace(self.settings.device.device)
                 label_data.move_to_device_inplace(self.settings.device.device)
 
@@ -197,7 +200,7 @@ class RecurrentFFNet(nn.Module):
             #
             # TODO: Fix this hacky data loader bridge format
             train_accuracy = self.processor.brute_force_predict(
-                TrainTestBridgeFormatLoader(train_loader), 10, False)  # type: ignore[arg-type]
+                TrainTestBridgeFormatLoader(train_loader), 1, False)  # type: ignore[arg-type]
             test_accuracy = self.processor.brute_force_predict(
                 test_loader, 1, True)
 

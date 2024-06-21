@@ -184,5 +184,5 @@ if __name__ == "__main__":
     running_log.close()
     logging.debug(message)
 
-    sweep_id = "and-rewsmith/Recurrent-FF/zsvxrw5i"
+    sweep_id = "and-rewsmith/Recurrent-FF/04e3a5rr"
     wandb.agent(sweep_id, function=objective)
