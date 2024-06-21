@@ -2,8 +2,8 @@
 device = "mps"
 
 [model]
-hidden_sizes = [700, 700, 700, 700, 700]
-epochs = 30000
+hidden_sizes = [100, 100, 100, 100, 100]
+epochs = 25
 prelabel_timesteps = 10
 loss_threshold = 1.5
 damping_factor = 0.7
@@ -18,6 +18,10 @@ should_load_weights = false
 lr_step_size = 10000
 lr_gamma = 0.90
 dropout = 0.0
+loss_scale_ff = 1
+loss_scale_predictive = 0
+loss_scale_hebbian = 0
+loss_scale_decorrelative = 0
 
 [model.ff_rmsprop]
 momentum = 0.0
@@ -38,3 +42,11 @@ learning_rate = 0.0001
 
 [model.classifier_adadelta]
 learning_rate = 0.00001
+
+[data_config]
+data_size = 784
+num_classes = 10
+train_batch_size = 500
+test_batch_size = 500
+dataset = "MNIST"
+iterations = 10

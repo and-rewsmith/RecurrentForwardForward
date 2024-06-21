@@ -1,5 +1,7 @@
+from dataclasses import make_dataclass
 from enum import Enum
 import math
+import random
 from typing import Dict, Optional, cast
 from typing_extensions import Self
 
@@ -10,6 +12,8 @@ from torch.nn import functional as F
 from torch.optim import RMSprop, Adam, Adadelta, Optimizer
 from torch.optim.lr_scheduler import StepLR
 from profilehooks import profile
+from torchviz import make_dot
+
 
 from RecurrentFF.util import (
     Activations,
@@ -275,6 +279,11 @@ class HiddenLayer(nn.Module):
 
     def init_optimizer(self) -> None:
         self.optimizer: Optimizer
+        # param_optimizer = [(name, param) for name, param in self.named_parameters()]
+        # for (name, param) in param_optimizer:
+        #     print(name)
+        #     print(param.shape)
+        # input()
         if self.settings.model.ff_optimizer == "adam":
             self.optimizer = Adam(self.parameters(),
                                   lr=self.settings.model.ff_adam.learning_rate)
@@ -357,44 +366,74 @@ class HiddenLayer(nn.Module):
         self.scheduler.step()
 
     def reset_activations(self, isTraining: bool) -> None:
-        activations_dim = None
-        if isTraining:
-            activations_dim = self.train_activations_dim
+        activations_dim = self.train_activations_dim
 
-            pos_activations_current = torch.zeros(
-                activations_dim[0], activations_dim[1]).to(
-                self.settings.device.device)
-            pos_activations_previous = torch.zeros(
-                activations_dim[0], activations_dim[1]).to(
-                self.settings.device.device)
-            self.pos_activations = Activations(
-                pos_activations_current, pos_activations_previous)
+        pos_activations_current = torch.zeros(
+            activations_dim[0], activations_dim[1], requires_grad=False).to(
+            self.settings.device.device)
+        pos_activations_previous = torch.zeros(
+            activations_dim[0], activations_dim[1], requires_grad=False).to(
+            self.settings.device.device)
+        self.pos_activations = Activations(
+            pos_activations_current, pos_activations_previous)
 
-            neg_activations_current = torch.zeros(
-                activations_dim[0], activations_dim[1]).to(
-                self.settings.device.device)
-            neg_activations_previous = torch.zeros(
-                activations_dim[0], activations_dim[1]).to(
-                self.settings.device.device)
-            self.neg_activations = Activations(
-                neg_activations_current, neg_activations_previous)
+        neg_activations_current = torch.zeros(
+            activations_dim[0], activations_dim[1], requires_grad=False).to(
+            self.settings.device.device)
+        neg_activations_previous = torch.zeros(
+            activations_dim[0], activations_dim[1], requires_grad=False).to(
+            self.settings.device.device)
+        self.neg_activations = Activations(
+            neg_activations_current, neg_activations_previous)
 
-            self.predict_activations = None
+        activations_dim = self.test_activations_dim
 
-        else:
-            activations_dim = self.test_activations_dim
+        predict_activations_current = torch.zeros(
+            activations_dim[0], activations_dim[1], requires_grad=False).to(
+            self.settings.device.device)
+        predict_activations_previous = torch.zeros(
+            activations_dim[0], activations_dim[1], requires_grad=False).to(
+            self.settings.device.device)
+        self.predict_activations = Activations(
+            predict_activations_current, predict_activations_previous)
 
-            predict_activations_current = torch.zeros(
-                activations_dim[0], activations_dim[1]).to(
-                self.settings.device.device)
-            predict_activations_previous = torch.zeros(
-                activations_dim[0], activations_dim[1]).to(
-                self.settings.device.device)
-            self.predict_activations = Activations(
-                predict_activations_current, predict_activations_previous)
+        # if isTraining:
+        #     activations_dim = self.train_activations_dim
 
-            self.pos_activations = None
-            self.neg_activations = None
+        #     pos_activations_current = torch.zeros(
+        #         activations_dim[0], activations_dim[1], requires_grad=False).to(
+        #         self.settings.device.device)
+        #     pos_activations_previous = torch.zeros(
+        #         activations_dim[0], activations_dim[1], requires_grad=False).to(
+        #         self.settings.device.device)
+        #     self.pos_activations = Activations(
+        #         pos_activations_current, pos_activations_previous)
+
+        #     neg_activations_current = torch.zeros(
+        #         activations_dim[0], activations_dim[1], requires_grad=False).to(
+        #         self.settings.device.device)
+        #     neg_activations_previous = torch.zeros(
+        #         activations_dim[0], activations_dim[1], requires_grad=False).to(
+        #         self.settings.device.device)
+        #     self.neg_activations = Activations(
+        #         neg_activations_current, neg_activations_previous)
+
+        #     self.predict_activations = None
+
+        # else:
+        #     activations_dim = self.test_activations_dim
+
+        #     predict_activations_current = torch.zeros(
+        #         activations_dim[0], activations_dim[1], requires_grad=False).to(
+        #         self.settings.device.device)
+        #     predict_activations_previous = torch.zeros(
+        #         activations_dim[0], activations_dim[1], requires_grad=False).to(
+        #         self.settings.device.device)
+        #     self.predict_activations = Activations(
+        #         predict_activations_current, predict_activations_previous)
+
+        #     self.pos_activations = None
+        #     self.neg_activations = None
 
     def advance_stored_activations(self) -> None:
         if self.pos_activations is not None:
@@ -412,8 +451,66 @@ class HiddenLayer(nn.Module):
     def set_next_layer(self, next_layer: Self) -> None:
         self.next_layer = next_layer
 
+    def generate_lpl_loss_predictive(self, current_activations_with_grad: torch.Tensor) -> Tensor:
+        def generate_loss(current_act: Tensor, previous_act: Tensor) -> Tensor:
+            loss = (current_act - previous_act) ** 2
+            loss = torch.sum(loss, dim=1)
+            loss = torch.sum(loss, dim=0)
+            loss = loss / \
+                (2 * current_act.shape[0] * current_act.shape[1])
+            return loss
+
+        assert current_activations_with_grad.requires_grad == True
+        assert self.pos_activations.previous.requires_grad == False
+        pos_loss = generate_loss(
+            current_activations_with_grad, self.pos_activations.previous)
+        return pos_loss
+
+    def generate_lpl_loss_hebbian(self, current_activations_with_grad: torch.Tensor) -> Tensor:
+        def generate_loss(activations: Tensor) -> Tensor:
+            mean_act = torch.mean(activations, dim=0)
+            mean_subtracted = activations - mean_act
+
+            sigma_squared = torch.sum(
+                mean_subtracted ** 2, dim=0) / (activations.shape[0] - 1)
+
+            loss = -torch.log(sigma_squared + 0.00000001).sum() / sigma_squared.shape[0]
+            return loss
+
+        assert current_activations_with_grad.requires_grad == True
+        pos_loss = generate_loss(current_activations_with_grad)
+        return pos_loss
+
+    def generate_lpl_loss_decorrelative(self, current_activations_with_grad: torch.Tensor) -> Tensor:
+        def generate_loss(activations: torch.Tensor) -> torch.Tensor:
+            # Compute the mean across the batch dimension
+            mean_act = torch.mean(activations, dim=0)
+
+            # Subtract mean from activations and square the result
+            deviations = (activations - mean_act) ** 2
+
+            # Outer product along feature dimension for each batch
+            # This computes the pairwise squared differences efficiently
+            loss = torch.einsum('bi,bj->bij', deviations, deviations)
+
+            # Sum over all batches and features, exclude the diagonal elements
+            # Diagonal elements correspond to the squared terms which we want to avoid
+            batch_size, n_features = activations.shape
+            loss = torch.sum(loss) - \
+                torch.sum(torch.einsum('bii->b', loss)) / 2
+
+            # Normalize the loss
+            loss = loss / (batch_size * n_features * (n_features - 1))
+
+            return loss
+
+        assert current_activations_with_grad.requires_grad == True
+        pos_loss = generate_loss(current_activations_with_grad)
+        return pos_loss
+
     # @profile(stdout=False, filename='baseline.prof',
     #          skip=Settings.new().model.skip_profiling)
+
     def train_layer(self,  # type: ignore[override]
                     input_data: TrainInputData,
                     label_data: TrainLabelData,
@@ -421,44 +518,115 @@ class HiddenLayer(nn.Module):
         self.optimizer.zero_grad()
 
         pos_activations = None
-        neg_activations = None
+        # neg_activations = None
         if input_data is not None and label_data is not None:
-            (pos_input, neg_input) = input_data
-            (pos_labels, neg_labels) = label_data
+            try:
+                (pos_input, neg_input) = input_data
+                (pos_labels, neg_labels) = label_data
+            except ValueError:
+                pos_input = input_data
+                pos_labels = label_data
+
             pos_activations = self.forward(
                 ForwardMode.PositiveData, pos_input, pos_labels, should_damp)
-            neg_activations = self.forward(
-                ForwardMode.NegativeData, neg_input, neg_labels, should_damp)
+            # neg_activations = self.forward(
+            #     ForwardMode.NegativeData, neg_input, neg_labels, should_damp)
         elif input_data is not None:
-            (pos_input, neg_input) = input_data
+            try:
+                (pos_input, neg_input) = input_data
+            except ValueError:
+                pos_input = input_data
             pos_activations = self.forward(
                 ForwardMode.PositiveData, pos_input, None, should_damp)
-            neg_activations = self.forward(
-                ForwardMode.NegativeData, neg_input, None, should_damp)
+            # neg_activations = self.forward(
+            #     ForwardMode.NegativeData, neg_input, None, should_damp)
         elif label_data is not None:
-            (pos_labels, neg_labels) = label_data
+            try:
+                (pos_labels, neg_labels) = label_data
+            except ValueError:
+                pos_labels = label_data
             pos_activations = self.forward(
                 ForwardMode.PositiveData, None, pos_labels, should_damp)
-            neg_activations = self.forward(
-                ForwardMode.NegativeData, None, neg_labels, should_damp)
+            # neg_activations = self.forward(
+            #     ForwardMode.NegativeData, None, neg_labels, should_damp)
         else:
             pos_activations = self.forward(
                 ForwardMode.PositiveData, None, None, should_damp)
-            neg_activations = self.forward(
-                ForwardMode.NegativeData, None, None, should_damp)
+            # neg_activations = self.forward(
+            #     ForwardMode.NegativeData, None, None, should_damp)
 
         pos_badness = layer_activations_to_badness(pos_activations)
-        neg_badness = layer_activations_to_badness(neg_activations)
-
-        # Loss function equivelent to:
-        # plot3d log(1 + exp(-n + 1)) + log(1 + exp(p - 1)) for n=0 to 3, p=0
-        # to 3
-        layer_loss: Tensor = F.softplus(torch.cat([
-            (-1 * neg_badness) + self.settings.model.loss_threshold,
+        ff_layer_loss: Tensor = F.softplus(
             pos_badness - self.settings.model.loss_threshold
-        ])).mean()
+        ).mean()
+        ff_layer_loss = self.settings.model.loss_scale_ff * ff_layer_loss
+
+        # y = 4exp(-log(x+1.5))
+        # ff_layer_loss_min: Tensor = torch.sqrt(torch.square(pos_activations) + 0.001).mean()
+        # ff_layer_loss_min = 4 * torch.exp(-torch.log(ff_layer_loss_min + self.settings.model.loss_threshold))
+
+        lpl_loss_predictive: Tensor = self.settings.model.loss_scale_predictive * \
+            self.generate_lpl_loss_predictive(pos_activations)
+        lpl_loss_hebbian: Tensor = self.settings.model.loss_scale_hebbian * \
+            self.generate_lpl_loss_hebbian(pos_activations)
+        lpl_loss_decorrelative: Tensor = self.settings.model.loss_scale_decorrelative * \
+            self.generate_lpl_loss_decorrelative(pos_activations)
+
+        assert ff_layer_loss.requires_grad == True
+        # assert ff_layer_loss_min.requires_grad == True
+        assert lpl_loss_predictive.requires_grad == True
+        assert lpl_loss_hebbian.requires_grad == True
+        assert lpl_loss_decorrelative.requires_grad == True
+
+        # if random.random() < 0.005:
+        #     # print("pos_act: ", pos_activations)
+        #     print("ff_layer_loss: ", ff_layer_loss)
+        #     print("lpl_loss_predictive: ", lpl_loss_predictive)
+        #     print("lpl_loss_hebbian: ", lpl_loss_hebbian)
+        #     print("lpl_loss_decorrelative: ", lpl_loss_decorrelative)
+        #     print()
+
+        layer_loss: Tensor = ff_layer_loss + lpl_loss_predictive + \
+            lpl_loss_hebbian + lpl_loss_decorrelative
+        # layer_loss: Tensor = ff_layer_loss + ff_layer_loss_min
+
+        # print(ff_layer_loss)
+        # print(lpl_loss_predictive)
+        # print(lpl_loss_hebbian)
+        # print(lpl_loss_decorrelative)
+
+        # important block
+        #
+        # print("ff_layer_loss: ", ff_layer_loss)
+        # print("lpl_loss_predictive: ", lpl_loss_predictive)
+        # print("lpl_loss_hebbian: ", lpl_loss_hebbian)
+        # print("lpl_loss_decorrelative: ", lpl_loss_decorrelative)
+        # print(self.size)
+
+        # print(pos_activations[0])
+        # input()
+
+        # print(layer_loss)
+        # for name, param in self.named_parameters():
+        #     print(name, param.grad)
+        # optimizer_params = []
+        # for d in self.optimizer.param_groups:
+        #     for tensor in d['params']:
+        #         print(tensor.shape)
+        #         optimizer_params.append(tensor)
+        # print("optimizer params")
+        # input()
+        # print()
         layer_loss.backward()
 
+        # params = dict(self.named_parameters())
+        # dot = make_dot(layer_loss, params=params)
+        # dot.render('computation_graph', format='png')
+        # input()
+
+        # print all grads of parameters
+        # for name, param in self.named_parameters():
+        #     print(name, param.grad)
         self.optimizer.step()
         return cast(float, layer_loss.item())
 

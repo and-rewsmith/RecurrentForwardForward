@@ -17,3 +17,4 @@ cifar-data/
 .DS_Store
 *.parquet
 .mypy_cache/
+*.log

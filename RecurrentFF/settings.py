@@ -55,6 +55,10 @@ class Model(BaseModel):
     should_replace_neg_data: bool
     should_load_weights: bool
     dropout: float
+    loss_scale_ff: float
+    loss_scale_predictive: float
+    loss_scale_hebbian: float
+    loss_scale_decorrelative: float
 
     lr_step_size: int
     lr_gamma: float

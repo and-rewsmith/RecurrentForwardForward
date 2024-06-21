@@ -77,7 +77,7 @@ class Activations:
         yield self.previous
 
     def advance(self) -> None:
-        self.previous = self.current
+        self.previous = self.current.clone()
 
 
 class ForwardMode(Enum):
