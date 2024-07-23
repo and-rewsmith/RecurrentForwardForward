@@ -10,7 +10,9 @@ concurrency:
 
 jobs:
   ci:
-    runs-on: self-hosted
+    # TODO: fix this when worker agent stabilized
+    # runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 360
     steps:
     - name: Checkout source
