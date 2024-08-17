@@ -255,7 +255,6 @@ class InnerLayers(nn.Module):
 
     def advance_layers_forward(
             self,
-            mode: ForwardMode,
             input_data: torch.Tensor,
             label_data: torch.Tensor,
             should_damp: bool) -> None:
@@ -296,15 +295,16 @@ class InnerLayers(nn.Module):
             this is because the overhead of creating threads is not worth it for
             the small amount of computation done in each thread.
         """
+        # TODOPRE: save and restore params
         for i, layer in enumerate(self.layers):
             if i == 0 and len(self.layers) == 1:
-                layer.forward(mode, input_data, label_data, should_damp)
+                layer.train_layer(input_data, label_data, should_damp)
             elif i == 0:
-                layer.forward(mode, input_data, None, should_damp)
+                layer.train_layer(input_data, None, should_damp)
             elif i == len(self.layers) - 1:
-                layer.forward(mode, None, label_data, should_damp)
+                layer.train_layer(None, label_data, should_damp)
             else:
-                layer.forward(mode, None, None, should_damp)
+                layer.train_layer(None, None, should_damp)
 
         for layer in self.layers:
             layer.advance_stored_activations()
