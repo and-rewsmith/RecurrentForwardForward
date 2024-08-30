@@ -7,7 +7,7 @@ import torch
 from torch import Tensor, nn
 from torch.nn import Module
 from torch.nn import functional as F
-from torch.optim import RMSprop, Adam, Adadelta, Optimizer
+from torch.optim import RMSprop, Adam, Adadelta, Optimizer, AdamW
 from torch.optim.lr_scheduler import StepLR
 from profilehooks import profile
 
@@ -279,10 +279,9 @@ class HiddenLayer(nn.Module):
             self.optimizer = Adam(self.parameters(),
                                   lr=self.settings.model.ff_adam.learning_rate)
         elif self.settings.model.ff_optimizer == "rmsprop":
-            self.optimizer = RMSprop(
+            self.optimizer = AdamW(
                 self.parameters(),
-                lr=self.settings.model.ff_rmsprop.learning_rate,
-                momentum=self.settings.model.ff_rmsprop.momentum)
+                lr=self.settings.model.ff_rmsprop.learning_rate)
         elif self.settings.model.ff_optimizer == "adadelta":
             self.optimizer = Adadelta(
                 self.parameters(),
