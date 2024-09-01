@@ -3,7 +3,7 @@ import math
 from torch import nn, Tensor
 import torch
 from torch.optim import SGD
-from typing import Callable, Self
+from typing import Callable, List, Self
 from torch.autograd import grad
 from torch.utils.data import Dataset, DataLoader
 from torchviz import make_dot  # type: ignore
@@ -300,6 +300,19 @@ class TTTModel(nn.Module):
 
         return output
 
+    def get_params_inner_learning_rates(self: Self) -> List[torch.nn.Parameter]:
+        params = []
+        for block in self.ttt_blocks:
+            params.extend(block.ttt_head.inner_learning_rate_params.parameters())
+        return params
+
+    def get_params_ttt_heads(self: Self) -> List[torch.nn.Parameter]:
+        params = []
+        for block in self.ttt_blocks:
+            params.extend([block.ttt_head.theta_k, block.ttt_head.theta_q,
+                           block.ttt_head.theta_v, block.ttt_head.theta_o])
+        return params
+
     # def train_model(self: Self, src: torch.Tensor) -> torch.Tensor:
     #     self.optim.zero_grad()
     #     self.optim_inner_lr.zero_grad()
@@ -398,13 +411,29 @@ if __name__ == "__main__":
 
     # train
     model.train()
+
+    optim = SGD(model.get_params_ttt_heads(), lr=TTT_OUTER_LEARNING_RATE)
+    optim_inner_lr = SGD(model.get_params_inner_learning_rates(), lr=TTT_INNER_LEARNING_RATE_LEARNING_RATE)
+    criterion = nn.CrossEntropyLoss()
+
     for epoch in range(0, EPOCHS):
         for i, (data, labels) in enumerate(dataloader):
             print(f"Epoch: {epoch}, Batch: {i} / {len(dataloader)}")
+
+            optim.zero_grad()
+            optim_inner_lr.zero_grad()
+
             data = data.to(device)
             labels = labels.to(device)
 
             output = model.forward(data)
+            loss = criterion(output, labels)
+            print(loss)
+
+            loss.backward()
+
+            optim.step()
+            optim_inner_lr.step()
 
     # # dummy eval on one sequence
     # model.eval()
