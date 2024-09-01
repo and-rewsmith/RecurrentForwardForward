@@ -281,7 +281,8 @@ class HiddenLayer(nn.Module):
         elif self.settings.model.ff_optimizer == "rmsprop":
             self.optimizer = AdamW(
                 self.parameters(),
-                lr=self.settings.model.ff_rmsprop.learning_rate)
+                lr=self.settings.model.ff_rmsprop.learning_rate,
+                weight_decay=1e-2)
         elif self.settings.model.ff_optimizer == "adadelta":
             self.optimizer = Adadelta(
                 self.parameters(),
