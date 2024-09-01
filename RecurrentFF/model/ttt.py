@@ -23,11 +23,12 @@ TTT_BASE_INNER_LEARNING_RATE = 1e-4
 TTT_INNER_LEARNING_RATE_LEARNING_RATE = 1e-1
 TTT_OUTER_LEARNING_RATE = 1e-3
 LOW_PASS_FILTER_DIM = 200
+INPUT_DIM = 500
 DROPOUT = 0.0
 
 
 class VectorDataset(Dataset):
-    def __init__(self, num_samples=1000, vector_dim=500):
+    def __init__(self, num_samples=1000, vector_dim=INPUT_DIM):
         self.num_samples = num_samples
         self.vector_dim = vector_dim
         self.data = self._generate_data()
@@ -66,11 +67,12 @@ class TTTInner(nn.Module):
         label_view = src @ self.get_theta_v()  # type: ignore[operator]
         test_view = src @ self.get_theta_q()  # type: ignore[operator]
 
+        print(train_view.shape, label_view.shape, test_view.shape)
+
         # reconstruction loss
         reconstruction_target = label_view - train_view  # type: ignore[operator]
         w_train_view = self.w(train_view)
         loss = nn.MSELoss()(w_train_view, reconstruction_target)
-        total_loss += loss
 
         # compute gradients for `w` and manually update
         gradients = grad(loss, list(self.w.parameters()), create_graph=True)
@@ -81,6 +83,7 @@ class TTTInner(nn.Module):
 
         # calculate the learned inner learning rate for each parameter and shape appropriately
         inner_learning_rate, inner_learning_rate_bias = self.get_inner_learning_rate(src)
+        print(inner_learning_rate.shape, inner_learning_rate_bias.shape)
         # inner_learning_rate = inner_learning_rate.reshape(-1, self.filter_dim ** 2)
         # inner_learning_rate = inner_learning_rate.mean(dim=0)
         # inner_learning_rate = inner_learning_rate.reshape(self.filter_dim, self.filter_dim)
@@ -98,6 +101,7 @@ class TTTInner(nn.Module):
 
         # calculate output using updated `w_bar`
         z = torch.nn.functional.linear(test_view, updated_weight, updated_bias) + test_view
+        print(z.shape)
 
         # this was intended to stop grads from flowing back to weights (minor optimization)
         # doesn't seem to work though
@@ -208,13 +212,11 @@ class TTTHead(nn.Module):
         self.low_pass_filter_dim = filter_dim
 
     def train_head(self: Self, input: torch.Tensor) -> torch.Tensor:
-        sequences, batches, features = input.shape
-
+        print(input.shape)
         outputs = self.inner.online_inference(input)
-        assert outputs.shape == (sequences, batches, self.low_pass_filter_dim)
 
         outputs: Tensor = outputs @ self.theta_o  # type: ignore
-        assert outputs.shape == (sequences, batches, self.input_dim)
+        print(outputs.shape)
         return outputs
 
     def get_theta_k(self: Self) -> torch.nn.Parameter:
@@ -228,10 +230,13 @@ class TTTHead(nn.Module):
 
     def get_inner_learning_rate(self: Self, input: torch.Tensor) -> Tensor:
         pre_sigmoid = self.inner_learning_rate_params(input)
-        wandb.log({"pre_sigmoid": pre_sigmoid.mean()})
+        # wandb.log({"pre_sigmoid": pre_sigmoid.mean()})
         post_sigmoid = self.ttt_base_inner_learning_rate * F.sigmoid(pre_sigmoid)
-        wandb.log({"post_sigmoid": post_sigmoid.mean()})
-        return post_sigmoid[0:self.low_pass_filter_dim**2].reshape(self.low_pass_filter_dim, self.low_pass_filter_dim), post_sigmoid[self.low_pass_filter_dim**2:]
+        post_sigmoid = post_sigmoid.mean(dim=0)
+        learning_rate_matrix_params = post_sigmoid[0:self.low_pass_filter_dim **
+                                                   2].reshape(self.low_pass_filter_dim, self.low_pass_filter_dim)
+        learning_rate_bias = post_sigmoid[self.low_pass_filter_dim ** 2:]
+        return learning_rate_matrix_params, learning_rate_bias
 
 
 class TTTBlock(nn.Module):
@@ -247,7 +252,6 @@ class TTTBlock(nn.Module):
                                 ttt_base_inner_learning_rate=ttt_base_inner_learning_rate)
 
     def train_block(self, input: torch.Tensor) -> torch.Tensor:
-        sequences, batches, features = input.shape
         outputs = self.ttt_head.train_head(input)
         return outputs
 
@@ -385,7 +389,7 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "mps")
 
     model = TTTModel(
-        num_layers=1, filter_dim=LOW_PASS_FILTER_DIM,
+        num_layers=1, filter_dim=LOW_PASS_FILTER_DIM, embedding_dim=INPUT_DIM,
         ttt_base_inner_learning_rate=TTT_BASE_INNER_LEARNING_RATE)
     model = model.to(device)
 
@@ -395,8 +399,10 @@ if __name__ == "__main__":
     # train
     model.train()
     for epoch in range(0, EPOCHS):
-        for i, data in enumerate(dataloader):
+        for i, (data, labels) in enumerate(dataloader):
             print(f"Epoch: {epoch}, Batch: {i} / {len(dataloader)}")
+            data = data.to(device)
+            labels = labels.to(device)
 
             output = model.forward(data)
 
