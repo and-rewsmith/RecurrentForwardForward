@@ -1,6 +1,6 @@
 import math
 
-from torch import nn, Tensor
+from torch import cosine_similarity, nn, Tensor
 import torch
 from torch.optim import SGD
 from typing import Callable, List, Self
@@ -16,14 +16,14 @@ VOCAB_SIZE = 15
 SEQUENCE_LEN = 40
 
 # training
-EPOCHS = 10
+EPOCHS = 40
 BATCH_SIZE = 50
 
-TTT_BASE_INNER_LEARNING_RATE = 1e-4
+TTT_BASE_INNER_LEARNING_RATE = 1e-2
 TTT_INNER_LEARNING_RATE_LEARNING_RATE = 1e-1
-TTT_OUTER_LEARNING_RATE = 1e-3
-LOW_PASS_FILTER_DIM = 200
-INPUT_DIM = 500
+TTT_OUTER_LEARNING_RATE = 1e-1
+LOW_PASS_FILTER_DIM = 5
+INPUT_DIM = 5
 DROPOUT = 0.0
 
 
@@ -67,41 +67,34 @@ class TTTInner(nn.Module):
         label_view = src @ self.get_theta_v()  # type: ignore[operator]
         test_view = src @ self.get_theta_q()  # type: ignore[operator]
 
-        print(train_view.shape, label_view.shape, test_view.shape)
-
         # reconstruction loss
         reconstruction_target = label_view - train_view  # type: ignore[operator]
         w_train_view = self.w(train_view)
         loss = nn.MSELoss()(w_train_view, reconstruction_target)
+        wandb.log({"inner_loss": loss})
 
         # compute gradients for `w` and manually update
         gradients = grad(loss, list(self.w.parameters()), create_graph=True)
         assert gradients[0].shape == self.w.weight.shape
 
-        # wandb.log({"w_grad": gradients[0].norm()})
-        # wandb.log({"w_bias_grad": gradients[1].norm()})
+        wandb.log({"w_grad": gradients[0].norm()})
+        wandb.log({"w_bias_grad": gradients[1].norm()})
 
         # calculate the learned inner learning rate for each parameter and shape appropriately
         inner_learning_rate, inner_learning_rate_bias = self.get_inner_learning_rate(src)
-        print(inner_learning_rate.shape, inner_learning_rate_bias.shape)
-        # inner_learning_rate = inner_learning_rate.reshape(-1, self.filter_dim ** 2)
-        # inner_learning_rate = inner_learning_rate.mean(dim=0)
-        # inner_learning_rate = inner_learning_rate.reshape(self.filter_dim, self.filter_dim)
-        # inner_learning_rate_bias = inner_learning_rate.mean(dim=1)
 
         # TODO: consider adding layer norm here to stabilize batch effects of averaging
 
-        # wandb.log({"inner_learning_rate": inner_learning_rate.norm()})
-        # wandb.log({"inner_learning_rate_bias": inner_learning_rate_bias.norm()})
-        # wandb.log(
-        #     {"inner_learning_rate_specific_index": inner_learning_rate[0][0]})
+        wandb.log({"inner_learning_rate": inner_learning_rate.norm()})
+        wandb.log({"inner_learning_rate_bias": inner_learning_rate_bias.norm()})
+        wandb.log(
+            {"inner_learning_rate_specific_index": inner_learning_rate[0][0]})
 
         updated_weight = self.w.weight - inner_learning_rate * gradients[0]
         updated_bias = self.w.bias - inner_learning_rate_bias * gradients[1]
 
         # calculate output using updated `w_bar`
         z = torch.nn.functional.linear(test_view, updated_weight, updated_bias) + test_view
-        print(z.shape)
 
         # this was intended to stop grads from flowing back to weights (minor optimization)
         # doesn't seem to work though
@@ -115,73 +108,6 @@ class TTTInner(nn.Module):
             self.w.bias = nn.Parameter(updated_bias, requires_grad=True)
 
         return z
-
-    # def online_inference2(self: Self, src: torch.Tensor) -> torch.Tensor:
-    #     _sequences, _batches, _features = src.shape
-    #     src = torch.split(src, self.mini_batch_size)  # type: ignore[assignment]
-
-    #     outputs = []
-    #     total_loss = 0
-    #     for minibatch in src:
-    #         minibatch_seq, minibatch_batch, minibatch_features = minibatch.shape
-
-    #         # compute views
-    #         train_view = minibatch @ self.get_theta_k()  # type: ignore[operator]
-    #         label_view = minibatch @ self.get_theta_v()  # type: ignore[operator]
-    #         test_view = minibatch @ self.get_theta_q()  # type: ignore[operator]
-
-    #         assert train_view.shape == (minibatch_seq, minibatch_batch, self.filter_dim)
-    #         assert label_view.shape == (minibatch_seq, minibatch_batch, self.filter_dim)
-
-    #         # reconstruction loss
-    #         reconstruction_target = label_view - train_view  # type: ignore[operator]
-    #         w_train_view = self.w(train_view)
-    #         loss = nn.MSELoss()(w_train_view, reconstruction_target)
-    #         total_loss += loss
-
-    #         # compute gradients for `w` and manually update
-    #         gradients = grad(loss, list(self.w.parameters()), create_graph=True)
-    #         assert gradients[0].shape == self.w.weight.shape
-
-    #         wandb.log({"w_grad": gradients[0].norm()})
-    #         wandb.log({"w_bias_grad": gradients[1].norm()})
-
-    #         # calculate the learned inner learning rate for each parameter and shape appropriately
-    #         inner_learning_rate = self.get_inner_learning_rate(minibatch)
-    #         inner_learning_rate = inner_learning_rate.reshape(-1, self.filter_dim ** 2)
-    #         inner_learning_rate = inner_learning_rate.mean(dim=0)
-    #         inner_learning_rate = inner_learning_rate.reshape(self.filter_dim, self.filter_dim)
-    #         inner_learning_rate_bias = inner_learning_rate.mean(dim=1)
-
-    #         # TODO: consider adding layer norm here to stabilize batch effects of averaging
-
-    #         wandb.log({"inner_learning_rate": inner_learning_rate.norm()})
-    #         wandb.log({"inner_learning_rate_bias": inner_learning_rate_bias.norm()})
-    #         wandb.log(
-    #             {"inner_learning_rate_specific_index": inner_learning_rate[0][0]})
-
-    #         updated_weight = self.w.weight - inner_learning_rate * gradients[0]
-    #         updated_bias = self.w.bias - inner_learning_rate_bias * gradients[1]
-
-    #         # calculate output using updated `w_bar`
-    #         z = torch.nn.functional.linear(test_view, updated_weight, updated_bias) + test_view
-    #         outputs.append(z)
-
-    #         # this was intended to stop grads from flowing back to weights (minor optimization)
-    #         # doesn't seem to work though
-    #         # leaving it
-    #         self.w.weight.requires_grad_(False)
-    #         self.w.bias.requires_grad_(False)
-
-    #         # update `w` with `w_bar` which resets computation graph
-    #         with torch.no_grad():
-    #             self.w.weight = nn.Parameter(updated_weight, requires_grad=True)
-    #             self.w.bias = nn.Parameter(updated_bias, requires_grad=True)
-
-    #     average_loss = total_loss / len(src)
-    #     wandb.log({"inner_loss": average_loss})
-
-    #     return torch.concat(outputs, dim=0)
 
 
 class TTTHead(nn.Module):
@@ -212,11 +138,9 @@ class TTTHead(nn.Module):
         self.low_pass_filter_dim = filter_dim
 
     def train_head(self: Self, input: torch.Tensor) -> torch.Tensor:
-        print(input.shape)
         outputs = self.inner.online_inference(input)
 
         outputs: Tensor = outputs @ self.theta_o  # type: ignore
-        print(outputs.shape)
         return outputs
 
     def get_theta_k(self: Self) -> torch.nn.Parameter:
@@ -268,35 +192,10 @@ class TTTModel(nn.Module):
                                                   ttt_base_inner_learning_rate=ttt_base_inner_learning_rate)
                                         for _ in range(num_layers)])
 
-        # params = []
-        # for block in self.ttt_blocks:
-        #     params.extend([block.ttt_head.theta_k, block.ttt_head.theta_q,
-        #                    block.ttt_head.theta_v, block.ttt_head.theta_o])
-
-        # self.optim = SGD(params, lr=ttt_outer_learning_rate)
-
-        # params = []
-        # for block in self.ttt_blocks:
-        #     params.extend(block.ttt_head.inner_learning_rate_params.parameters())
-        # self.optim_inner_lr = SGD(
-        #     params,
-        #     lr=ttt_inner_learning_rate_learning_rate)
-
-        # self.criterion = nn.CrossEntropyLoss()
-
     def forward(self: Self, src: torch.Tensor) -> torch.Tensor:
-        # assert src.shape == (SEQUENCE_LEN, BATCH_SIZE)
-        # src = self.encoder(src) * math.sqrt(self.embedding_dim)
-        # src = self.pos_encoder(src)
-
-        # assert src.shape == (SEQUENCE_LEN, BATCH_SIZE, EMBEDDING_DIM)
-
         output = src
         for block in self.ttt_blocks:
             output = block.train_block(output)
-
-        # output: Tensor = self.lm_head(output)  # type: ignore
-        # assert output.shape == (SEQUENCE_LEN, BATCH_SIZE, self.vocab_size)
 
         return output
 
@@ -313,91 +212,18 @@ class TTTModel(nn.Module):
                            block.ttt_head.theta_v, block.ttt_head.theta_o])
         return params
 
-    # def train_model(self: Self, src: torch.Tensor) -> torch.Tensor:
-    #     self.optim.zero_grad()
-    #     self.optim_inner_lr.zero_grad()
-
-    #     assert src.shape == (SEQUENCE_LEN, BATCH_SIZE)
-    #     shifted_labels = src[1:, :]
-
-    #     src = self.encoder(src) * math.sqrt(self.embedding_dim)
-    #     src = self.pos_encoder(src)
-
-    #     assert src.shape == (SEQUENCE_LEN, BATCH_SIZE, EMBEDDING_DIM)
-
-    #     output = src
-    #     for block in self.ttt_blocks:
-    #         output = block.train_block(output)
-
-    #     # trim the last predicted token off of the output (cannot train on it)
-    #     output = output[:-1, :, :]
-
-    #     # lm head
-    #     output = self.lm_head(output)
-    #     assert output.shape == (SEQUENCE_LEN - 1, BATCH_SIZE, self.vocab_size)
-
-    #     # loss reshaping
-    #     output = output.reshape(-1, self.vocab_size)
-    #     assert output.shape == ((SEQUENCE_LEN - 1) * BATCH_SIZE, self.vocab_size)
-    #     shifted_labels = shifted_labels.reshape(-1)
-    #     assert shifted_labels.shape == ((SEQUENCE_LEN - 1) * BATCH_SIZE,)
-
-    #     loss = self.criterion(output, shifted_labels)
-    #     wandb.log({"outer_loss": loss.item()})
-
-    #     assert list(self.encoder.parameters())[0].grad is None
-    #     for block in self.ttt_blocks:
-    #         assert block.ttt_head.inner.w.weight.grad is None
-    #         assert block.ttt_head.theta_k.grad is None
-    #         assert block.ttt_head.theta_q.grad is None
-    #         assert block.ttt_head.theta_v.grad is None
-    #         assert block.ttt_head.theta_o.grad is None
-    #         assert block.ttt_head.inner_learning_rate_params.weight.grad is None
-    #     assert self.lm_head.weight.grad is None
-
-    #     loss.backward()
-
-    #     wandb.log({"w_norm": self.ttt_blocks[0].ttt_head.inner.w.weight.norm()})
-    #     wandb.log(
-    #         {"inner_lr_params_grad": self.ttt_blocks[0].ttt_head.inner_learning_rate_params.weight.grad.norm()})
-    #     wandb.log({"inner_lr_params": self.ttt_blocks[0].ttt_head.inner_learning_rate_params.weight.norm()})
-
-    #     # NOTE: Uncomment if you want to visualize the computation graph. You
-    #     # will need to get creative for the inner graph as it doesn't use
-    #     # backwards or optimizer.
-    #     # dot = make_dot(loss, params=dict(self.named_parameters()))
-    #     # dot.render('model_graph_outer', format='png')
-    #     # input()
-
-    #     assert list(self.encoder.parameters())[0].grad is not None
-    #     for block in self.ttt_blocks:
-    #         assert block.ttt_head.inner.w.weight.grad is None
-    #         assert block.ttt_head.theta_k.grad is not None
-    #         assert block.ttt_head.theta_q.grad is not None
-    #         assert block.ttt_head.theta_v.grad is not None
-    #         assert block.ttt_head.theta_o.grad is not None
-    #         assert block.ttt_head.inner_learning_rate_params.weight.grad is not None
-    #     assert self.lm_head.weight.grad is not None
-    #     self.optim.step()
-    #     self.optim_inner_lr.step()
-    #     wandb.log(
-    #         {"inner_learning_rate_params_specific_weight":
-    #             self.ttt_blocks[0].ttt_head.inner_learning_rate_params.weight[0][0]})
-
-    #     return loss.item()
-
 
 if __name__ == "__main__":
     torch.autograd.set_detect_anomaly(True)
     torch.manual_seed(1234)
 
-    # wandb.init(
-    #     project="ttt",
-    #     config={
-    #         "architecture": "Recurrent-FF",
-    #         "dataset": "SequentialNumbers",
-    #     }
-    # )
+    wandb.init(
+        project="ttt-FF",
+        config={
+            "architecture": "Recurrent-FF",
+            "dataset": "SequentialNumbers",
+        }
+    )
 
     device = torch.device("cuda" if torch.cuda.is_available() else "mps")
 
@@ -414,7 +240,7 @@ if __name__ == "__main__":
 
     optim = SGD(model.get_params_ttt_heads(), lr=TTT_OUTER_LEARNING_RATE)
     optim_inner_lr = SGD(model.get_params_inner_learning_rates(), lr=TTT_INNER_LEARNING_RATE_LEARNING_RATE)
-    criterion = nn.CrossEntropyLoss()
+    criterion = nn.MSELoss()
 
     for epoch in range(0, EPOCHS):
         for i, (data, labels) in enumerate(dataloader):
@@ -428,33 +254,17 @@ if __name__ == "__main__":
 
             output = model.forward(data)
             loss = criterion(output, labels)
-            print(loss)
+
+            # cosine similarity of output and labels first batch
+            output_cossim = output[0]
+            labels_cossim = labels[0]
+
+            # use a library
+            cos_sim = F.cosine_similarity(output_cossim, labels_cossim, dim=0)
+            wandb.log({"cos_sim": cos_sim.item()})
+            wandb.log({"outer_loss": loss.item()})
 
             loss.backward()
 
             optim.step()
             optim_inner_lr.step()
-
-    # # dummy eval on one sequence
-    # model.eval()
-    # for i, data in enumerate(dataloader):
-    #     data = data.to(device)
-    #     data = data.permute(1, 0, 2)
-    #     assert data.shape == (SEQUENCE_LEN, BATCH_SIZE, VOCAB_SIZE)
-
-    #     data = data.argmax(dim=2)
-    #     assert data.shape == (SEQUENCE_LEN, BATCH_SIZE)
-
-    #     # batch size 1
-    #     data = data[:, 0:1]
-    #     BATCH_SIZE = 1
-    #     print(data)
-
-    #     output = model(data)
-
-    #     # just print the prediction
-    #     output = output.argmax(dim=2)
-    #     output = output.squeeze(1)
-    #     print(output)
-
-    #     break
