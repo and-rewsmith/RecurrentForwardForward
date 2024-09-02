@@ -15,17 +15,16 @@ import wandb
 NUM_SAMPLES = 1000
 
 # training
-EPOCHS = 40
+EPOCHS = 60
 BATCH_SIZE = 50
 
-TTT_BASE_INNER_LEARNING_RATE = 1e-2
-TTT_INNER_LEARNING_RATE_LEARNING_RATE = 1e-2
+TTT_BASE_INNER_LEARNING_RATE = 1e-5
+TTT_INNER_LEARNING_RATE_LEARNING_RATE = 1e-5
 TTT_OUTER_LEARNING_RATE = 1e-1
 
-LOW_PASS_FILTER_DIM = 10
-INPUT_DIM = 10
+LOW_PASS_FILTER_DIM = 500
+INPUT_DIM = 784
 DROPOUT = 0.0
-LEARNING_RATE_PARAMS_OUT_DIM_SCALE = 4
 
 
 class VectorDataset(Dataset):
@@ -84,12 +83,14 @@ class TTTInner(nn.Module):
 
         # calculate the learned inner learning rate for each parameter and shape appropriately
         inner_learning_rate, inner_learning_rate_bias = self.get_inner_learning_rate(src)
+        assert inner_learning_rate.shape == gradients[0].shape
+        assert inner_learning_rate_bias.shape == gradients[1].shape
 
         # TODO: consider adding layer norm here to stabilize batch effects of averaging
 
         # wandb.log({"inner_learning_rate": inner_learning_rate.norm()})
         # wandb.log({"inner_learning_rate_bias": inner_learning_rate_bias.norm()})
-        # wandb.log( #     {"inner_learning_rate_specific_index": inner_learning_rate[0][0]})
+        # wandb.log({"inner_learning_rate_specific_index": inner_learning_rate[0][0]})
 
         updated_weight = self.w.weight - inner_learning_rate * gradients[0]
         updated_bias = self.w.bias - inner_learning_rate_bias * gradients[1]
@@ -251,22 +252,22 @@ class TTTModel(nn.Module):
 
 
 if __name__ == "__main__":
-    # torch.autograd.set_detect_anomaly(True)
-    # torch.manual_seed(1234)
+    torch.autograd.set_detect_anomaly(True)
+    torch.manual_seed(1234)
 
-    # wandb.init(
-    #     project="ttt-FF",
-    #     config={
-    #         "architecture": "Recurrent-FF",
-    #         "dataset": "SequentialNumbers",
-    #     }
-    # )
+    wandb.init(
+        project="ttt-FF",
+        config={
+            "architecture": "Recurrent-FF",
+            "dataset": "SequentialNumbers",
+        }
+    )
 
     device = torch.device("cuda" if torch.cuda.is_available() else "mps")
 
     model = TTTModel(
         num_layers=1, filter_dim=LOW_PASS_FILTER_DIM, embedding_dim=INPUT_DIM, output_dim=INPUT_DIM,
-        ttt_base_inner_learning_rate=TTT_BASE_INNER_LEARNING_RATE, num_heads=2)
+        ttt_base_inner_learning_rate=TTT_BASE_INNER_LEARNING_RATE, num_heads=1)
     model = model.to(device)
 
     dataset = VectorDataset()
@@ -291,7 +292,6 @@ if __name__ == "__main__":
 
             output = model.forward(data)
             loss = criterion(output, labels)
-            print(loss)
 
             # cosine similarity of output and labels first batch
             output_cossim = output[0]
@@ -299,7 +299,10 @@ if __name__ == "__main__":
 
             # use a library
             cos_sim = F.cosine_similarity(output_cossim, labels_cossim, dim=0)
-            print(cos_sim)
+
+            # print(loss)
+            # print(cos_sim)
+
             # wandb.log({"cos_sim": cos_sim.item()})
             # wandb.log({"outer_loss": loss.item()})
 

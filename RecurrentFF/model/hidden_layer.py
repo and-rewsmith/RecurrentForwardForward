@@ -251,21 +251,22 @@ class HiddenLayer(nn.Module):
 
         self.forward_linear = TTTModel(
             num_layers=1, filter_dim=LOW_PASS_FILTER_DIM, embedding_dim=prev_size, output_dim=self.size,
-            ttt_base_inner_learning_rate=TTT_BASE_INNER_LEARNING_RATE)
+            ttt_base_inner_learning_rate=TTT_BASE_INNER_LEARNING_RATE, num_heads=1)
 
         self.backward_linear = TTTModel(
             num_layers=1, filter_dim=LOW_PASS_FILTER_DIM, embedding_dim=next_size, output_dim=self.size,
-            ttt_base_inner_learning_rate=TTT_BASE_INNER_LEARNING_RATE)
+            ttt_base_inner_learning_rate=TTT_BASE_INNER_LEARNING_RATE, num_heads=1)
 
         self.lateral_linear = TTTModel(
             num_layers=1, filter_dim=LOW_PASS_FILTER_DIM, embedding_dim=self.size, output_dim=self.size,
-            ttt_base_inner_learning_rate=TTT_BASE_INNER_LEARNING_RATE)
+            ttt_base_inner_learning_rate=TTT_BASE_INNER_LEARNING_RATE, num_heads=1)
 
         if next_size == self.settings.data_config.num_classes:
-            amplified_initialization(self.backward_linear.ttt_blocks[0].ttt_head.theta_o, 3.0)
-            amplified_initialization(self.backward_linear.ttt_blocks[0].ttt_head.theta_k, 3.0)
-            amplified_initialization(self.backward_linear.ttt_blocks[0].ttt_head.theta_q, 3.0)
-            amplified_initialization(self.backward_linear.ttt_blocks[0].ttt_head.theta_v, 3.0)
+            for head in self.forward_linear.ttt_blocks[0].ttt_heads:
+                amplified_initialization(head.theta_o, 3.0)
+                amplified_initialization(head.theta_k, 3.0)
+                amplified_initialization(head.theta_q, 3.0)
+                amplified_initialization(head.theta_v, 3.0)
 
         # self.forward_linear = nn.Linear(prev_size, size)
         # nn.init.kaiming_uniform_(
@@ -444,8 +445,8 @@ class HiddenLayer(nn.Module):
     def set_next_layer(self, next_layer: Self) -> None:
         self.next_layer = next_layer
 
-    # @profile(stdout=False, filename='baseline.prof',
-    #          skip=Settings.new().model.skip_profiling)
+    @profile(stdout=False, filename='baseline.prof',
+             skip=False)
     def train_layer(self,  # type: ignore[override]
                     input_data: TrainInputData,
                     label_data: TrainLabelData,

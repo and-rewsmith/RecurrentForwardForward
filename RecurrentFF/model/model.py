@@ -189,14 +189,23 @@ class RecurrentFFNet(nn.Module):
                         neg_badness_per_layer,
                         total_batch_count)
 
+                    inner_loss_all = 0
                     for i, layer in enumerate(self.inner_layers):
-                        inner_loss = layer.backward_linear.ttt_blocks[0].ttt_head.inner.inner_loss + \
-                            layer.forward_linear.ttt_blocks[0].ttt_head.inner.inner_loss + \
-                            layer.lateral_linear.ttt_blocks[0].ttt_head.inner.inner_loss
-                        inner_loss /= 3
+                        inner_loss_layer = 0
+                        for head in layer.forward_linear.ttt_blocks[0].ttt_heads:
+                            inner_loss_layer += head.inner.inner_loss
+                        for head in layer.backward_linear.ttt_blocks[0].ttt_heads:
+                            inner_loss_layer += head.inner.inner_loss
+                        for head in layer.lateral_linear.ttt_blocks[0].ttt_heads:
+                            inner_loss_layer += head.inner.inner_loss
                         wandb.log(
-                            {"inner_loss (layer " + str(i + 1) + ")": inner_loss}, step=total_batch_count)
+                            {"inner_loss (layer " + str(i + 1) + ")": inner_loss_layer}, step=total_batch_count)
                         self.inner_layers.step_learning_rates()
+
+                        inner_loss_all += inner_loss_layer
+                    wandb.log(
+                        {"inner_loss": inner_loss_all}, step=total_batch_count
+                    )
 
                 total_batch_count += 1
 
