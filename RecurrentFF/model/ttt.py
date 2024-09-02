@@ -24,7 +24,7 @@ TTT_BASE_INNER_LEARNING_RATE = 1e-4
 TTT_INNER_LEARNING_RATE_LEARNING_RATE = 1e-4
 TTT_OUTER_LEARNING_RATE = 1e-5
 
-LOW_PASS_FILTER_DIM = 500
+LOW_PASS_FILTER_DIM = 784
 INPUT_DIM = 784
 DROPOUT = 0.0
 LEARNING_RATE_PARAMS_OUT_DIM_SCALE = 4
@@ -159,7 +159,6 @@ class TTTHead(nn.Module):
 
     def get_inner_learning_rate(self: Self, input: torch.Tensor) -> Tensor:
         sigmoid_op = self.inner_learning_rate_params(input)
-        # wandb.log({"pre_sigmoid": pre_sigmoid.mean()})
         sigmoid_op = self.ttt_base_inner_learning_rate * F.sigmoid(sigmoid_op)
         sigmoid_op = sigmoid_op.mean(dim=0)
 
