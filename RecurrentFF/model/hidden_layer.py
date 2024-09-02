@@ -266,6 +266,9 @@ class HiddenLayer(nn.Module):
         if next_size == self.settings.data_config.num_classes:
             print("-----backwards init success")
             amplified_initialization(self.backward_linear.ttt_blocks[0].ttt_head.theta_o, 3.0)
+            amplified_initialization(self.backward_linear.ttt_blocks[0].ttt_head.theta_k, 3.0)
+            amplified_initialization(self.backward_linear.ttt_blocks[0].ttt_head.theta_q, 3.0)
+            amplified_initialization(self.backward_linear.ttt_blocks[0].ttt_head.theta_v, 3.0)
 
         # self.forward_linear = nn.Linear(prev_size, size)
         # nn.init.kaiming_uniform_(
