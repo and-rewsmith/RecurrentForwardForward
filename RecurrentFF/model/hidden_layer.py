@@ -249,11 +249,9 @@ class HiddenLayer(nn.Module):
         self.backward_dropout = nn.Dropout(p=self.settings.model.dropout)
         self.lateral_dropout = nn.Dropout(p=self.settings.model.dropout)
 
-        print("constructing one ttt")
         self.forward_linear = TTTModel(
             num_layers=1, filter_dim=LOW_PASS_FILTER_DIM, embedding_dim=prev_size, output_dim=self.size,
             ttt_base_inner_learning_rate=TTT_BASE_INNER_LEARNING_RATE)
-        print("constructed one ttt")
 
         self.backward_linear = TTTModel(
             num_layers=1, filter_dim=LOW_PASS_FILTER_DIM, embedding_dim=next_size, output_dim=self.size,
@@ -264,7 +262,6 @@ class HiddenLayer(nn.Module):
             ttt_base_inner_learning_rate=TTT_BASE_INNER_LEARNING_RATE)
 
         if next_size == self.settings.data_config.num_classes:
-            print("-----backwards init success")
             amplified_initialization(self.backward_linear.ttt_blocks[0].ttt_head.theta_o, 3.0)
             amplified_initialization(self.backward_linear.ttt_blocks[0].ttt_head.theta_k, 3.0)
             amplified_initialization(self.backward_linear.ttt_blocks[0].ttt_head.theta_q, 3.0)
