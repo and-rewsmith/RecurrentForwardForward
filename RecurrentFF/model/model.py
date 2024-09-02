@@ -327,6 +327,7 @@ class RecurrentFFNet(nn.Module):
 
         layer_metrics.log_metrics(total_batch_count)
         average_layer_loss = layer_metrics.average_layer_loss()
+        print(average_layer_loss)
 
         if len(self.inner_layers) >= 3:
             wandb.log({"loss": average_layer_loss,

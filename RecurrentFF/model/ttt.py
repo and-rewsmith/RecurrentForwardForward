@@ -8,6 +8,7 @@ from torch.autograd import grad
 from torch.utils.data import Dataset, DataLoader
 from torchviz import make_dot  # type: ignore
 from torch.nn import functional as F
+import torch.nn.utils.parametrize as parametrize
 import wandb
 
 # data
@@ -19,12 +20,13 @@ SEQUENCE_LEN = 40
 EPOCHS = 40
 BATCH_SIZE = 50
 
-TTT_BASE_INNER_LEARNING_RATE = 1e-5
-TTT_INNER_LEARNING_RATE_LEARNING_RATE = 1e-5
+TTT_BASE_INNER_LEARNING_RATE = 1e-4
+TTT_INNER_LEARNING_RATE_LEARNING_RATE = 1e-4
 TTT_OUTER_LEARNING_RATE = 1e-5
 LOW_PASS_FILTER_DIM = 100
 INPUT_DIM = 784
 DROPOUT = 0.0
+LEARNING_RATE_PARAMS_OUT_DIM_SCALE = 4
 
 
 class VectorDataset(Dataset):
@@ -87,8 +89,7 @@ class TTTInner(nn.Module):
 
         # wandb.log({"inner_learning_rate": inner_learning_rate.norm()})
         # wandb.log({"inner_learning_rate_bias": inner_learning_rate_bias.norm()})
-        # wandb.log(
-        #     {"inner_learning_rate_specific_index": inner_learning_rate[0][0]})
+        # wandb.log( #     {"inner_learning_rate_specific_index": inner_learning_rate[0][0]})
 
         updated_weight = self.w.weight - inner_learning_rate * gradients[0]
         updated_bias = self.w.bias - inner_learning_rate_bias * gradients[1]
@@ -121,7 +122,9 @@ class TTTHead(nn.Module):
         self.theta_v = nn.Parameter(torch.randn(input_dim, filter_dim))
         self.theta_q = nn.Parameter(torch.randn(input_dim, filter_dim))
         self.theta_o = nn.Parameter(torch.randn(filter_dim, output_dim))
-        self.inner_learning_rate_params = nn.Linear(input_dim, filter_dim ** 2 + filter_dim)
+
+        learning_rate_params_out_dim = filter_dim * 2
+        self.inner_learning_rate_params = nn.Linear(input_dim, learning_rate_params_out_dim)
 
         self.inner = TTTInner(filter_dim=filter_dim,
                               get_theta_k=self.get_theta_k,
@@ -153,13 +156,16 @@ class TTTHead(nn.Module):
         return self.theta_v
 
     def get_inner_learning_rate(self: Self, input: torch.Tensor) -> Tensor:
-        pre_sigmoid = self.inner_learning_rate_params(input)
+        sigmoid_op = self.inner_learning_rate_params(input)
         # wandb.log({"pre_sigmoid": pre_sigmoid.mean()})
-        post_sigmoid = self.ttt_base_inner_learning_rate * F.sigmoid(pre_sigmoid)
-        post_sigmoid = post_sigmoid.mean(dim=0)
-        learning_rate_matrix_params = post_sigmoid[0:self.low_pass_filter_dim **
-                                                   2].reshape(self.low_pass_filter_dim, self.low_pass_filter_dim)
-        learning_rate_bias = post_sigmoid[self.low_pass_filter_dim ** 2:]
+        sigmoid_op = self.ttt_base_inner_learning_rate * F.sigmoid(sigmoid_op)
+        sigmoid_op = sigmoid_op.mean(dim=0)
+
+        # repeat along dimension 0, which corresponds to the "to" dimension of nn.Linear weight
+        # implication: all presynamptic neurons have the same learning rate
+        learning_rate_matrix_params = sigmoid_op[0:self.low_pass_filter_dim].repeat(self.low_pass_filter_dim, 1)
+        learning_rate_bias = sigmoid_op[self.low_pass_filter_dim:]
+
         return learning_rate_matrix_params, learning_rate_bias
 
 
@@ -230,7 +236,7 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "mps")
 
     model = TTTModel(
-        num_layers=1, filter_dim=LOW_PASS_FILTER_DIM, embedding_dim=INPUT_DIM,
+        num_layers=1, filter_dim=LOW_PASS_FILTER_DIM, embedding_dim=INPUT_DIM, output_dim=INPUT_DIM,
         ttt_base_inner_learning_rate=TTT_BASE_INNER_LEARNING_RATE)
     model = model.to(device)
 
@@ -256,6 +262,7 @@ if __name__ == "__main__":
 
             output = model.forward(data)
             loss = criterion(output, labels)
+            print(loss)
 
             # cosine similarity of output and labels first batch
             output_cossim = output[0]
