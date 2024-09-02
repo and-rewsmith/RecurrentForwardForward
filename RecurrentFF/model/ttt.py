@@ -23,7 +23,8 @@ BATCH_SIZE = 50
 TTT_BASE_INNER_LEARNING_RATE = 1e-4
 TTT_INNER_LEARNING_RATE_LEARNING_RATE = 1e-4
 TTT_OUTER_LEARNING_RATE = 1e-5
-LOW_PASS_FILTER_DIM = 100
+
+LOW_PASS_FILTER_DIM = 500
 INPUT_DIM = 784
 DROPOUT = 0.0
 LEARNING_RATE_PARAMS_OUT_DIM_SCALE = 4
@@ -73,6 +74,7 @@ class TTTInner(nn.Module):
         reconstruction_target = label_view - train_view  # type: ignore[operator]
         w_train_view = self.w(train_view)
         loss = nn.MSELoss()(w_train_view, reconstruction_target)
+        self.inner_loss = loss
         # wandb.log({"inner_loss": loss})
 
         # compute gradients for `w` and manually update

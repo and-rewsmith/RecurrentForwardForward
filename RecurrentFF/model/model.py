@@ -189,6 +189,15 @@ class RecurrentFFNet(nn.Module):
                         neg_badness_per_layer,
                         total_batch_count)
 
+                    for i, layer in enumerate(self.inner_layers):
+                        inner_loss = layer.backward_linear.ttt_blocks[0].ttt_head.inner.inner_loss + \
+                            layer.forward_linear.ttt_blocks[0].ttt_head.inner.inner_loss + \
+                            layer.lateral_linear.ttt_blocks[0].ttt_head.inner.inner_loss
+                        inner_loss /= 3
+                        wandb.log(
+                            {"inner_loss (layer " + str(i + 1) + ")": inner_loss}, step=total_batch_count)
+                        self.inner_layers.step_learning_rates()
+
                 total_batch_count += 1
 
             self.eval()
@@ -213,8 +222,6 @@ class RecurrentFFNet(nn.Module):
                     epoch,
                     total_batch_count
                 )
-
-            self.inner_layers.step_learning_rates()
 
     def __train_batch(
             self,
