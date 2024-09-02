@@ -246,7 +246,7 @@ class InnerLayers(nn.Module):
             logging.debug("Loss for layer " +
                           str(layer_num) + ": " + str(loss))
 
-            layer_metrics.ingest_layer_metrics(i, layer, loss)
+            # layer_metrics.ingest_layer_metrics(i, layer, loss)
 
         layer_metrics.increment_samples_seen()
 

@@ -70,6 +70,7 @@ class RecurrentFFNet(nn.Module):
             next_size = self.settings.model.hidden_sizes[i + 1] if i < len(
                 self.settings.model.hidden_sizes) - 1 else self.settings.data_config.num_classes
 
+            print("constructing hidden layer")
             hidden_layer = HiddenLayer(
                 self.settings,
                 self.settings.data_config.train_batch_size,
@@ -78,6 +79,7 @@ class RecurrentFFNet(nn.Module):
                 size,
                 next_size,
                 self.settings.model.damping_factor)
+            print("constructed hidden layer")
             inner_layers.append(hidden_layer)
             prev_size = size
 
@@ -109,13 +111,16 @@ class RecurrentFFNet(nn.Module):
         # initialize optimizers
         for layer in inner_layers:
             layer.init_optimizer()
+        print("Initialized optimizers")
 
         self.inner_layers = InnerLayers(self.settings, inner_layers)
+        print("Initialized inner layers")
 
         # when we eventually support changing/multiclass scenarios this will be
         # configurable
         self.processor = StaticSingleClassProcessor(
             self.inner_layers, self.settings)
+        print("Initialized processor")
 
         self.weights_file_name = self.settings.data_config.dataset + \
             "_" + datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + "_" + ''.join(
