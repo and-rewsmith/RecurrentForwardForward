@@ -13,19 +13,17 @@ import wandb
 
 # data
 NUM_SAMPLES = 1000
-VOCAB_SIZE = 15
-SEQUENCE_LEN = 40
 
 # training
 EPOCHS = 40
 BATCH_SIZE = 50
 
-TTT_BASE_INNER_LEARNING_RATE = 1e-4
-TTT_INNER_LEARNING_RATE_LEARNING_RATE = 1e-4
-TTT_OUTER_LEARNING_RATE = 1e-5
+TTT_BASE_INNER_LEARNING_RATE = 1e-2
+TTT_INNER_LEARNING_RATE_LEARNING_RATE = 1e-2
+TTT_OUTER_LEARNING_RATE = 1e-1
 
-LOW_PASS_FILTER_DIM = 784
-INPUT_DIM = 784
+LOW_PASS_FILTER_DIM = 10
+INPUT_DIM = 10
 DROPOUT = 0.0
 LEARNING_RATE_PARAMS_OUT_DIM_SCALE = 4
 
@@ -176,15 +174,42 @@ class TTTBlock(nn.Module):
     # TODO: add layer norm at beginning and end of block
     # TODO: recursive structure
     def __init__(self: Self, filter_dim: int, embedding_dim: int, output_dim: int,
-                 ttt_base_inner_learning_rate: float) -> None:
+                 ttt_base_inner_learning_rate: float, num_heads: int) -> None:
         super(TTTBlock, self).__init__()
 
-        self.ttt_head = TTTHead(filter_dim=filter_dim, input_dim=embedding_dim, output_dim=output_dim,
-                                ttt_base_inner_learning_rate=ttt_base_inner_learning_rate)
+        self.num_heads = num_heads
+        self.embedding_dim = embedding_dim
+        self.head_dim = embedding_dim // num_heads
+
+        assert self.head_dim * num_heads == embedding_dim, "embedding_dim must be divisible by num_heads"
+
+        self.ttt_heads = nn.ModuleList([
+            TTTHead(filter_dim=filter_dim, input_dim=self.head_dim, output_dim=self.head_dim,
+                    ttt_base_inner_learning_rate=ttt_base_inner_learning_rate)
+            for _ in range(num_heads)
+        ])
+
+        self.output_linear = nn.Linear(embedding_dim, output_dim)
 
     def train_block(self, input: torch.Tensor) -> torch.Tensor:
-        outputs = self.ttt_head.train_head(input)
-        return outputs
+        batch_size, _ = input.shape
+
+        # Split the input for each head
+        split_input = input.view(batch_size, self.num_heads, self.head_dim)
+
+        # Process each split through its corresponding head
+        outputs = []
+        for i, head in enumerate(self.ttt_heads):
+            head_output = head.train_head(split_input[:, i])
+            outputs.append(head_output)
+
+        # Concatenate the outputs from all heads
+        concat_output = torch.cat(outputs, dim=-1)
+
+        # Apply the output linear layer
+        final_output = self.output_linear(concat_output)
+
+        return final_output
 
 
 class TTTModel(nn.Module):
@@ -192,33 +217,36 @@ class TTTModel(nn.Module):
     def __init__(
             self: Self, filter_dim: int, embedding_dim: int, output_dim: int,
             ttt_base_inner_learning_rate: float,
-            num_layers: int) -> None:
+            num_layers: int, num_heads: int) -> None:
         super(TTTModel, self).__init__()
 
         self.ttt_blocks = nn.ModuleList([
             TTTBlock(
-                filter_dim=filter_dim, embedding_dim=embedding_dim, output_dim=output_dim,
-                ttt_base_inner_learning_rate=ttt_base_inner_learning_rate)
+                filter_dim=filter_dim, embedding_dim=embedding_dim, output_dim=embedding_dim,
+                ttt_base_inner_learning_rate=ttt_base_inner_learning_rate, num_heads=num_heads)
             for _ in range(num_layers)])
+
+        self.final_output = nn.Linear(embedding_dim, output_dim)
 
     def forward(self: Self, src: torch.Tensor) -> torch.Tensor:
         output = src
         for block in self.ttt_blocks:
             output = block.train_block(output)
 
-        return output
+        return self.final_output(output)
 
     def get_params_inner_learning_rates(self: Self) -> List[torch.nn.Parameter]:
         params = []
         for block in self.ttt_blocks:
-            params.extend(block.ttt_head.inner_learning_rate_params.parameters())
+            for head in block.ttt_heads:
+                params.extend(head.inner_learning_rate_params.parameters())
         return params
 
     def get_params_ttt_heads(self: Self) -> List[torch.nn.Parameter]:
         params = []
         for block in self.ttt_blocks:
-            params.extend([block.ttt_head.theta_k, block.ttt_head.theta_q,
-                           block.ttt_head.theta_v, block.ttt_head.theta_o])
+            for head in block.ttt_heads:
+                params.extend([head.theta_k, head.theta_q, head.theta_v, head.theta_o])
         return params
 
 
@@ -238,7 +266,7 @@ if __name__ == "__main__":
 
     model = TTTModel(
         num_layers=1, filter_dim=LOW_PASS_FILTER_DIM, embedding_dim=INPUT_DIM, output_dim=INPUT_DIM,
-        ttt_base_inner_learning_rate=TTT_BASE_INNER_LEARNING_RATE)
+        ttt_base_inner_learning_rate=TTT_BASE_INNER_LEARNING_RATE, num_heads=2)
     model = model.to(device)
 
     dataset = VectorDataset()
@@ -271,6 +299,7 @@ if __name__ == "__main__":
 
             # use a library
             cos_sim = F.cosine_similarity(output_cossim, labels_cossim, dim=0)
+            print(cos_sim)
             # wandb.log({"cos_sim": cos_sim.item()})
             # wandb.log({"outer_loss": loss.item()})
 
