@@ -20,11 +20,11 @@ SEQUENCE_LEN = 40
 EPOCHS = 40
 BATCH_SIZE = 50
 
-TTT_BASE_INNER_LEARNING_RATE = 1e-4
+TTT_BASE_INNER_LEARNING_RATE = 1e-1
 TTT_INNER_LEARNING_RATE_LEARNING_RATE = 1e-4
 TTT_OUTER_LEARNING_RATE = 1e-5
 
-LOW_PASS_FILTER_DIM = 784
+LOW_PASS_FILTER_DIM = 500
 INPUT_DIM = 784
 DROPOUT = 0.0
 LEARNING_RATE_PARAMS_OUT_DIM_SCALE = 4
@@ -86,6 +86,8 @@ class TTTInner(nn.Module):
 
         # calculate the learned inner learning rate for each parameter and shape appropriately
         inner_learning_rate, inner_learning_rate_bias = self.get_inner_learning_rate(src)
+        assert inner_learning_rate.shape == gradients[0].shape
+        assert inner_learning_rate_bias.shape == gradients[1].shape
 
         # TODO: consider adding layer norm here to stabilize batch effects of averaging
 
