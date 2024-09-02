@@ -18,11 +18,11 @@ NUM_SAMPLES = 1000
 EPOCHS = 60
 BATCH_SIZE = 50
 
-TTT_BASE_INNER_LEARNING_RATE = 1e-1
+TTT_BASE_INNER_LEARNING_RATE = 1e-2
 TTT_INNER_LEARNING_RATE_LEARNING_RATE = 1e-5
 TTT_OUTER_LEARNING_RATE = 1e-1
 
-LOW_PASS_FILTER_DIM = 500
+LOW_PASS_FILTER_DIM = 100
 INPUT_DIM = 784
 DROPOUT = 0.0
 
@@ -206,6 +206,8 @@ class TTTBlock(nn.Module):
 
         # Concatenate the outputs from all heads
         concat_output = torch.cat(outputs, dim=-1)
+        assert concat_output.shape == (batch_size, self.embedding_dim)
+        concat_output = F.leaky_relu(concat_output)
 
         # Apply the output linear layer
         final_output = self.output_linear(concat_output)
