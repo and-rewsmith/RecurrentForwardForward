@@ -176,16 +176,16 @@ def custom_load_state_dict(self, state_dict: Dict, strict=True):  # type: ignore
     return self
 
 
-def amplified_initialization(layer: nn.Linear, amplification_factor: float = 3.0) -> None:
+def amplified_initialization(layer: nn.Parameter, amplification_factor: float = 3.0) -> None:
     """Amplified initialization for Linear layers."""
     # Get the number of input features
-    n = layer.in_features
+    n = layer.data.shape[0]
     # Compute the standard deviation for He initialization
     std = (2.0 / n) ** 0.5
     # Amplify the standard deviation
     amplified_std = std * amplification_factor
     # Initialize weights with amplified standard deviation
-    nn.init.normal_(layer.weight, mean=0, std=amplified_std)
+    nn.init.normal_(layer.data, mean=0, std=amplified_std)
 
 
 class HiddenLayer(nn.Module):
@@ -262,6 +262,10 @@ class HiddenLayer(nn.Module):
         self.lateral_linear = TTTModel(
             num_layers=1, filter_dim=LOW_PASS_FILTER_DIM, embedding_dim=self.size, output_dim=self.size,
             ttt_base_inner_learning_rate=TTT_BASE_INNER_LEARNING_RATE)
+
+        if next_size == self.settings.data_config.num_classes:
+            print("-----backwards init success")
+            amplified_initialization(self.backward_linear.ttt_blocks[0].ttt_head.theta_o, 3.0)
 
         # self.forward_linear = nn.Linear(prev_size, size)
         # nn.init.kaiming_uniform_(
