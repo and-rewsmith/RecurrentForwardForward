@@ -20,14 +20,15 @@ SEQUENCE_LEN = 40
 EPOCHS = 40
 BATCH_SIZE = 50
 
-TTT_BASE_INNER_LEARNING_RATE = 1e-1
-TTT_INNER_LEARNING_RATE_LEARNING_RATE = 1e-4
+TTT_BASE_INNER_LEARNING_RATE = 5 * 1e-1
+TTT_INNER_LEARNING_RATE_LEARNING_RATE = 5e-2
 TTT_OUTER_LEARNING_RATE = 1e-5
 
-LOW_PASS_FILTER_DIM = 500
+LOW_PASS_FILTER_DIM = 250
 INPUT_DIM = 784
 DROPOUT = 0.0
-LEARNING_RATE_PARAMS_OUT_DIM_SCALE = 4
+
+CLIP_VALUE = 1.0
 
 
 class VectorDataset(Dataset):
@@ -81,6 +82,11 @@ class TTTInner(nn.Module):
         gradients = grad(loss, list(self.w.parameters()), create_graph=True)
         assert gradients[0].shape == self.w.weight.shape
 
+        clipped_gradients = []
+        for g in gradients:
+            g.clamp(-CLIP_VALUE, CLIP_VALUE)
+            clipped_gradients.append(g)
+
         # wandb.log({"w_grad": gradients[0].norm()})
         # wandb.log({"w_bias_grad": gradients[1].norm()})
 
@@ -88,6 +94,8 @@ class TTTInner(nn.Module):
         inner_learning_rate, inner_learning_rate_bias = self.get_inner_learning_rate(src)
         assert inner_learning_rate.shape == gradients[0].shape
         assert inner_learning_rate_bias.shape == gradients[1].shape
+        assert inner_learning_rate.shape == clipped_gradients[0].shape
+        assert inner_learning_rate_bias.shape == clipped_gradients[1].shape
 
         # TODO: consider adding layer norm here to stabilize batch effects of averaging
 
@@ -95,8 +103,8 @@ class TTTInner(nn.Module):
         # wandb.log({"inner_learning_rate_bias": inner_learning_rate_bias.norm()})
         # wandb.log( #     {"inner_learning_rate_specific_index": inner_learning_rate[0][0]})
 
-        updated_weight = self.w.weight - inner_learning_rate * gradients[0]
-        updated_bias = self.w.bias - inner_learning_rate_bias * gradients[1]
+        updated_weight = self.w.weight - inner_learning_rate * clipped_gradients[0]
+        updated_bias = self.w.bias - inner_learning_rate_bias * clipped_gradients[1]
 
         # calculate output using updated `w_bar`
         z = torch.nn.functional.linear(test_view, updated_weight, updated_bias) + test_view
