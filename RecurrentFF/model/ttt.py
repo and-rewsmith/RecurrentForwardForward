@@ -11,12 +11,6 @@ from torch.nn import functional as F
 import torch.nn.utils.parametrize as parametrize
 import wandb
 
-# data
-NUM_SAMPLES = 1000
-VOCAB_SIZE = 15
-SEQUENCE_LEN = 40
-
-# training
 EPOCHS = 60
 BATCH_SIZE = 50
 
@@ -52,22 +46,6 @@ class VectorDataset(Dataset):
         vector = self.data[idx]
         transformed_vector = self._polynomial_transform(vector)
         return vector, transformed_vector  # Return input and the polynomial-transformed output
-
-# class VectorDataset(Dataset):
-#     def __init__(self, num_samples=1000, vector_dim=INPUT_DIM):
-#         self.num_samples = num_samples
-#         self.vector_dim = vector_dim
-#         self.data = self._generate_data()
-
-#     def _generate_data(self):
-#         return torch.randn(self.num_samples, self.vector_dim)
-
-#     def __len__(self):
-#         return self.num_samples
-
-#     def __getitem__(self, idx):
-#         vector = self.data[idx]
-#         return vector, vector  # Return the same vector as both input and target
 
 
 class TTTInner(nn.Module):
