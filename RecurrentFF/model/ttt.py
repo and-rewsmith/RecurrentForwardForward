@@ -20,8 +20,8 @@ SEQUENCE_LEN = 40
 EPOCHS = 60
 BATCH_SIZE = 50
 
-TTT_BASE_INNER_LEARNING_RATE = 1e-1
-TTT_INNER_LEARNING_RATE_LEARNING_RATE = 1e-2
+TTT_BASE_INNER_LEARNING_RATE = 1e-2
+TTT_INNER_LEARNING_RATE_LEARNING_RATE = 5 * 1e-2
 TTT_OUTER_LEARNING_RATE = 1e-1
 
 LOW_PASS_FILTER_DIM = 5
@@ -30,22 +30,44 @@ DROPOUT = 0.0
 
 CLIP_VALUE = 10.0
 
-
 class VectorDataset(Dataset):
-    def __init__(self, num_samples=1000, vector_dim=INPUT_DIM):
+    def __init__(self, num_samples=1000, vector_dim=5, degree=2):
         self.num_samples = num_samples
         self.vector_dim = vector_dim
+        self.degree = degree  # Degree of the polynomial
         self.data = self._generate_data()
 
     def _generate_data(self):
+        # Generate random data with normal distribution
         return torch.randn(self.num_samples, self.vector_dim)
+
+    def _polynomial_transform(self, vector):
+        # Apply polynomial transformation (e.g., squaring)
+        return torch.pow(vector, self.degree)
 
     def __len__(self):
         return self.num_samples
 
     def __getitem__(self, idx):
         vector = self.data[idx]
-        return vector, vector  # Return the same vector as both input and target
+        transformed_vector = self._polynomial_transform(vector)
+        return vector, transformed_vector  # Return input and the polynomial-transformed output
+
+# class VectorDataset(Dataset):
+#     def __init__(self, num_samples=1000, vector_dim=INPUT_DIM):
+#         self.num_samples = num_samples
+#         self.vector_dim = vector_dim
+#         self.data = self._generate_data()
+
+#     def _generate_data(self):
+#         return torch.randn(self.num_samples, self.vector_dim)
+
+#     def __len__(self):
+#         return self.num_samples
+
+#     def __getitem__(self, idx):
+#         vector = self.data[idx]
+#         return vector, vector  # Return the same vector as both input and target
 
 
 class TTTInner(nn.Module):
@@ -85,7 +107,7 @@ class TTTInner(nn.Module):
 
         clipped_gradients = []
         for g in gradients:
-            # g.clamp(-CLIP_VALUE, CLIP_VALUE)
+            g.clamp(-CLIP_VALUE, CLIP_VALUE)
             clipped_gradients.append(g)
 
         wandb.log({"w_grad": gradients[0].norm()})
@@ -155,7 +177,7 @@ class TTTHead(nn.Module):
 
     def train_head(self: Self, input: torch.Tensor) -> torch.Tensor:
         outputs = self.inner.online_inference(input)
-
+        outputs = F.leaky_relu(outputs)
         outputs: Tensor = outputs @ self.theta_o  # type: ignore
         return outputs
 
@@ -170,7 +192,7 @@ class TTTHead(nn.Module):
 
     def get_inner_learning_rate(self: Self, input: torch.Tensor) -> Tensor:
         sigmoid_op = self.inner_learning_rate_params(input)
-        sigmoid_op = self.ttt_base_inner_learning_rate * F.sigmoid(sigmoid_op)
+        sigmoid_op = self.ttt_base_inner_learning_rate * F.leaky_relu(sigmoid_op)
         sigmoid_op = sigmoid_op.mean(dim=0)
 
         # repeat along dimension 0, which corresponds to the "to" dimension of nn.Linear weight
@@ -248,7 +270,7 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "mps")
 
     model = TTTModel(
-        num_layers=1, filter_dim=LOW_PASS_FILTER_DIM, embedding_dim=INPUT_DIM, output_dim=INPUT_DIM,
+        num_layers=3, filter_dim=LOW_PASS_FILTER_DIM, embedding_dim=INPUT_DIM, output_dim=INPUT_DIM,
         ttt_base_inner_learning_rate=TTT_BASE_INNER_LEARNING_RATE)
     model = model.to(device)
 
@@ -277,18 +299,17 @@ if __name__ == "__main__":
             print(loss)
 
             # cosine similarity of output and labels first batch
-            output_cossim = output[0]
-            labels_cossim = labels[0]
+            # output_cossim = output[0]
+            # labels_cossim = labels[0]
+            # cos_sim = F.cosine_similarity(output_cossim, labels_cossim, dim=0)
+            # wandb.log({"cos_sim": cos_sim.item()})
 
-            # use a library
-            cos_sim = F.cosine_similarity(output_cossim, labels_cossim, dim=0)
-            wandb.log({"cos_sim": cos_sim.item()})
             wandb.log({"outer_loss": loss.item()})
 
             loss.backward()
 
             # # Clip gradients
-            # torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), CLIP_VALUE)
 
             optim.step()
             optim_inner_lr.step()
