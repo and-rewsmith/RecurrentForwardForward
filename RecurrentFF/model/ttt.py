@@ -20,8 +20,8 @@ SEQUENCE_LEN = 40
 EPOCHS = 60
 BATCH_SIZE = 50
 
-TTT_BASE_INNER_LEARNING_RATE = 1e-2
-TTT_INNER_LEARNING_RATE_LEARNING_RATE = 5 * 1e-2
+TTT_BASE_INNER_LEARNING_RATE = 1e-1
+TTT_INNER_LEARNING_RATE_LEARNING_RATE = 1e-1
 TTT_OUTER_LEARNING_RATE = 1e-1
 
 LOW_PASS_FILTER_DIM = 5
@@ -270,7 +270,7 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "mps")
 
     model = TTTModel(
-        num_layers=3, filter_dim=LOW_PASS_FILTER_DIM, embedding_dim=INPUT_DIM, output_dim=INPUT_DIM,
+        num_layers=1, filter_dim=LOW_PASS_FILTER_DIM, embedding_dim=INPUT_DIM, output_dim=INPUT_DIM,
         ttt_base_inner_learning_rate=TTT_BASE_INNER_LEARNING_RATE)
     model = model.to(device)
 
