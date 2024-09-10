@@ -274,7 +274,7 @@ if __name__ == "__main__":
         ttt_base_inner_learning_rate=TTT_BASE_INNER_LEARNING_RATE)
     model = model.to(device)
 
-    dataset = VectorDataset()
+    dataset = VectorDataset(vector_dim=INPUT_DIM)
     dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=False)
 
     # train
