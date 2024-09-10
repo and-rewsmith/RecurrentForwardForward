@@ -298,12 +298,6 @@ if __name__ == "__main__":
             loss = criterion(output, labels)
             print(loss)
 
-            # cosine similarity of output and labels first batch
-            # output_cossim = output[0]
-            # labels_cossim = labels[0]
-            # cos_sim = F.cosine_similarity(output_cossim, labels_cossim, dim=0)
-            # wandb.log({"cos_sim": cos_sim.item()})
-
             wandb.log({"outer_loss": loss.item()})
 
             loss.backward()
