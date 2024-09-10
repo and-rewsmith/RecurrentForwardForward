@@ -17,18 +17,18 @@ VOCAB_SIZE = 15
 SEQUENCE_LEN = 40
 
 # training
-EPOCHS = 40
+EPOCHS = 60
 BATCH_SIZE = 50
 
-TTT_BASE_INNER_LEARNING_RATE = 5 * 1e-2
-TTT_INNER_LEARNING_RATE_LEARNING_RATE = 5e-2
-TTT_OUTER_LEARNING_RATE = 1e-5
+TTT_BASE_INNER_LEARNING_RATE = 1e-1
+TTT_INNER_LEARNING_RATE_LEARNING_RATE = 1e-2
+TTT_OUTER_LEARNING_RATE = 1e-1
 
-LOW_PASS_FILTER_DIM = 250
-INPUT_DIM = 784
+LOW_PASS_FILTER_DIM = 5
+INPUT_DIM = 5
 DROPOUT = 0.0
 
-CLIP_VALUE = 1.0
+CLIP_VALUE = 10.0
 
 
 class VectorDataset(Dataset):
@@ -74,9 +74,10 @@ class TTTInner(nn.Module):
         # reconstruction loss
         reconstruction_target = label_view - train_view  # type: ignore[operator]
         w_train_view = self.w(train_view)
+        assert w_train_view.shape == reconstruction_target.shape
         loss = nn.MSELoss()(w_train_view, reconstruction_target)
         self.inner_loss = loss
-        # wandb.log({"inner_loss": loss})
+        wandb.log({"inner_loss": loss})
 
         # compute gradients for `w` and manually update
         gradients = grad(loss, list(self.w.parameters()), create_graph=True)
@@ -84,11 +85,11 @@ class TTTInner(nn.Module):
 
         clipped_gradients = []
         for g in gradients:
-            g.clamp(-CLIP_VALUE, CLIP_VALUE)
+            # g.clamp(-CLIP_VALUE, CLIP_VALUE)
             clipped_gradients.append(g)
 
-        # wandb.log({"w_grad": gradients[0].norm()})
-        # wandb.log({"w_bias_grad": gradients[1].norm()})
+        wandb.log({"w_grad": gradients[0].norm()})
+        wandb.log({"w_bias_grad": gradients[1].norm()})
 
         # calculate the learned inner learning rate for each parameter and shape appropriately
         inner_learning_rate, inner_learning_rate_bias = self.get_inner_learning_rate(src)
@@ -99,9 +100,9 @@ class TTTInner(nn.Module):
 
         # TODO: consider adding layer norm here to stabilize batch effects of averaging
 
-        # wandb.log({"inner_learning_rate": inner_learning_rate.norm()})
-        # wandb.log({"inner_learning_rate_bias": inner_learning_rate_bias.norm()})
-        # wandb.log( #     {"inner_learning_rate_specific_index": inner_learning_rate[0][0]})
+        wandb.log({"inner_learning_rate": inner_learning_rate.norm()})
+        wandb.log({"inner_learning_rate_bias": inner_learning_rate_bias.norm()})
+        wandb.log({"inner_learning_rate_specific_index": inner_learning_rate[0][0]})
 
         updated_weight = self.w.weight - inner_learning_rate * clipped_gradients[0]
         updated_bias = self.w.bias - inner_learning_rate_bias * clipped_gradients[1]
@@ -234,15 +235,15 @@ class TTTModel(nn.Module):
 
 if __name__ == "__main__":
     # torch.autograd.set_detect_anomaly(True)
-    # torch.manual_seed(1234)
+    torch.manual_seed(1234)
 
-    # wandb.init(
-    #     project="ttt-FF",
-    #     config={
-    #         "architecture": "Recurrent-FF",
-    #         "dataset": "SequentialNumbers",
-    #     }
-    # )
+    wandb.init(
+        project="ttt-FF",
+        config={
+            "architecture": "Recurrent-FF",
+            "dataset": "SequentialNumbers",
+        }
+    )
 
     device = torch.device("cuda" if torch.cuda.is_available() else "mps")
 
@@ -281,10 +282,13 @@ if __name__ == "__main__":
 
             # use a library
             cos_sim = F.cosine_similarity(output_cossim, labels_cossim, dim=0)
-            # wandb.log({"cos_sim": cos_sim.item()})
-            # wandb.log({"outer_loss": loss.item()})
+            wandb.log({"cos_sim": cos_sim.item()})
+            wandb.log({"outer_loss": loss.item()})
 
             loss.backward()
+
+            # # Clip gradients
+            # torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
 
             optim.step()
             optim_inner_lr.step()
