@@ -673,8 +673,8 @@ class HiddenLayer(nn.Module):
         # for residual_connection in self.residual_connections:
         #     summation_act = summation_act + residual_connection.forward(mode)
 
-        # new_activation = F.leaky_relu(summation_act)
-        new_activation = summation_act
+        new_activation = F.leaky_relu(summation_act)
+        # new_activation = summation_act
 
         if should_damp:
             old_activation = new_activation
