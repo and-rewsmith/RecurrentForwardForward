@@ -426,7 +426,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
 
         # evaluate badness for each possible label
         for label in range(self.settings.data_config.num_classes):
-            self.inner_layers.reset_activations(not is_test_set)
+            # self.inner_layers.reset_activations(not is_test_set)
 
             upper_clamped_tensor = self.get_preinit_upper_clamped_tensor(
                 (data.shape[1], self.settings.data_config.num_classes))

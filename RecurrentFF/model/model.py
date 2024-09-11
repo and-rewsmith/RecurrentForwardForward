@@ -209,7 +209,7 @@ class RecurrentFFNet(nn.Module):
             train_accuracy = self.processor.brute_force_predict(
                 TrainTestBridgeFormatLoader(train_loader), 10, False)  # type: ignore[arg-type]
             test_accuracy = self.processor.brute_force_predict(
-                test_loader, 1, True)
+                test_loader, 1, False)
 
             if test_accuracy > best_test_accuracy:
                 best_test_accuracy = test_accuracy
@@ -231,7 +231,7 @@ class RecurrentFFNet(nn.Module):
             total_batch_count: int) -> Tuple[LayerMetrics, List[float], List[float]]:
         logging.info("Batch: " + str(batch_num))
 
-        self.inner_layers.reset_activations(True)
+        # self.inner_layers.reset_activations(True)
 
         for preinit_step in range(0, self.settings.model.prelabel_timesteps):
             logging.debug("Preinitialization step: " +
