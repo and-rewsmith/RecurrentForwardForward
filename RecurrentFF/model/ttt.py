@@ -155,6 +155,7 @@ class TTTHead(nn.Module):
     def train_head(self: Self, input: torch.Tensor) -> torch.Tensor:
         outputs = self.inner.online_inference(input)
 
+        # outputs = F.leaky_relu(outputs)
         outputs: Tensor = outputs @ self.theta_o  # type: ignore
         return outputs
 
@@ -169,7 +170,7 @@ class TTTHead(nn.Module):
 
     def get_inner_learning_rate(self: Self, input: torch.Tensor) -> Tensor:
         sigmoid_op = self.inner_learning_rate_params(input)
-        sigmoid_op = self.ttt_base_inner_learning_rate * F.sigmoid(sigmoid_op)
+        sigmoid_op = self.ttt_base_inner_learning_rate * F.leaky_relu(sigmoid_op)
         sigmoid_op = sigmoid_op.mean(dim=0)
 
         # repeat along dimension 0, which corresponds to the "to" dimension of nn.Linear weight
