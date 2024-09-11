@@ -250,22 +250,27 @@ class HiddenLayer(nn.Module):
         self.lateral_dropout = nn.Dropout(p=self.settings.model.dropout)
 
         self.forward_linear = TTTModel(
-            num_layers=1, filter_dim=LOW_PASS_FILTER_DIM, embedding_dim=prev_size, output_dim=self.size,
-            ttt_base_inner_learning_rate=TTT_BASE_INNER_LEARNING_RATE)
-
-        self.backward_linear = TTTModel(
-            num_layers=1, filter_dim=LOW_PASS_FILTER_DIM, embedding_dim=next_size, output_dim=self.size,
+            num_layers=1, num_heads=1, filter_dim=LOW_PASS_FILTER_DIM, embedding_dim=prev_size, output_dim=self.size,
             ttt_base_inner_learning_rate=TTT_BASE_INNER_LEARNING_RATE)
 
         self.lateral_linear = TTTModel(
-            num_layers=1, filter_dim=LOW_PASS_FILTER_DIM, embedding_dim=self.size, output_dim=self.size,
+            num_layers=1, num_heads=1, filter_dim=LOW_PASS_FILTER_DIM, embedding_dim=self.size, output_dim=self.size,
             ttt_base_inner_learning_rate=TTT_BASE_INNER_LEARNING_RATE)
 
         if next_size == self.settings.data_config.num_classes:
-            amplified_initialization(self.backward_linear.ttt_blocks[0].ttt_head.theta_o, 3.0)
-            amplified_initialization(self.backward_linear.ttt_blocks[0].ttt_head.theta_k, 3.0)
-            amplified_initialization(self.backward_linear.ttt_blocks[0].ttt_head.theta_q, 3.0)
-            amplified_initialization(self.backward_linear.ttt_blocks[0].ttt_head.theta_v, 3.0)
+            self.backward_linear = TTTModel(
+                num_layers=1, filter_dim=LOW_PASS_FILTER_DIM, embedding_dim=next_size, output_dim=self.size,
+                ttt_base_inner_learning_rate=TTT_BASE_INNER_LEARNING_RATE, num_heads=1)
+
+            # for head in self.forward_linear.ttt_blocks[0].ttt_heads:
+            #     amplified_initialization(head.theta_o, 3.0)
+            #     amplified_initialization(head.theta_k, 3.0)
+            #     amplified_initialization(head.theta_q, 3.0)
+            #     amplified_initialization(head.theta_v, 3.0)
+        else:
+            self.backward_linear = TTTModel(
+                num_layers=1, filter_dim=LOW_PASS_FILTER_DIM, embedding_dim=next_size, output_dim=self.size,
+                ttt_base_inner_learning_rate=TTT_BASE_INNER_LEARNING_RATE, num_heads=1)
 
         # self.forward_linear = nn.Linear(prev_size, size)
         # nn.init.kaiming_uniform_(
@@ -674,6 +679,7 @@ class HiddenLayer(nn.Module):
         #     summation_act = summation_act + residual_connection.forward(mode)
 
         new_activation = F.leaky_relu(summation_act)
+        # new_activation = summation_act
 
         if should_damp:
             old_activation = new_activation

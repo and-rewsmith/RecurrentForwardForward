@@ -14,11 +14,11 @@ import wandb
 EPOCHS = 60
 BATCH_SIZE = 50
 
-TTT_BASE_INNER_LEARNING_RATE = 1e-1
-TTT_INNER_LEARNING_RATE_LEARNING_RATE = 1e-1
-TTT_OUTER_LEARNING_RATE = 1e-1
+TTT_BASE_INNER_LEARNING_RATE = 1e-2
+TTT_INNER_LEARNING_RATE_LEARNING_RATE = 1e-3
+TTT_OUTER_LEARNING_RATE = 1e-5
 
-LOW_PASS_FILTER_DIM = 6
+LOW_PASS_FILTER_DIM = 308
 INPUT_DIM = 6
 DROPOUT = 0.0
 
@@ -155,6 +155,7 @@ class TTTHead(nn.Module):
 
     def train_head(self: Self, input: torch.Tensor) -> torch.Tensor:
         outputs = self.inner.online_inference(input)
+        # TODO: maybe remove?
         outputs = F.leaky_relu(outputs)
         outputs: Tensor = outputs @ self.theta_o  # type: ignore
         return outputs
@@ -170,7 +171,7 @@ class TTTHead(nn.Module):
 
     def get_inner_learning_rate(self: Self, input: torch.Tensor) -> Tensor:
         sigmoid_op = self.inner_learning_rate_params(input)
-        sigmoid_op = self.ttt_base_inner_learning_rate * F.leaky_relu(sigmoid_op)
+        sigmoid_op = self.ttt_base_inner_learning_rate * F.sigmoid(sigmoid_op)
         sigmoid_op = sigmoid_op.mean(dim=0)
 
         # repeat along dimension 0, which corresponds to the "to" dimension of nn.Linear weight
@@ -221,7 +222,7 @@ class TTTBlock(nn.Module):
         # Concatenate the outputs from all heads
         concat_output = torch.cat(outputs, dim=-1)
         assert concat_output.shape == (batch_size, self.embedding_dim)
-        concat_output = F.leaky_relu(concat_output)
+        # concat_output = F.leaky_relu(concat_output)
 
         # Apply the output linear layer
         final_output = self.output_linear(concat_output)
