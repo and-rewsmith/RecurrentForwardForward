@@ -77,7 +77,7 @@ class TTTInner(nn.Module):
         assert w_train_view.shape == reconstruction_target.shape
         loss = nn.MSELoss()(w_train_view, reconstruction_target)
         self.inner_loss = loss
-        wandb.log({"inner_loss": loss})
+        # wandb.log({"inner_loss": loss})
 
         # compute gradients for `w` and manually update
         gradients = grad(loss, list(self.w.parameters()), create_graph=True)
@@ -88,8 +88,8 @@ class TTTInner(nn.Module):
             # g.clamp(-CLIP_VALUE, CLIP_VALUE)
             clipped_gradients.append(g)
 
-        wandb.log({"w_grad": gradients[0].norm()})
-        wandb.log({"w_bias_grad": gradients[1].norm()})
+        # wandb.log({"w_grad": gradients[0].norm()})
+        # wandb.log({"w_bias_grad": gradients[1].norm()})
 
         # calculate the learned inner learning rate for each parameter and shape appropriately
         inner_learning_rate, inner_learning_rate_bias = self.get_inner_learning_rate(src)
@@ -100,9 +100,9 @@ class TTTInner(nn.Module):
 
         # TODO: consider adding layer norm here to stabilize batch effects of averaging
 
-        wandb.log({"inner_learning_rate": inner_learning_rate.norm()})
-        wandb.log({"inner_learning_rate_bias": inner_learning_rate_bias.norm()})
-        wandb.log({"inner_learning_rate_specific_index": inner_learning_rate[0][0]})
+        # wandb.log({"inner_learning_rate": inner_learning_rate.norm()})
+        # wandb.log({"inner_learning_rate_bias": inner_learning_rate_bias.norm()})
+        # wandb.log({"inner_learning_rate_specific_index": inner_learning_rate[0][0]})
 
         updated_weight = self.w.weight - inner_learning_rate * clipped_gradients[0]
         updated_bias = self.w.bias - inner_learning_rate_bias * clipped_gradients[1]
