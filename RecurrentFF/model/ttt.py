@@ -18,8 +18,8 @@ TTT_BASE_INNER_LEARNING_RATE = 1e-1
 TTT_INNER_LEARNING_RATE_LEARNING_RATE = 1e-1
 TTT_OUTER_LEARNING_RATE = 1e-1
 
-LOW_PASS_FILTER_DIM = 5
-INPUT_DIM = 5
+LOW_PASS_FILTER_DIM = 6
+INPUT_DIM = 6
 DROPOUT = 0.0
 
 CLIP_VALUE = 10.0
@@ -85,7 +85,7 @@ class TTTInner(nn.Module):
 
         clipped_gradients = []
         for g in gradients:
-            g.clamp(-CLIP_VALUE, CLIP_VALUE)
+            # g.clamp(-CLIP_VALUE, CLIP_VALUE)
             clipped_gradients.append(g)
 
         wandb.log({"w_grad": gradients[0].norm()})
@@ -125,19 +125,19 @@ class TTTInner(nn.Module):
 
 
 class TTTHead(nn.Module):
-    def __init__(self: Self, input_dim: int, output_dim: int, filter_dim: int,
+    def __init__(self: Self, embedding_dim: int, output_dim: int, filter_dim: int,
                  ttt_base_inner_learning_rate: float) -> None:
         super(TTTHead, self).__init__()
 
         self.ttt_base_inner_learning_rate = ttt_base_inner_learning_rate
 
-        self.theta_k = nn.Parameter(torch.randn(input_dim, filter_dim))
-        self.theta_v = nn.Parameter(torch.randn(input_dim, filter_dim))
-        self.theta_q = nn.Parameter(torch.randn(input_dim, filter_dim))
+        self.theta_k = nn.Parameter(torch.randn(embedding_dim, filter_dim))
+        self.theta_v = nn.Parameter(torch.randn(embedding_dim, filter_dim))
+        self.theta_q = nn.Parameter(torch.randn(embedding_dim, filter_dim))
         self.theta_o = nn.Parameter(torch.randn(filter_dim, output_dim))
 
         learning_rate_params_out_dim = filter_dim * 2
-        self.inner_learning_rate_params = nn.Linear(input_dim, learning_rate_params_out_dim)
+        self.inner_learning_rate_params = nn.Linear(embedding_dim, learning_rate_params_out_dim)
 
         self.inner = TTTInner(filter_dim=filter_dim,
                               get_theta_k=self.get_theta_k,
@@ -150,7 +150,7 @@ class TTTHead(nn.Module):
         torch.nn.init.kaiming_uniform_(self.theta_o)
         torch.nn.init.kaiming_uniform_(self.inner_learning_rate_params.weight)
 
-        self.input_dim = input_dim
+        self.input_dim = embedding_dim
         self.low_pass_filter_dim = filter_dim
 
     def train_head(self: Self, input: torch.Tensor) -> torch.Tensor:
@@ -186,16 +186,45 @@ class TTTBlock(nn.Module):
     # TODO: add residual connection
     # TODO: add layer norm at beginning and end of block
     # TODO: recursive structure
-    def __init__(self: Self, filter_dim: int, embedding_dim: int, output_dim: int,
-                 ttt_base_inner_learning_rate: float) -> None:
+    def __init__(self: Self, filter_dim: int, embedding_dim: int, output_dim,
+                 ttt_base_inner_learning_rate: float, num_heads: int) -> None:
         super(TTTBlock, self).__init__()
+        
+        self.num_heads = num_heads
+        self.head_embedding_dim = embedding_dim // num_heads
+        self.embedding_dim = embedding_dim
 
-        self.ttt_head = TTTHead(filter_dim=filter_dim, input_dim=embedding_dim, output_dim=output_dim,
-                                ttt_base_inner_learning_rate=ttt_base_inner_learning_rate)
+        assert self.head_embedding_dim * num_heads == embedding_dim, "embedding_dim must be divisible by num_heads"
+
+        self.ttt_heads = nn.ModuleList([
+            TTTHead(filter_dim=filter_dim, embedding_dim=self.head_embedding_dim, output_dim=self.head_embedding_dim,
+                    ttt_base_inner_learning_rate=ttt_base_inner_learning_rate)
+            for _ in range(num_heads)
+        ])
+
+        self.output_linear = nn.Linear(embedding_dim, output_dim)
 
     def train_block(self, input: torch.Tensor) -> torch.Tensor:
-        outputs = self.ttt_head.train_head(input)
-        return outputs
+        batch_size, _ = input.shape
+
+        # Split the input for each head
+        split_input = input.view(batch_size, self.num_heads, self.head_embedding_dim)
+
+        # Process each split through its corresponding head
+        outputs = []
+        for i, head in enumerate(self.ttt_heads):
+            head_output = head.train_head(split_input[:, i])
+            outputs.append(head_output)
+
+        # Concatenate the outputs from all heads
+        concat_output = torch.cat(outputs, dim=-1)
+        assert concat_output.shape == (batch_size, self.embedding_dim)
+        concat_output = F.leaky_relu(concat_output)
+
+        # Apply the output linear layer
+        final_output = self.output_linear(concat_output)
+
+        return final_output
 
 
 class TTTModel(nn.Module):
@@ -203,14 +232,18 @@ class TTTModel(nn.Module):
     def __init__(
             self: Self, filter_dim: int, embedding_dim: int, output_dim: int,
             ttt_base_inner_learning_rate: float,
-            num_layers: int) -> None:
+            num_layers: int, num_heads: int) -> None:
         super(TTTModel, self).__init__()
 
-        self.ttt_blocks = nn.ModuleList([
-            TTTBlock(
-                filter_dim=filter_dim, embedding_dim=embedding_dim, output_dim=output_dim,
-                ttt_base_inner_learning_rate=ttt_base_inner_learning_rate)
-            for _ in range(num_layers)])
+        self.ttt_blocks = nn.ModuleList()
+        for i in range(num_layers):
+            if i != num_layers-1:
+                block = TTTBlock(num_heads=num_heads, filter_dim=filter_dim, embedding_dim=embedding_dim, output_dim=embedding_dim,
+                    ttt_base_inner_learning_rate=ttt_base_inner_learning_rate)
+            else:
+                block = TTTBlock(num_heads=num_heads, filter_dim=filter_dim, embedding_dim=embedding_dim, output_dim=output_dim,
+                    ttt_base_inner_learning_rate=ttt_base_inner_learning_rate)
+            self.ttt_blocks.append(block)
 
     def forward(self: Self, src: torch.Tensor) -> torch.Tensor:
         output = src
@@ -219,17 +252,19 @@ class TTTModel(nn.Module):
 
         return output
 
-    def get_params_inner_learning_rates(self: Self) -> List[torch.nn.Parameter]:
+    def get_params_inner_learning_rate(self: Self) -> List[torch.nn.Parameter]:
         params = []
         for block in self.ttt_blocks:
-            params.extend(block.ttt_head.inner_learning_rate_params.parameters())
+            for head in block.ttt_heads:
+                params.extend(head.inner_learning_rate_params.parameters())
         return params
 
-    def get_params_ttt_heads(self: Self) -> List[torch.nn.Parameter]:
+    def get_params_outer_loop_non_lr(self: Self) -> List[torch.nn.Parameter]:
         params = []
         for block in self.ttt_blocks:
-            params.extend([block.ttt_head.theta_k, block.ttt_head.theta_q,
-                           block.ttt_head.theta_v, block.ttt_head.theta_o])
+            for head in block.ttt_heads:
+                params.extend([head.theta_k, head.theta_q, head.theta_v, head.theta_o])
+            params.extend(block.output_linear.parameters())
         return params
 
 
@@ -248,7 +283,7 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "mps")
 
     model = TTTModel(
-        num_layers=1, filter_dim=LOW_PASS_FILTER_DIM, embedding_dim=INPUT_DIM, output_dim=INPUT_DIM,
+        num_layers=3, num_heads=3, filter_dim=LOW_PASS_FILTER_DIM, embedding_dim=INPUT_DIM, output_dim=INPUT_DIM,
         ttt_base_inner_learning_rate=TTT_BASE_INNER_LEARNING_RATE)
     model = model.to(device)
 
@@ -258,8 +293,8 @@ if __name__ == "__main__":
     # train
     model.train()
 
-    optim = SGD(model.get_params_ttt_heads(), lr=TTT_OUTER_LEARNING_RATE)
-    optim_inner_lr = SGD(model.get_params_inner_learning_rates(), lr=TTT_INNER_LEARNING_RATE_LEARNING_RATE)
+    optim = SGD(model.get_params_outer_loop_non_lr(), lr=TTT_OUTER_LEARNING_RATE)
+    optim_inner_lr = SGD(model.get_params_inner_learning_rate(), lr=TTT_INNER_LEARNING_RATE_LEARNING_RATE)
     criterion = nn.MSELoss()
 
     for epoch in range(0, EPOCHS):
@@ -281,7 +316,7 @@ if __name__ == "__main__":
             loss.backward()
 
             # # Clip gradients
-            torch.nn.utils.clip_grad_norm_(model.parameters(), CLIP_VALUE)
+            # torch.nn.utils.clip_grad_norm_(model.parameters(), CLIP_VALUE)
 
             optim.step()
             optim_inner_lr.step()

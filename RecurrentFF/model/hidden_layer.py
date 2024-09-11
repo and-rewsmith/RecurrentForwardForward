@@ -299,18 +299,18 @@ class HiddenLayer(nn.Module):
                                   lr=self.settings.model.ff_adam.learning_rate)
         elif self.settings.model.ff_optimizer == "rmsprop":
             params = []
-            params.extend(self.forward_linear.get_params_ttt_heads())
-            params.extend(self.backward_linear.get_params_ttt_heads())
-            params.extend(self.lateral_linear.get_params_ttt_heads())
+            params.extend(self.forward_linear.get_params_outer_loop_non_lr())
+            params.extend(self.backward_linear.get_params_outer_loop_non_lr())
+            params.extend(self.lateral_linear.get_params_outer_loop_non_lr())
             self.optimizer = RMSprop(
                 params,
                 lr=self.settings.model.ff_rmsprop.learning_rate,
                 momentum=self.settings.model.ff_rmsprop.momentum)
 
             params = []
-            params.extend(self.forward_linear.get_params_inner_learning_rates())
-            params.extend(self.backward_linear.get_params_inner_learning_rates())
-            params.extend(self.lateral_linear.get_params_inner_learning_rates())
+            params.extend(self.forward_linear.get_params_inner_learning_rate())
+            params.extend(self.backward_linear.get_params_inner_learning_rate())
+            params.extend(self.lateral_linear.get_params_inner_learning_rate())
             self.optimizer_inner_learning_rates = SGD(
                 params,
                 lr=TTT_INNER_LEARNING_RATE_LEARNING_RATE)
