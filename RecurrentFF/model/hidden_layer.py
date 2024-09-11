@@ -250,11 +250,11 @@ class HiddenLayer(nn.Module):
         self.lateral_dropout = nn.Dropout(p=self.settings.model.dropout)
 
         self.forward_linear = TTTModel(
-            num_layers=1, num_heads=1, filter_dim=LOW_PASS_FILTER_DIM, embedding_dim=prev_size, output_dim=self.size,
+            num_layers=1, num_heads=14, filter_dim=LOW_PASS_FILTER_DIM, embedding_dim=prev_size, output_dim=self.size,
             ttt_base_inner_learning_rate=TTT_BASE_INNER_LEARNING_RATE)
 
         self.lateral_linear = TTTModel(
-            num_layers=1, num_heads=1, filter_dim=LOW_PASS_FILTER_DIM, embedding_dim=self.size, output_dim=self.size,
+            num_layers=1, num_heads=14, filter_dim=LOW_PASS_FILTER_DIM, embedding_dim=self.size, output_dim=self.size,
             ttt_base_inner_learning_rate=TTT_BASE_INNER_LEARNING_RATE)
 
         if next_size == self.settings.data_config.num_classes:
@@ -270,7 +270,7 @@ class HiddenLayer(nn.Module):
         else:
             self.backward_linear = TTTModel(
                 num_layers=1, filter_dim=LOW_PASS_FILTER_DIM, embedding_dim=next_size, output_dim=self.size,
-                ttt_base_inner_learning_rate=TTT_BASE_INNER_LEARNING_RATE, num_heads=1)
+                ttt_base_inner_learning_rate=TTT_BASE_INNER_LEARNING_RATE, num_heads=14)
 
         # self.forward_linear = nn.Linear(prev_size, size)
         # nn.init.kaiming_uniform_(
@@ -678,8 +678,8 @@ class HiddenLayer(nn.Module):
         # for residual_connection in self.residual_connections:
         #     summation_act = summation_act + residual_connection.forward(mode)
 
-        new_activation = F.leaky_relu(summation_act)
-        # new_activation = summation_act
+        # new_activation = F.leaky_relu(summation_act)
+        new_activation = summation_act
 
         if should_damp:
             old_activation = new_activation
