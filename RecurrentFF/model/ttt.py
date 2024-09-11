@@ -202,7 +202,9 @@ class TTTBlock(nn.Module):
             for _ in range(num_heads)
         ])
 
+        # TODO: initialization choice needed?
         self.output_linear = nn.Linear(embedding_dim, output_dim)
+
 
     def train_block(self, input: torch.Tensor) -> torch.Tensor:
         batch_size, _ = input.shape
