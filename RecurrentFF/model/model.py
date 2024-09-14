@@ -260,9 +260,10 @@ class RecurrentFFNet(nn.Module):
                 activations = layer.pos_activations.current
                 generative_input += layer.generative_linear(activations)
             assert generative_input.shape[0] == input_data.pos_input[iteration].shape[0] and generative_input.shape[1] == input_data.pos_input[iteration].shape[1] + self.settings.data_config.num_classes
-            generative_cmp = torch.cat((input_data.pos_input[iteration], label_data.pos_labels[iteration]), dim=1)
-            assert generative_input.shape == generative_cmp.shape
-            loss = criterion(generative_input, generative_cmp)
+            # generative_cmp = torch.cat((input_data.pos_input[iteration], label_data.pos_labels[iteration]), dim=1)
+            reconstructed_data, reconstructed_labels = generative_input.split(
+                [self.settings.data_config.data_size, self.settings.data_config.num_classes], dim=1)
+            loss = data_criterion(reconstructed_data, input_data.pos_input[iteration]) + label_criterion(reconstructed_labels, torch.argmax(label_data.pos_labels[iteration], dim=1))
             wandb.log({"generative loss": loss.item()}, step=total_batch_count)
             loss.backward()
             for layer in self.inner_layers:
