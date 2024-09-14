@@ -251,12 +251,32 @@ class RecurrentFFNet(nn.Module):
         for iteration in range(0, iterations):
             logging.debug("Iteration: " + str(iteration))
 
+            data_criterion = torch.nn.MSELoss()
+            label_criterion = torch.nn.CrossEntropyLoss()
+            generative_input = torch.zeros(self.settings.data_config.train_batch_size, self.settings.data_config.data_size + self.settings.data_config.num_classes).to(self.settings.device.device)
+            assert generative_input.requires_grad == False
+            for layer in self.inner_layers:
+                layer.optimizer.zero_grad()
+                activations = layer.pos_activations.current
+                generative_input += layer.generative_linear(activations)
+            assert generative_input.shape[0] == input_data.pos_input[iteration].shape[0] and generative_input.shape[1] == input_data.pos_input[iteration].shape[1] + self.settings.data_config.num_classes
+            generative_cmp = torch.cat((input_data.pos_input[iteration], label_data.pos_labels[iteration]), dim=1)
+            assert generative_input.shape == generative_cmp.shape
+            loss = criterion(generative_input, generative_cmp)
+            wandb.log({"generative loss": loss.item()}, step=total_batch_count)
+            loss.backward()
+            for layer in self.inner_layers:
+                assert not torch.all(layer.generative_linear.weight.grad == 0)
+                assert layer.forward_linear.weight.grad == None or torch.all(layer.forward_linear.weight.grad == 0)
+                layer.optimizer.step()
+            generative_input = generative_input.detach()
+
             input_data_sample = (
                 input_data.pos_input[iteration],
-                input_data.neg_input[iteration])
+                generative_input[:, 0:self.settings.data_config.data_size])
             label_data_sample = (
                 label_data.pos_labels[iteration],
-                label_data.neg_labels[iteration])
+                generative_input[:, self.settings.data_config.data_size:])
 
             self.inner_layers.advance_layers_train(
                 input_data_sample, label_data_sample, True, layer_metrics)

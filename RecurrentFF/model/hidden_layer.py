@@ -9,7 +9,7 @@ from torch.nn import Module
 from torch.nn import functional as F
 from torch.optim import RMSprop, Adam, Adadelta, Optimizer
 from torch.optim.lr_scheduler import StepLR
-from profilehooks import profile
+from profilehooks import profile # type: ignore
 
 from RecurrentFF.util import (
     Activations,
@@ -248,6 +248,10 @@ class HiddenLayer(nn.Module):
         self.backward_dropout = nn.Dropout(p=self.settings.model.dropout)
         self.lateral_dropout = nn.Dropout(p=self.settings.model.dropout)
 
+        self.generative_linear = nn.Linear(size, settings.data_config.data_size + settings.data_config.num_classes)
+        nn.init.kaiming_uniform_(
+            self.generative_linear.weight, nonlinearity='relu')
+
         self.forward_linear = nn.Linear(prev_size, size)
         nn.init.kaiming_uniform_(
             self.forward_linear.weight, nonlinearity='relu')
@@ -458,6 +462,10 @@ class HiddenLayer(nn.Module):
             pos_badness - self.settings.model.loss_threshold
         ])).mean()
         layer_loss.backward()
+        # # go through all layers and collect their parameters
+        # print(self.named_parameters())
+        # dot = make_dot(loss, params=dict(self.named_parameters()))
+        # dot.render('model_graph_outer', format='png')
 
         self.optimizer.step()
         return cast(float, layer_loss.item())
@@ -685,11 +693,14 @@ class HiddenLayer(nn.Module):
         if mode == ForwardMode.PositiveData:
             assert self.pos_activations is not None
             self.pos_activations.current = new_activation.detach()
+            self.pos_activations.current.requires_grad = False
         elif mode == ForwardMode.NegativeData:
             assert self.neg_activations is not None
             self.neg_activations.current = new_activation.detach()
+            self.neg_activations.current.requires_grad = False
         elif mode == ForwardMode.PredictData:
             assert self.predict_activations is not None
             self.predict_activations.current = new_activation.detach()
+            self.predict_activations.current.requires_grad = False
 
         return new_activation
