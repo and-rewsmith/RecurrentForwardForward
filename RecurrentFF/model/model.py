@@ -267,11 +267,11 @@ class RecurrentFFNet(nn.Module):
             # print(reconstructed_labels[0].shape)
             # print(label_data.pos_labels[iteration][0].shape)
             # print if 1 in 1000 chance
-            if random.randint(0, 1000) == 1:
+            if random.randint(0, 10) == 1:
                 # print(torch.softmax(reconstructed_labels[0], dim=0))
                 # print(torch.argmax(label_data.pos_labels[iteration][0]))
                 is_correct = torch.argmax(label_data.pos_labels[iteration][0]) == torch.argmax(torch.softmax(reconstructed_labels[0], dim=0))
-                print(is_correct)
+                print(is_correct.item())
             loss = data_criterion(reconstructed_data, input_data.pos_input[iteration]) + label_criterion(reconstructed_labels, torch.argmax(label_data.pos_labels[iteration], dim=1))
             wandb.log({"generative loss": loss.item()}, step=total_batch_count)
             loss.backward()

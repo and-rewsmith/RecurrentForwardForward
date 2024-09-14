@@ -484,6 +484,9 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                         # print(reconstructed_labels[0:10])
                         correct = (reconstructed_labels == labels).sum().item()
                         total = data.size(1)
+                        # print(correct)
+                        # print(total)
+                        print(str(correct / total * 100) + str("%"))
                         accuracy_contexts.append((correct, total))
 
                         self.inner_layers.advance_layers_forward(
