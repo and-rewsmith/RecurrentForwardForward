@@ -486,7 +486,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                         total = data.size(1)
                         # print(correct)
                         # print(total)
-                        print(str(correct / total * 100) + str("%"))
+                        # print(str(correct / total * 100) + str("%"))
                         accuracy_contexts.append((correct, total))
 
                         self.inner_layers.advance_layers_forward(

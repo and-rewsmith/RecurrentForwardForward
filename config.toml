@@ -2,9 +2,9 @@
 device = "cuda"
 
 [model]
-hidden_sizes = [500]
+hidden_sizes = [700, 700, 700, 700, 700]
 epochs = 30000
-prelabel_timesteps = 3
+prelabel_timesteps = 2
 loss_threshold = 1.5
 damping_factor = 0.7
 epsilon = 0.00000001

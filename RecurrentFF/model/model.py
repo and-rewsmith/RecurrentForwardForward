@@ -226,15 +226,14 @@ class RecurrentFFNet(nn.Module):
 
         self.inner_layers.reset_activations(True)
 
+        preinit_upper_clamped_tensor = self.processor.get_preinit_upper_clamped_tensor(
+            label_data.pos_labels[0].shape)
         for preinit_step in range(0, self.settings.model.prelabel_timesteps):
             logging.debug("Preinitialization step: " +
                           str(preinit_step))
 
             pos_input = input_data.pos_input[0]
             neg_input = input_data.neg_input[0]
-
-            preinit_upper_clamped_tensor = self.processor.get_preinit_upper_clamped_tensor(
-                label_data.pos_labels[0].shape)
 
             self.inner_layers.advance_layers_forward(
                 ForwardMode.PositiveData, pos_input, preinit_upper_clamped_tensor, False)
@@ -267,7 +266,7 @@ class RecurrentFFNet(nn.Module):
             # print(reconstructed_labels[0].shape)
             # print(label_data.pos_labels[iteration][0].shape)
             # print if 1 in 1000 chance
-            if random.randint(0, 10) == 1:
+            if random.randint(0, 1000) == 1:
                 # print(torch.softmax(reconstructed_labels[0], dim=0))
                 # print(torch.argmax(label_data.pos_labels[iteration][0]))
                 is_correct = torch.argmax(label_data.pos_labels[iteration][0]) == torch.argmax(torch.softmax(reconstructed_labels[0], dim=0))
@@ -285,7 +284,8 @@ class RecurrentFFNet(nn.Module):
                 input_data.pos_input[iteration],
                 generative_input[:, 0:self.settings.data_config.data_size])
             label_data_sample = (
-                label_data.pos_labels[iteration],
+                preinit_upper_clamped_tensor,
+                # preinit_upper_clamped_tensor,
                 torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1))
 
             self.inner_layers.advance_layers_train(
