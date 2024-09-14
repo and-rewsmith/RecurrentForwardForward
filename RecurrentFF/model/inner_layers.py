@@ -308,6 +308,9 @@ class InnerLayers(nn.Module):
 
         for layer in self.layers:
             layer.advance_stored_activations()
+            if mode == ForwardMode.PredictData:
+                print("activations shouldn't be 0s!!!!----------------")
+                print(layer.predict_activations.current[0:5])
 
     def reset_activations(self, isTraining: bool) -> None:
         for layer in self.layers:

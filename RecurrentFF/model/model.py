@@ -263,6 +263,15 @@ class RecurrentFFNet(nn.Module):
             # generative_cmp = torch.cat((input_data.pos_input[iteration], label_data.pos_labels[iteration]), dim=1)
             reconstructed_data, reconstructed_labels = generative_input.split(
                 [self.settings.data_config.data_size, self.settings.data_config.num_classes], dim=1)
+            # print shapes
+            # print(reconstructed_labels[0].shape)
+            # print(label_data.pos_labels[iteration][0].shape)
+            # print if 1 in 1000 chance
+            if random.randint(0, 1000) == 1:
+                # print(torch.softmax(reconstructed_labels[0], dim=0))
+                # print(torch.argmax(label_data.pos_labels[iteration][0]))
+                is_correct = torch.argmax(label_data.pos_labels[iteration][0]) == torch.argmax(torch.softmax(reconstructed_labels[0], dim=0))
+                print(is_correct)
             loss = data_criterion(reconstructed_data, input_data.pos_input[iteration]) + label_criterion(reconstructed_labels, torch.argmax(label_data.pos_labels[iteration], dim=1))
             wandb.log({"generative loss": loss.item()}, step=total_batch_count)
             loss.backward()
@@ -277,7 +286,7 @@ class RecurrentFFNet(nn.Module):
                 generative_input[:, 0:self.settings.data_config.data_size])
             label_data_sample = (
                 label_data.pos_labels[iteration],
-                generative_input[:, self.settings.data_config.data_size:])
+                torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1))
 
             self.inner_layers.advance_layers_train(
                 input_data_sample, label_data_sample, True, layer_metrics)
