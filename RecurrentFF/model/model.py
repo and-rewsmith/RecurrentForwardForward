@@ -3,8 +3,6 @@ import logging
 import random
 import string
 from typing import List, Tuple, cast
-
-
 import torch
 from torch import nn
 import wandb
@@ -23,6 +21,7 @@ from RecurrentFF.util import (
     TrainLabelData,
     TrainTestBridgeFormatLoader,
     layer_activations_to_badness,
+    swap_top_two_softmax
 )
 from RecurrentFF.settings import (
     Settings,
@@ -271,8 +270,13 @@ class RecurrentFFNet(nn.Module):
                 # print(torch.argmax(label_data.pos_labels[iteration][0]))
                 is_correct = torch.argmax(label_data.pos_labels[iteration][0]) == torch.argmax(torch.softmax(reconstructed_labels[0], dim=0))
                 print(is_correct.item())
-            loss = data_criterion(reconstructed_data, input_data.pos_input[iteration]) + label_criterion(reconstructed_labels, torch.argmax(label_data.pos_labels[iteration], dim=1))
+            data_loss = data_criterion(reconstructed_data, input_data.pos_input[iteration])
+            label_loss = label_criterion(reconstructed_labels, torch.argmax(label_data.pos_labels[iteration], dim=1))
+            # loss = data_criterion(reconstructed_data, input_data.pos_input[iteration]) + label_criterion(reconstructed_labels, torch.argmax(label_data.pos_labels[iteration], dim=1))
+            loss = data_loss + label_loss
             wandb.log({"generative loss": loss.item()}, step=total_batch_count)
+            wandb.log({"data loss": data_loss.item()}, step=total_batch_count)
+            wandb.log({"label loss": label_loss.item()}, step=total_batch_count)
             loss.backward()
             for layer in self.inner_layers:
                 assert not torch.all(layer.generative_linear.weight.grad == 0)
@@ -285,7 +289,7 @@ class RecurrentFFNet(nn.Module):
                 generative_input[:, 0:self.settings.data_config.data_size])
             label_data_sample = (
                 torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1),
-                1 - torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1),
+                swap_top_two_softmax(torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1)),
                 # preinit_upper_clamped_tensor,
                 )
 

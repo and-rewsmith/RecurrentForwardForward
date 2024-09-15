@@ -4,6 +4,26 @@ from typing import Generator
 
 import torch
 
+def swap_top_two_softmax(tensor):
+    # Find the top two values along the softmax dimension
+    top2_values, top2_indices = torch.topk(tensor, 2, dim=1)
+    
+    # Clone the original tensor so we can modify it
+    swapped_tensor = tensor.clone()
+    
+    # Create a tensor of batch indices
+    batch_indices = torch.arange(tensor.size(0)).unsqueeze(1)
+    
+    # Get the indices of the top two values
+    max_indices = top2_indices[:, 0]  # Highest value indices
+    second_max_indices = top2_indices[:, 1]  # Second highest value indices
+    
+    # Swap the values
+    swapped_tensor[batch_indices, max_indices] = top2_values[:, 1]
+    swapped_tensor[batch_indices, second_max_indices] = top2_values[:, 0]
+    
+    return swapped_tensor
+
 def set_logging() -> None:
     """
     Must be called after argparse.
