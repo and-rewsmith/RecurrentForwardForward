@@ -319,11 +319,11 @@ class RecurrentFFNet(nn.Module):
             #     print(iteration)
             #     break
             if should_stop and iteration > 3:
-                confidence_threshold["value"] += 0.01
+                confidence_threshold["value"] += 0.001
                 print(iteration)
                 break
             elif iteration > 3:
-                confidence_threshold["value"] -= 0.01
+                confidence_threshold["value"] -= 0.001
 
         if self.settings.model.should_replace_neg_data:
             pos_target_latents = pos_target_latents_averager.retrieve()
