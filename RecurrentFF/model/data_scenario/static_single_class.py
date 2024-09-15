@@ -403,145 +403,87 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
 
                 all_labels_badness = []
 
-                # training code for generative model:
-                #
-                # criterion = torch.nn.MSELoss()
-                # generative_input = torch.zeros(self.settings.data_config.train_batch_size, self.settings.data_config.data_size + self.settings.data_config.num_classes).to(self.settings.device.device)
-                # assert generative_input.requires_grad == False
-                # for layer in self.inner_layers:
-                #     layer.optimizer.zero_grad()
-                #     activations = layer.pos_activations.current
-                #     generative_input += layer.generative_linear(activations)
-                # assert generative_input.shape[0] == input_data.pos_input[iteration].shape[0] and generative_input.shape[1] == input_data.pos_input[iteration].shape[1] + self.settings.data_config.num_classes
-                # generative_cmp = torch.cat((input_data.pos_input[iteration], label_data.pos_labels[iteration]), dim=1)
-                # assert generative_input.shape == generative_cmp.shape
-                # loss = criterion(generative_input, generative_cmp)
-                # wandb.log({"generative loss": loss.item()}, step=total_batch_count)
-                # loss.backward()
-                # for layer in self.inner_layers:
-                #     assert not torch.all(layer.generative_linear.weight.grad == 0)
-                #     assert layer.forward_linear.weight.grad == None or torch.all(layer.forward_linear.weight.grad == 0)
-                #     layer.optimizer.step()
-                # generative_input = generative_input.detach()
+                # evaluate badness for each possible label
+                for label in range(self.settings.data_config.num_classes):
+                    self.inner_layers.reset_activations(not is_test_set)
 
-                self.inner_layers.reset_activations(not is_test_set)
+                    upper_clamped_tensor = self.get_preinit_upper_clamped_tensor(
+                        (data.shape[1], self.settings.data_config.num_classes))
 
-                upper_clamped_tensor = self.get_preinit_upper_clamped_tensor(
-                    (data.shape[1], self.settings.data_config.num_classes))
-
-                for _preinit_step in range(
-                        0, self.settings.model.prelabel_timesteps):
-                    self.inner_layers.advance_layers_forward(
-                        forward_mode, data[0], upper_clamped_tensor, False)
-                    if write_activations:
-                        activity_tracker.track_partial_activations(
-                            self.inner_layers)
-
-                # one_hot_labels = torch.zeros(
-                #     data.shape[1],
-                #     self.settings.data_config.num_classes,
-                #     device=self.settings.device.device)
-                # one_hot_labels[:, label] = 1.0
-
-                lower_iteration_threshold = iterations // 2 - \
-                    iterations // 10
-                upper_iteration_threshold = iterations // 2 + \
-                    iterations // 10
-                badnesses = []
-                for iteration in range(0, iterations):
-                    # decode
-                    if iteration >= lower_iteration_threshold and iteration <= upper_iteration_threshold:
-                        # self.inner_layers.reset_activations(not is_test_set)
-                        generative_output = torch.zeros(data.shape[1], self.settings.data_config.data_size + self.settings.data_config.num_classes).to(self.settings.device.device)
-                        for layer in self.inner_layers:
-                            if not is_test_set:
-                                generative_output += layer.generative_linear(
-                                    layer.pos_activations.current)
-                                # print(id(layer.pos_activations.current))
-                                # print(layer.pos_activations.current.shape)
-                                # print(layer.pos_activations.current[0:5])
-                            else:
-                                generative_output += layer.generative_linear(
-                                    layer.predict_activations.current)
-                                # print(id(layer.predict_activations.current))
-                                # print(layer.predict_activations.current.shape)
-                                # print(layer.predict_activations.current[0:5])
-                        # print(generative_output.shape)
-                        # print(generative_output[0:3, self.settings.data_config.data_size:])
-                        assert generative_output.shape[0] == data.shape[1] and generative_output.shape[1] == self.settings.data_config.data_size + self.settings.data_config.num_classes
-                        reconstructed_data, reconstructed_labels = generative_output.split(
-                            [self.settings.data_config.data_size, self.settings.data_config.num_classes], dim=1)
-                        assert reconstructed_data.shape[1] == self.settings.data_config.data_size
-                        # put reconstructed labels through softmax
-                        # print(reconstructed_labels[0:3])
-                        reconstructed_labels = F.softmax(reconstructed_labels, dim=1)
-                        assert reconstructed_labels.shape[1] == self.settings.data_config.num_classes
-                        assert reconstructed_labels.shape[0] == data.shape[1]
-                        # argmax to select the label
-                        reconstructed_labels = torch.argmax(
-                            reconstructed_labels, dim=1)
-                        assert reconstructed_labels.shape == labels.shape
-                        # print(reconstructed_labels[0:10])
-                        correct = (reconstructed_labels == labels).sum().item()
-                        total = data.size(1)
-                        # print(correct)
-                        # print(total)
-                        # print(str(correct / total * 100) + str("%"))
-                        accuracy_contexts.append((correct, total))
-
+                    for _preinit_step in range(
+                            0, self.settings.model.prelabel_timesteps):
                         self.inner_layers.advance_layers_forward(
-                            forward_mode, data[iteration], upper_clamped_tensor, True)
+                            forward_mode, data[0], upper_clamped_tensor, False)
                         if write_activations:
                             activity_tracker.track_partial_activations(
                                 self.inner_layers)
 
-            #         if iteration >= lower_iteration_threshold and iteration <= upper_iteration_threshold:
-            #             layer_badnesses = []
-            #             for layer in self.inner_layers:
-            #                 activations = cast(Activations, layer.pos_activations).current \
-            #                     if forward_mode == ForwardMode.PositiveData \
-            #                     else cast(Activations, layer.predict_activations).current
+                    one_hot_labels = torch.zeros(
+                        data.shape[1],
+                        self.settings.data_config.num_classes,
+                        device=self.settings.device.device)
+                    one_hot_labels[:, label] = 1.0
+                    # one_hot_labels = upper_clamped_tensor
 
-            #                 layer_badnesses.append(
-            #                     layer_activations_to_badness(
-            #                         activations))
+                    lower_iteration_threshold = iterations // 2 - \
+                        iterations // 10
+                    upper_iteration_threshold = iterations // 2 + \
+                        iterations // 10
+                    badnesses = []
+                    for iteration in range(0, iterations):
+                        self.inner_layers.advance_layers_forward(
+                            forward_mode, data[iteration], one_hot_labels, True)
+                        if write_activations:
+                            activity_tracker.track_partial_activations(
+                                self.inner_layers)
 
-            #             badnesses.append(torch.stack(
-            #                 layer_badnesses, dim=1))
+                        if iteration >= lower_iteration_threshold and iteration <= upper_iteration_threshold:
+                            layer_badnesses = []
+                            for layer in self.inner_layers:
+                                activations = cast(Activations, layer.pos_activations).current \
+                                    if forward_mode == ForwardMode.PositiveData \
+                                    else cast(Activations, layer.predict_activations).current
 
-            #     if write_activations:
-            #         activity_tracker.cut_activations()
+                                layer_badnesses.append(
+                                    layer_activations_to_badness(
+                                        activations))
 
-            #     # tensor of shape (batch_size, iterations, num_layers)
-            #     badnesses_stacked = torch.stack(badnesses, dim=1)
-            #     badnesses_mean_over_iterations = badnesses_stacked.mean(
-            #         dim=1)
-            #     badness_mean_over_layers = badnesses_mean_over_iterations.mean(
-            #         dim=1)
+                            badnesses.append(torch.stack(
+                                layer_badnesses, dim=1))
 
-            #     logging.debug("Badness for prediction" + " " +
-            #                     str(label) + ": " + str(badness_mean_over_layers))
-            #     all_labels_badness.append(badness_mean_over_layers)
+                    if write_activations:
+                        activity_tracker.cut_activations()
 
-            # all_labels_badness_stacked = torch.stack(
-            #     all_labels_badness, dim=1)
+                    # tensor of shape (batch_size, iterations, num_layers)
+                    badnesses_stacked = torch.stack(badnesses, dim=1)
+                    badnesses_mean_over_iterations = badnesses_stacked.mean(
+                        dim=1)
+                    badness_mean_over_layers = badnesses_mean_over_iterations.mean(
+                        dim=1)
 
-            # # select the label with the maximum badness
-            # predicted_labels = torch.argmin(
-            #     all_labels_badness_stacked, dim=1)
-            # if write_activations:
-            #     anti_predictions = torch.argmax(
-            #         all_labels_badness_stacked, dim=1)
-            #     activity_tracker.filter_and_persist(
-            #         predicted_labels, anti_predictions, labels)
+                    logging.debug("Badness for prediction" + " " +
+                                  str(label) + ": " + str(badness_mean_over_layers))
+                    all_labels_badness.append(badness_mean_over_layers)
 
-            # logging.debug("Predicted labels: " + str(predicted_labels))
-            # logging.debug("Actual labels: " + str(labels))
+                all_labels_badness_stacked = torch.stack(
+                    all_labels_badness, dim=1)
 
-            # total = data.size(1)
-            # correct = (predicted_labels == labels).sum().item()
+                # select the label with the maximum badness
+                predicted_labels = torch.argmin(
+                    all_labels_badness_stacked, dim=1)
+                if write_activations:
+                    anti_predictions = torch.argmax(
+                        all_labels_badness_stacked, dim=1)
+                    activity_tracker.filter_and_persist(
+                        predicted_labels, anti_predictions, labels)
 
-            # accuracy_contexts.append((correct, total))
+                logging.debug("Predicted labels: " + str(predicted_labels))
+                logging.debug("Actual labels: " + str(labels))
+
+                total = data.size(1)
+                correct = (predicted_labels == labels).sum().item()
+
+                accuracy_contexts.append((correct, total))
 
         total_correct = sum(correct for correct, _total in accuracy_contexts)
         total_submissions = sum(
