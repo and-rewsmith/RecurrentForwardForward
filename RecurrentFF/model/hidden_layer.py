@@ -248,12 +248,9 @@ class HiddenLayer(nn.Module):
         self.backward_dropout = nn.Dropout(p=self.settings.model.dropout)
         self.lateral_dropout = nn.Dropout(p=self.settings.model.dropout)
 
-        self.generative_linear_data = nn.Linear(size, settings.data_config.data_size)
-        self.generative_linear_labels = nn.Linear(size, settings.data_config.num_classes)
+        self.generative_linear = nn.Linear(size, settings.data_config.data_size + settings.data_config.num_classes)
         nn.init.kaiming_uniform_(
-            self.generative_linear_data.weight, nonlinearity='relu')
-        nn.init.kaiming_uniform_(
-            self.generative_linear_labels.weight, nonlinearity='relu')
+            self.generative_linear.weight, nonlinearity='relu')
 
         self.forward_linear = nn.Linear(prev_size, size)
         nn.init.kaiming_uniform_(
@@ -281,62 +278,25 @@ class HiddenLayer(nn.Module):
         self.residual_connections.append(residual_connection)
 
     def init_optimizer(self) -> None:
-        # Main optimizer for the layer's parameters (excluding generative weights)
-        main_params = [p for n, p in self.named_parameters() 
-                       if not n.startswith('generative_linear')]
-        
-        # Optimizer for generative_linear_data
-        data_params = self.generative_linear_data.parameters()
-        
-        # Optimizer for generative_linear_labels
-        labels_params = self.generative_linear_labels.parameters()
-
+        self.optimizer: Optimizer
         if self.settings.model.ff_optimizer == "adam":
-            self.optimizer = Adam(main_params, lr=self.settings.model.ff_adam.learning_rate)
-            self.gen_data_optimizer = Adam(data_params, lr=self.settings.model.ff_adam.learning_rate)
-            self.gen_labels_optimizer = Adam(labels_params, lr=self.settings.model.ff_adam.learning_rate)
+            self.optimizer = Adam(self.parameters(),
+                                  lr=self.settings.model.ff_adam.learning_rate)
         elif self.settings.model.ff_optimizer == "rmsprop":
-            self.optimizer = RMSprop(main_params, lr=self.settings.model.ff_rmsprop.learning_rate,
-                                     momentum=self.settings.model.ff_rmsprop.momentum)
-            self.gen_data_optimizer = RMSprop(data_params, lr=self.settings.model.ff_rmsprop.learning_rate,
-                                          momentum=self.settings.model.ff_rmsprop.momentum)
-            self.gen_labels_optimizer = RMSprop(labels_params, lr=self.settings.model.ff_rmsprop.learning_rate,
-                                            momentum=self.settings.model.ff_rmsprop.momentum)
+            self.optimizer = RMSprop(
+                self.parameters(),
+                lr=self.settings.model.ff_rmsprop.learning_rate,
+                momentum=self.settings.model.ff_rmsprop.momentum)
         elif self.settings.model.ff_optimizer == "adadelta":
-            self.optimizer = Adadelta(main_params, lr=self.settings.model.ff_adadelta.learning_rate)
-            self.gen_data_optimizer = Adadelta(data_params, lr=self.settings.model.ff_adadelta.learning_rate)
-            self.gen_labels_optimizer = Adadelta(labels_params, lr=self.settings.model.ff_adadelta.learning_rate)
+            self.optimizer = Adadelta(
+                self.parameters(),
+                lr=self.settings.model.ff_adadelta.learning_rate)
 
-        # Schedulers for each optimizer
-        self.scheduler = StepLR(self.optimizer, step_size=self.settings.model.lr_step_size, 
-                                gamma=self.settings.model.lr_gamma)
-        self.data_scheduler = StepLR(self.gen_data_optimizer, step_size=self.settings.model.lr_step_size, 
-                                     gamma=self.settings.model.lr_gamma)
-        self.labels_scheduler = StepLR(self.gen_labels_optimizer, step_size=self.settings.model.lr_step_size, 
-                                       gamma=self.settings.model.lr_gamma)
+        self.scheduler = StepLR(
+            self.optimizer, step_size=self.settings.model.lr_step_size, gamma=self.settings.model.lr_gamma)
 
-        self.param_name_dict = {param: name for name, param in self.named_parameters()}
-
-    # def init_optimizer(self) -> None:
-    #     self.optimizer: Optimizer
-    #     if self.settings.model.ff_optimizer == "adam":
-    #         self.optimizer = Adam(self.parameters(),
-    #                               lr=self.settings.model.ff_adam.learning_rate)
-    #     elif self.settings.model.ff_optimizer == "rmsprop":
-    #         self.optimizer = RMSprop(
-    #             self.parameters(),
-    #             lr=self.settings.model.ff_rmsprop.learning_rate,
-    #             momentum=self.settings.model.ff_rmsprop.momentum)
-    #     elif self.settings.model.ff_optimizer == "adadelta":
-    #         self.optimizer = Adadelta(
-    #             self.parameters(),
-    #             lr=self.settings.model.ff_adadelta.learning_rate)
-
-    #     self.scheduler = StepLR(
-    #         self.optimizer, step_size=self.settings.model.lr_step_size, gamma=self.settings.model.lr_gamma)
-
-    #     self.param_name_dict = {param: name for name,
-    #                             param in self.named_parameters()}
+        self.param_name_dict = {param: name for name,
+                                param in self.named_parameters()}
 
     def train(self: Self, mode: bool = True) -> Self:
         self.training = mode

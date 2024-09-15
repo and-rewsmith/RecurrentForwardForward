@@ -251,21 +251,16 @@ class RecurrentFFNet(nn.Module):
 
             data_criterion = torch.nn.MSELoss()
             label_criterion = torch.nn.CrossEntropyLoss()
-            generative_input_data = torch.zeros(self.settings.data_config.train_batch_size, self.settings.data_config.data_size).to(self.settings.device.device)
-            generative_input_labels = torch.zeros(self.settings.data_config.train_batch_size, self.settings.data_config.num_classes).to(self.settings.device.device)
-            assert generative_input_data.requires_grad == False
-            assert generative_input_labels.requires_grad == False
+            generative_input = torch.zeros(self.settings.data_config.train_batch_size, self.settings.data_config.data_size + self.settings.data_config.num_classes).to(self.settings.device.device)
+            assert generative_input.requires_grad == False
             for layer in self.inner_layers:
                 layer.optimizer.zero_grad()
-                layer.gen_data_optimizer.zero_grad()
-                layer.gen_labels_optimizer.zero_grad()
                 activations = layer.pos_activations.current
-                generative_input_data += layer.generative_linear_data(activations)
-                generative_input_labels += layer.generative_linear_labels(activations)
-            assert generative_input_labels.shape[0] == input_data.pos_input[iteration].shape[0] and generative_input_labels.shape[1] == self.settings.data_config.num_classes
+                generative_input += layer.generative_linear(activations)
+            assert generative_input.shape[0] == input_data.pos_input[iteration].shape[0] and generative_input.shape[1] == input_data.pos_input[iteration].shape[1] + self.settings.data_config.num_classes
             # generative_cmp = torch.cat((input_data.pos_input[iteration], label_data.pos_labels[iteration]), dim=1)
-            # reconstructed_data, reconstructed_labels = generative_input.split(
-            #     [self.settings.data_config.data_size, self.settings.data_config.num_classes], dim=1)
+            reconstructed_data, reconstructed_labels = generative_input.split(
+                [self.settings.data_config.data_size, self.settings.data_config.num_classes], dim=1)
             # print shapes
             # print(reconstructed_labels[0].shape)
             # print(label_data.pos_labels[iteration][0].shape)
@@ -273,10 +268,10 @@ class RecurrentFFNet(nn.Module):
             if random.randint(0, 1000) == 1:
                 # print(torch.softmax(reconstructed_labels[0], dim=0))
                 # print(torch.argmax(label_data.pos_labels[iteration][0]))
-                is_correct = torch.argmax(label_data.pos_labels[iteration][0]) == torch.argmax(torch.softmax(generative_input_labels[0], dim=0))
+                is_correct = torch.argmax(label_data.pos_labels[iteration][0]) == torch.argmax(torch.softmax(reconstructed_labels[0], dim=0))
                 print(is_correct.item())
-            data_loss = data_criterion(generative_input_data, input_data.pos_input[iteration])
-            label_loss = label_criterion(generative_input_labels, torch.argmax(label_data.pos_labels[iteration], dim=1))
+            data_loss = data_criterion(reconstructed_data, input_data.pos_input[iteration])
+            label_loss = label_criterion(reconstructed_labels, torch.argmax(label_data.pos_labels[iteration], dim=1))
             # loss = data_criterion(reconstructed_data, input_data.pos_input[iteration]) + label_criterion(reconstructed_labels, torch.argmax(label_data.pos_labels[iteration], dim=1))
             loss = data_loss + label_loss
             wandb.log({"generative loss": loss.item()}, step=total_batch_count)
@@ -284,20 +279,17 @@ class RecurrentFFNet(nn.Module):
             wandb.log({"label loss": label_loss.item()}, step=total_batch_count)
             loss.backward()
             for layer in self.inner_layers:
-                assert not torch.all(layer.generative_linear_data.weight.grad == 0)
-                assert not torch.all(layer.generative_linear_labels.weight.grad == 0)
+                assert not torch.all(layer.generative_linear.weight.grad == 0)
                 assert layer.forward_linear.weight.grad == None or torch.all(layer.forward_linear.weight.grad == 0)
-                layer.gen_data_optimizer.step()
-                layer.gen_labels_optimizer.step()
-            generative_input_data = generative_input_data.detach()
-            generative_input_labels = generative_input_labels.detach()
+                layer.optimizer.step()
+            generative_input = generative_input.detach()
 
             input_data_sample = (
                 input_data.pos_input[iteration],
-                generative_input_data)
+                generative_input[:, 0:self.settings.data_config.data_size])
             label_data_sample = (
-                torch.softmax(generative_input_labels, dim=1),
-                swap_top_two_softmax(torch.softmax(generative_input_labels, dim=1)),
+                torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1),
+                swap_top_two_softmax(torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1)),
                 # preinit_upper_clamped_tensor,
                 )
 
