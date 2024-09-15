@@ -284,9 +284,9 @@ class RecurrentFFNet(nn.Module):
                 input_data.pos_input[iteration],
                 generative_input[:, 0:self.settings.data_config.data_size])
             label_data_sample = (
+                preinit_upper_clamped_tensor,
                 # preinit_upper_clamped_tensor,
-                torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1),
-                1 - torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1))
+                torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1))
 
             self.inner_layers.advance_layers_train(
                 input_data_sample, label_data_sample, True, layer_metrics)
