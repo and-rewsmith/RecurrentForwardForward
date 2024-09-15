@@ -4,6 +4,20 @@ from typing import Generator
 
 import torch
 
+# Updated function without prints and assuming label data is passed directly
+def is_confident(softmax_output, correct_labels, confidence):
+    # Convert one-hot encoded labels to indices (get the correct class indices)
+    correct_indices = torch.argmax(correct_labels, dim=1)  # [batch_size]
+    
+    # Gather the softmax probabilities of the correct class for each example in the batch
+    correct_class_probs = softmax_output.gather(1, correct_indices.unsqueeze(1)).squeeze()
+
+    # Check if the average of the correct class probabilities is above 90%
+    avg_confidence = torch.mean(correct_class_probs)
+    
+    # Return a boolean indicating if average confidence is over the threshold
+    return avg_confidence, (avg_confidence > confidence).item()
+
 def swap_top_two_softmax(tensor):
     # Find the top two values along the softmax dimension
     top2_values, top2_indices = torch.topk(tensor, 2, dim=1)

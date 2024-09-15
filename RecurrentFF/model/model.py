@@ -21,7 +21,8 @@ from RecurrentFF.util import (
     TrainLabelData,
     TrainTestBridgeFormatLoader,
     layer_activations_to_badness,
-    swap_top_two_softmax
+    swap_top_two_softmax,
+    is_confident
 )
 from RecurrentFF.settings import (
     Settings,
@@ -166,6 +167,7 @@ class RecurrentFFNet(nn.Module):
 
         total_batch_count = 0
         best_test_accuracy: float = 0
+        confidence_threshold = {"value": 0.5}
         for epoch in range(0, self.settings.model.epochs):
             logging.info("Epoch: " + str(epoch))
             self.train()
@@ -179,7 +181,7 @@ class RecurrentFFNet(nn.Module):
                         input_data.pos_input, label_data, total_batch_count)
 
                 layer_metrics, pos_badness_per_layer, neg_badness_per_layer = self.__train_batch(
-                    batch_num, input_data, label_data, total_batch_count)
+                    batch_num, input_data, label_data, total_batch_count, confidence_threshold=confidence_threshold)
 
                 if self.settings.model.should_log_metrics:
                     self.__log_batch_metrics(
@@ -220,7 +222,8 @@ class RecurrentFFNet(nn.Module):
             batch_num: int,
             input_data: TrainInputData,
             label_data: TrainLabelData,
-            total_batch_count: int) -> Tuple[LayerMetrics, List[float], List[float]]:
+            total_batch_count: int,
+            confidence_threshold: dict) -> Tuple[LayerMetrics, List[float], List[float]]:
         logging.info("Batch: " + str(batch_num))
 
         self.inner_layers.reset_activations(True)
@@ -258,21 +261,13 @@ class RecurrentFFNet(nn.Module):
                 activations = layer.pos_activations.current
                 generative_input += layer.generative_linear(activations)
             assert generative_input.shape[0] == input_data.pos_input[iteration].shape[0] and generative_input.shape[1] == input_data.pos_input[iteration].shape[1] + self.settings.data_config.num_classes
-            # generative_cmp = torch.cat((input_data.pos_input[iteration], label_data.pos_labels[iteration]), dim=1)
             reconstructed_data, reconstructed_labels = generative_input.split(
                 [self.settings.data_config.data_size, self.settings.data_config.num_classes], dim=1)
-            # print shapes
-            # print(reconstructed_labels[0].shape)
-            # print(label_data.pos_labels[iteration][0].shape)
-            # print if 1 in 1000 chance
             if random.randint(0, 1000) == 1:
-                # print(torch.softmax(reconstructed_labels[0], dim=0))
-                # print(torch.argmax(label_data.pos_labels[iteration][0]))
                 is_correct = torch.argmax(label_data.pos_labels[iteration][0]) == torch.argmax(torch.softmax(reconstructed_labels[0], dim=0))
                 print(is_correct.item())
             data_loss = data_criterion(reconstructed_data, input_data.pos_input[iteration])
             label_loss = label_criterion(reconstructed_labels, torch.argmax(label_data.pos_labels[iteration], dim=1))
-            # loss = data_criterion(reconstructed_data, input_data.pos_input[iteration]) + label_criterion(reconstructed_labels, torch.argmax(label_data.pos_labels[iteration], dim=1))
             loss = data_loss + label_loss
             wandb.log({"generative loss": loss.item()}, step=total_batch_count)
             wandb.log({"data loss": data_loss.item()}, step=total_batch_count)
@@ -290,16 +285,17 @@ class RecurrentFFNet(nn.Module):
             label_data_sample = (
                 torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1),
                 swap_top_two_softmax(torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1)),
-                # preinit_upper_clamped_tensor,
                 )
 
             self.inner_layers.advance_layers_train(
                 input_data_sample, label_data_sample, True, layer_metrics)
 
-            lower_iteration_threshold = iterations // 2 - \
-                iterations // 10
-            upper_iteration_threshold = iterations // 2 + \
-                iterations // 10
+            # lower_iteration_threshold = iterations // 2 - \
+            #     iterations // 10
+            # upper_iteration_threshold = iterations // 2 + \
+            #     iterations // 10
+            lower_iteration_threshold = 0
+            upper_iteration_threshold = iterations
 
             if iteration >= lower_iteration_threshold and \
                     iteration <= upper_iteration_threshold:
@@ -313,6 +309,21 @@ class RecurrentFFNet(nn.Module):
                 positive_latents_collapsed = torch.cat(positive_latents, dim=1)
                 pos_target_latents_averager.track_collapsed_latents(
                     positive_latents_collapsed)
+
+            # TODO: for all?
+            # if it was over 90% confident in correct answer on average return
+            conf, should_stop = is_confident(torch.softmax(reconstructed_labels, dim=1), label_data.pos_labels[iteration], confidence_threshold["value"])
+            wandb.log({"avg_confidence_correct_class": conf}, step=total_batch_count)
+            # if should_stop and iteration > 3:
+            #     confidence_threshold["value"] = conf
+            #     print(iteration)
+            #     break
+            if should_stop and iteration > 3:
+                confidence_threshold["value"] += 0.01
+                print(iteration)
+                break
+            elif iteration > 3:
+                confidence_threshold["value"] -= 0.01
 
         if self.settings.model.should_replace_neg_data:
             pos_target_latents = pos_target_latents_averager.retrieve()
