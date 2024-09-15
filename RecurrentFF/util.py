@@ -3,6 +3,17 @@ import logging
 from typing import Generator
 
 import torch
+from torch.nn import functional as F
+
+def zero_correct_class_softmax(logits, correct_classes):
+    # Set a large negative value for logits at the index of the correct class
+    modified_logits = logits.clone()  # Clone to avoid modifying original logits in-place
+    modified_logits[correct_classes == 1] = -1e9  # Use a very large negative value
+    
+    # Apply softmax to the modified logits
+    softmax_output = F.softmax(modified_logits, dim=1)
+    return softmax_output
+
 
 # Updated function without prints and assuming label data is passed directly
 def is_confident(softmax_output, correct_labels, confidence):
