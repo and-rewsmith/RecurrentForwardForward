@@ -474,12 +474,12 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                         assert reconstructed_data.shape[1] == self.settings.data_config.data_size
                         # put reconstructed labels through softmax
                         # print(reconstructed_labels[0:3])
-                        reconstructed_labels = F.softmax(reconstructed_labels, dim=1)
+                        reconstructed_labels_softmax = F.softmax(reconstructed_labels, dim=1)
                         assert reconstructed_labels.shape[1] == self.settings.data_config.num_classes
                         assert reconstructed_labels.shape[0] == data.shape[1]
                         # argmax to select the label
                         reconstructed_labels = torch.argmax(
-                            reconstructed_labels, dim=1)
+                            reconstructed_labels_softmax, dim=1)
                         assert reconstructed_labels.shape == labels.shape
                         # print(reconstructed_labels[0:10])
                         correct = (reconstructed_labels == labels).sum().item()
@@ -490,7 +490,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                         accuracy_contexts.append((correct, total))
 
                         self.inner_layers.advance_layers_forward(
-                            forward_mode, data[iteration], upper_clamped_tensor, True)
+                            forward_mode, data[iteration], reconstructed_labels_softmax, True)
                         if write_activations:
                             activity_tracker.track_partial_activations(
                                 self.inner_layers)

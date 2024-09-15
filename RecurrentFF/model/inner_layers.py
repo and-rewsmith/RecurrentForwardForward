@@ -109,94 +109,95 @@ class LayerMetrics:
         return sum(self.losses_per_layer) / self.num_data_points
 
     def log_metrics(self, total_batch_count: int) -> None:
-        for i in range(0, len(self.pos_activations_norms)):
-            layer_num = i + 1
+        pass
+        # for i in range(0, len(self.pos_activations_norms)):
+        #     layer_num = i + 1
 
-            metric_name = "pos_activations_norms (layer " + \
-                str(layer_num) + ")"
-            wandb.log(
-                {
-                    metric_name: self.pos_activations_norms[i] /
-                    self.num_data_points},
-                step=total_batch_count)
+        #     metric_name = "pos_activations_norms (layer " + \
+        #         str(layer_num) + ")"
+        #     wandb.log(
+        #         {
+        #             metric_name: self.pos_activations_norms[i] /
+        #             self.num_data_points},
+        #         step=total_batch_count)
 
-            metric_name = "neg_activations_norms (layer " + \
-                str(layer_num) + ")"
-            wandb.log(
-                {
-                    metric_name: self.neg_activations_norms[i] /
-                    self.num_data_points},
-                step=total_batch_count)
+        #     metric_name = "neg_activations_norms (layer " + \
+        #         str(layer_num) + ")"
+        #     wandb.log(
+        #         {
+        #             metric_name: self.neg_activations_norms[i] /
+        #             self.num_data_points},
+        #         step=total_batch_count)
 
-            metric_name = "forward_weights_norms (layer " + \
-                str(layer_num) + ")"
-            wandb.log(
-                {
-                    metric_name: self.forward_weights_norms[i] /
-                    self.num_data_points},
-                step=total_batch_count)
+        #     metric_name = "forward_weights_norms (layer " + \
+        #         str(layer_num) + ")"
+        #     wandb.log(
+        #         {
+        #             metric_name: self.forward_weights_norms[i] /
+        #             self.num_data_points},
+        #         step=total_batch_count)
 
-            metric_name = "forward_grad_norms (layer " + str(layer_num) + ")"
-            wandb.log(
-                {metric_name: self.forward_grads_norms[i] / self.num_data_points}, step=total_batch_count)
+        #     metric_name = "forward_grad_norms (layer " + str(layer_num) + ")"
+        #     wandb.log(
+        #         {metric_name: self.forward_grads_norms[i] / self.num_data_points}, step=total_batch_count)
 
-            metric_name = "backward_weights_norms (layer " + \
-                str(layer_num) + ")"
-            wandb.log(
-                {
-                    metric_name: self.backward_weights_norms[i] /
-                    self.num_data_points},
-                step=total_batch_count)
+        #     metric_name = "backward_weights_norms (layer " + \
+        #         str(layer_num) + ")"
+        #     wandb.log(
+        #         {
+        #             metric_name: self.backward_weights_norms[i] /
+        #             self.num_data_points},
+        #         step=total_batch_count)
 
-            metric_name = "backward_grad_norms (layer " + str(layer_num) + ")"
-            wandb.log(
-                {
-                    metric_name: self.backward_grads_norms[i] /
-                    self.num_data_points},
-                step=total_batch_count)
+        #     metric_name = "backward_grad_norms (layer " + str(layer_num) + ")"
+        #     wandb.log(
+        #         {
+        #             metric_name: self.backward_grads_norms[i] /
+        #             self.num_data_points},
+        #         step=total_batch_count)
 
-            metric_name = "lateral_weights_norms (layer " + \
-                str(layer_num) + ")"
-            wandb.log(
-                {
-                    metric_name: self.lateral_weights_norms[i] /
-                    self.num_data_points},
-                step=total_batch_count)
+        #     metric_name = "lateral_weights_norms (layer " + \
+        #         str(layer_num) + ")"
+        #     wandb.log(
+        #         {
+        #             metric_name: self.lateral_weights_norms[i] /
+        #             self.num_data_points},
+        #         step=total_batch_count)
 
-            metric_name = "lateral_grad_norms (layer " + str(layer_num) + ")"
-            wandb.log(
-                {metric_name: self.lateral_grads_norms[i] / self.num_data_points}, step=total_batch_count)
+        #     metric_name = "lateral_grad_norms (layer " + str(layer_num) + ")"
+        #     wandb.log(
+        #         {metric_name: self.lateral_grads_norms[i] / self.num_data_points}, step=total_batch_count)
 
-            metric_name = "loss (layer " + str(layer_num) + ")"
-            wandb.log(
-                {metric_name: self.losses_per_layer[i] / self.num_data_points}, step=total_batch_count)
+        #     metric_name = "loss (layer " + str(layer_num) + ")"
+        #     wandb.log(
+        #         {metric_name: self.losses_per_layer[i] / self.num_data_points}, step=total_batch_count)
 
-        for layer_index in self.update_norms:
-            layer_index_display = layer_index + 1
-            for param_name in self.update_norms[layer_index]:
-                metric_name = f"{param_name} update norm (layer {str(layer_index_display)})"
-                wandb.log(
-                    {metric_name: self.update_norms[layer_index]
-                        [param_name] / self.num_data_points},
-                    step=total_batch_count)
+        # for layer_index in self.update_norms:
+        #     layer_index_display = layer_index + 1
+        #     for param_name in self.update_norms[layer_index]:
+        #         metric_name = f"{param_name} update norm (layer {str(layer_index_display)})"
+        #         wandb.log(
+        #             {metric_name: self.update_norms[layer_index]
+        #                 [param_name] / self.num_data_points},
+        #             step=total_batch_count)
 
-        for layer_index in self.momentum_norms:
-            layer_index_display = layer_index + 1
-            for param_name in self.momentum_norms[layer_index]:
-                metric_name = f"{param_name} momentum (layer {str(layer_index_display)})"
-                wandb.log(
-                    {metric_name: self.momentum_norms[layer_index]
-                        [param_name] / self.num_data_points},
-                    step=total_batch_count)
+        # for layer_index in self.momentum_norms:
+        #     layer_index_display = layer_index + 1
+        #     for param_name in self.momentum_norms[layer_index]:
+        #         metric_name = f"{param_name} momentum (layer {str(layer_index_display)})"
+        #         wandb.log(
+        #             {metric_name: self.momentum_norms[layer_index]
+        #                 [param_name] / self.num_data_points},
+        #             step=total_batch_count)
 
-        for layer_index in self.update_angles:
-            layer_index_display = layer_index + 1
-            for param_name in self.update_angles[layer_index]:
-                metric_name = f"{param_name} update angle (layer {str(layer_index_display)})"
-                wandb.log(
-                    {metric_name: self.update_angles[layer_index]
-                        [param_name] / self.num_data_points},
-                    step=total_batch_count)
+        # for layer_index in self.update_angles:
+        #     layer_index_display = layer_index + 1
+        #     for param_name in self.update_angles[layer_index]:
+        #         metric_name = f"{param_name} update angle (layer {str(layer_index_display)})"
+        #         wandb.log(
+        #             {metric_name: self.update_angles[layer_index]
+        #                 [param_name] / self.num_data_points},
+        #             step=total_batch_count)
 
 
 class InnerLayers(nn.Module):

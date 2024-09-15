@@ -4,7 +4,6 @@ from typing import Generator
 
 import torch
 
-
 def set_logging() -> None:
     """
     Must be called after argparse.
