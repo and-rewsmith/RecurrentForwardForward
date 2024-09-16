@@ -259,7 +259,7 @@ class RecurrentFFNet(nn.Module):
             assert generative_input.requires_grad == False
             for layer in self.inner_layers:
                 layer.optimizer.zero_grad()
-                activations = layer.pos_activations.current
+                activations = layer.neg_activations.current
                 generative_input += layer.generative_linear(activations)
             assert generative_input.shape[0] == input_data.pos_input[iteration].shape[0] and generative_input.shape[1] == input_data.pos_input[iteration].shape[1] + self.settings.data_config.num_classes
             reconstructed_data, reconstructed_labels = generative_input.split(
@@ -269,8 +269,8 @@ class RecurrentFFNet(nn.Module):
                 print(is_correct.item())
             data_loss = data_criterion(reconstructed_data, input_data.pos_input[iteration])
             label_loss = label_criterion(reconstructed_labels, torch.argmax(label_data.pos_labels[iteration], dim=1))
-            # loss = data_loss + label_loss
-            loss = label_loss
+            loss = data_loss + label_loss
+            # loss = label_loss
             wandb.log({"generative loss": loss.item()}, step=total_batch_count)
             wandb.log({"data loss": data_loss.item()}, step=total_batch_count)
             wandb.log({"label loss": label_loss.item()}, step=total_batch_count)
@@ -285,7 +285,8 @@ class RecurrentFFNet(nn.Module):
                 input_data.pos_input[iteration],
                 input_data.pos_input[iteration])
             label_data_sample = (
-                torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1),
+                label_data.pos_labels[iteration],
+                # torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1),
                 zero_correct_class_softmax(generative_input[:, self.settings.data_config.data_size:], label_data.pos_labels[iteration]),
                 # swap_top_two_softmax(torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1)),
                 )

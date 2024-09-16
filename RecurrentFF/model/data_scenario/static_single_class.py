@@ -10,7 +10,7 @@ import wandb
 
 from RecurrentFF.model.data_scenario.processor import DataScenarioProcessor
 from RecurrentFF.model.inner_layers import InnerLayers
-from RecurrentFF.util import Activations, LatentAverager, TrainLabelData, layer_activations_to_badness, ForwardMode, is_confident
+from RecurrentFF.util import Activations, LatentAverager, TrainLabelData, layer_activations_to_badness, ForwardMode, is_confident, zero_correct_class_softmax
 from RecurrentFF.settings import Settings
 
 
@@ -487,11 +487,11 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                     # print(total)
                     # print(str(correct / total * 100) + str("%"))
 
-            #         if iteration >= lower_iteration_threshold and iteration <= upper_iteration_threshold:
-                    accuracy_contexts.append((correct, total))
+                    if iteration >= lower_iteration_threshold and iteration <= upper_iteration_threshold:
+                        accuracy_contexts.append((correct, total))
 
                     self.inner_layers.advance_layers_forward(
-                        forward_mode, data[iteration], reconstructed_labels_softmax, True)
+                        forward_mode, data[iteration], zero_correct_class_softmax(reconstructed_labels_softmax, torch.nn.functional.one_hot(labels, 10)), True)
                     if write_activations:
                         activity_tracker.track_partial_activations(
                             self.inner_layers)
