@@ -23,7 +23,9 @@ from RecurrentFF.util import (
     layer_activations_to_badness,
     swap_top_two_softmax,
     is_confident,
-    zero_correct_class_softmax
+    zero_correct_class_softmax,
+    percent_above_threshold,
+    percent_correct
 )
 from RecurrentFF.settings import (
     Settings,
@@ -294,12 +296,12 @@ class RecurrentFFNet(nn.Module):
             self.inner_layers.advance_layers_train(
                 input_data_sample, label_data_sample, True, layer_metrics)
 
-            # lower_iteration_threshold = iterations // 2 - \
-            #     iterations // 10
-            # upper_iteration_threshold = iterations // 2 + \
-            #     iterations // 10
-            lower_iteration_threshold = 0
-            upper_iteration_threshold = iterations
+            lower_iteration_threshold = iterations // 2 - \
+                iterations // 10
+            upper_iteration_threshold = iterations // 2 + \
+                iterations // 10
+            # lower_iteration_threshold = 0
+            # upper_iteration_threshold = iterations
 
             if iteration >= lower_iteration_threshold and \
                     iteration <= upper_iteration_threshold:
@@ -314,16 +316,30 @@ class RecurrentFFNet(nn.Module):
                 pos_target_latents_averager.track_collapsed_latents(
                     positive_latents_collapsed)
 
+            percent_c = percent_correct(torch.softmax(reconstructed_labels, dim=1), label_data.pos_labels[iteration])
+            wandb.log({"percent_correct": percent_c}, step=total_batch_count)
+
+            percent_above = percent_above_threshold(torch.softmax(reconstructed_labels, dim=1), label_data.pos_labels[iteration], 0.5)
+            wandb.log({"percent_above": percent_above}, step=total_batch_count)
+
+
             # # TODO: for all?
-            # # if it was over 90% confident in correct answer on average return
-            # conf, should_stop = is_confident(torch.softmax(reconstructed_labels, dim=1), label_data.pos_labels[iteration], confidence_threshold["value"])
-            # wandb.log({"avg_confidence_correct_class": conf}, step=total_batch_count)
-            # if should_stop and iteration > 3:
-            #     confidence_threshold["value"] += 0.001
-            #     print(iteration)
-            #     break
+            # if it was over 90% confident in correct answer on average return
+            conf, should_stop = is_confident(torch.softmax(reconstructed_labels, dim=1), label_data.pos_labels[iteration], confidence_threshold["value"])
+            # if should_stop:
+            #     print(conf)
+            #     print(confidence_threshold["value"])
+            #     print(torch.softmax(reconstructed_labels, dim=1)[0:3])
+            #     input()
+            wandb.log({"avg_confidence_correct_class": conf}, step=total_batch_count)
+            baseline_conf = 0.5
+            if should_stop and iteration > 3:
+                confidence_threshold["value"] += 0.001
+                print(iteration)
+                break
+            elif iteration > 3 and confidence_threshold["value"] > baseline_conf:
             # elif iteration > 3:
-            #     confidence_threshold["value"] -= 0.001
+                confidence_threshold["value"] -= 0.001
 
         if self.settings.model.should_replace_neg_data:
             pos_target_latents = pos_target_latents_averager.retrieve()

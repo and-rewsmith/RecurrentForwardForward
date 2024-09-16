@@ -487,7 +487,8 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                     # print(total)
                     # print(str(correct / total * 100) + str("%"))
 
-                    if iteration >= lower_iteration_threshold and iteration <= upper_iteration_threshold:
+                    # if iteration >= lower_iteration_threshold and iteration <= upper_iteration_threshold:
+                    if iteration >= 3 and iteration <= upper_iteration_threshold:
                         accuracy_contexts.append((correct, total))
 
                     self.inner_layers.advance_layers_forward(
@@ -496,10 +497,10 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                         activity_tracker.track_partial_activations(
                             self.inner_layers)
                     
-                    # conf, should_stop = is_confident(reconstructed_labels_softmax, torch.nn.functional.one_hot(labels, 10), .5)
-                    # if should_stop and iteration > 3:
-                    #     print(iteration)
-                    #     break
+                    conf, should_stop = is_confident(reconstructed_labels_softmax, torch.nn.functional.one_hot(labels, 10), .5)
+                    if should_stop and iteration > 3:
+                        print(iteration)
+                        break
 
             #         if iteration >= lower_iteration_threshold and iteration <= upper_iteration_threshold:
             #             layer_badnesses = []

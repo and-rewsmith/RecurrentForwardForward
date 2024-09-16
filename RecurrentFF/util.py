@@ -14,20 +14,57 @@ def zero_correct_class_softmax(logits, correct_classes):
     softmax_output = F.softmax(modified_logits, dim=1)
     return softmax_output
 
+# Function to calculate the percentage of cases where the argmax matches the correct label
+def percent_correct(softmax_output, correct_labels):
+    # Convert one-hot encoded labels to indices (get the correct class indices)
+    correct_indices = torch.argmax(correct_labels, dim=1)  # [batch_size]
+    
+    # Get the predicted class from softmax output (argmax of predictions)
+    predicted_indices = torch.argmax(softmax_output, dim=1)  # [batch_size]
 
-# Updated function without prints and assuming label data is passed directly
-def is_confident(softmax_output, correct_labels, confidence):
+    # Compare predicted indices with the correct indices
+    num_correct = torch.sum(predicted_indices == correct_indices).item()
+
+    # Calculate the percentage of correct predictions
+    percent_correct = (num_correct / correct_indices.size(0)) * 100
+
+    # Return the percentage of correct argmax predictions
+    return percent_correct
+
+# Function to check the percentage of correct softmax values above a given threshold
+def percent_above_threshold(softmax_output, correct_labels, confidence_threshold):
     # Convert one-hot encoded labels to indices (get the correct class indices)
     correct_indices = torch.argmax(correct_labels, dim=1)  # [batch_size]
     
     # Gather the softmax probabilities of the correct class for each example in the batch
     correct_class_probs = softmax_output.gather(1, correct_indices.unsqueeze(1)).squeeze()
 
-    # Check if the average of the correct class probabilities is above 90%
-    avg_confidence = torch.mean(correct_class_probs)
+    # Check how many of the correct class probabilities are above the confidence threshold
+    num_above_threshold = torch.sum(correct_class_probs > confidence_threshold).item()
+
+    # Calculate the percentage of softmax values that are above the threshold
+    percent_above = (num_above_threshold / correct_class_probs.size(0)) * 100
+
+    # Return the percentage
+    return percent_above
+
+
+# Updated function without prints and assuming label data is passed directly
+def is_confident(softmax_output, correct_labels, confidence_threshold):
+    # Convert one-hot encoded labels to indices (get the correct class indices)
+    correct_indices = torch.argmax(correct_labels, dim=1)  # [batch_size]
     
-    # Return a boolean indicating if average confidence is over the threshold
-    return avg_confidence, (avg_confidence > confidence).item()
+    # Gather the softmax probabilities of the correct class for each example in the batch
+    correct_class_probs = softmax_output.gather(1, correct_indices.unsqueeze(1)).squeeze()
+
+    # Check if all of the correct class probabilities are above the confidence threshold
+    all_confident = torch.all(correct_class_probs > confidence_threshold)
+
+    # Calculate the average confidence
+    avg_confidence = torch.mean(correct_class_probs)
+
+    # Return the confidence probabilities, average confidence, and whether all are above the threshold
+    return avg_confidence.item(), all_confident.item()
 
 def swap_top_two_softmax(tensor):
     # Find the top two values along the softmax dimension
