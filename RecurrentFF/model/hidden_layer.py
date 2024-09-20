@@ -298,37 +298,65 @@ class HiddenLayer(nn.Module):
 
     def init_optimizer(self) -> None:
         self.optimizer: Optimizer
-        if self.settings.model.ff_optimizer == "adam":
-            self.optimizer = Adam(self.parameters(),
-                                  lr=self.settings.model.ff_adam.learning_rate)
-        elif self.settings.model.ff_optimizer == "rmsprop":
-            params = []
-            params.extend(self.forward_linear.get_params_ttt_heads())
-            params.extend(self.backward_linear.get_params_ttt_heads())
-            params.extend(self.lateral_linear.get_params_ttt_heads())
-            self.optimizer = RMSprop(
-                params,
-                lr=self.settings.model.ff_rmsprop.learning_rate,
-                momentum=self.settings.model.ff_rmsprop.momentum)
+        
+        # Collect other model parameters (excluding generative_linear) for the first param group
+        other_params = []
+        other_params.extend(self.forward_linear.get_params_ttt_heads())
+        other_params.extend(self.backward_linear.get_params_ttt_heads())
+        other_params.extend(self.lateral_linear.get_params_ttt_heads())
+        
+        # Create parameter groups, with generative_linear getting its own learning rate
+        self.optimizer = RMSprop(
+            [
+                {'params': other_params, 'lr': self.settings.model.ff_rmsprop.learning_rate},  # Default learning rate
+                {'params': self.generative_linear.parameters(), 'lr': 0.0000005}  # Hardcoded learning rate for generative_linear
+            ],
+            lr=self.settings.model.ff_rmsprop.learning_rate,  # Default LR for other layers
+            momentum=self.settings.model.ff_rmsprop.momentum
+        )
 
-            params = []
-            params.extend(self.forward_linear.get_params_inner_learning_rates())
-            params.extend(self.backward_linear.get_params_inner_learning_rates())
-            params.extend(self.lateral_linear.get_params_inner_learning_rates())
-            self.optimizer_inner_learning_rates = SGD(
-                params,
-                lr=TTT_INNER_LEARNING_RATE_LEARNING_RATE)
+        # Optimizer for inner learning rates (unchanged)
+        inner_params = []
+        inner_params.extend(self.forward_linear.get_params_inner_learning_rates())
+        inner_params.extend(self.backward_linear.get_params_inner_learning_rates())
+        inner_params.extend(self.lateral_linear.get_params_inner_learning_rates())
+        self.optimizer_inner_learning_rates = SGD(
+            inner_params,
+            lr=TTT_INNER_LEARNING_RATE_LEARNING_RATE
+        )
 
-        elif self.settings.model.ff_optimizer == "adadelta":
-            self.optimizer = Adadelta(
-                self.parameters(),
-                lr=self.settings.model.ff_adadelta.learning_rate)
-
+        # Learning rate scheduler (unchanged)
         self.scheduler = StepLR(
-            self.optimizer, step_size=self.settings.model.lr_step_size, gamma=self.settings.model.lr_gamma)
+            self.optimizer, step_size=self.settings.model.lr_step_size, gamma=self.settings.model.lr_gamma
+        )
 
-        self.param_name_dict = {param: name for name,
-                                param in self.named_parameters()}
+        # Keep track of parameter names (unchanged)
+        self.param_name_dict = {param: name for name, param in self.named_parameters()}
+
+    # def init_optimizer(self) -> None:
+    #     self.optimizer: Optimizer
+    #     params = []
+    #     params.extend(self.forward_linear.get_params_ttt_heads())
+    #     params.extend(self.backward_linear.get_params_ttt_heads())
+    #     params.extend(self.lateral_linear.get_params_ttt_heads())
+    #     self.optimizer = RMSprop(
+    #         params,
+    #         lr=self.settings.model.ff_rmsprop.learning_rate,
+    #         momentum=self.settings.model.ff_rmsprop.momentum)
+
+    #     params = []
+    #     params.extend(self.forward_linear.get_params_inner_learning_rates())
+    #     params.extend(self.backward_linear.get_params_inner_learning_rates())
+    #     params.extend(self.lateral_linear.get_params_inner_learning_rates())
+    #     self.optimizer_inner_learning_rates = SGD(
+    #         params,
+    #         lr=TTT_INNER_LEARNING_RATE_LEARNING_RATE)
+
+    #     self.scheduler = StepLR(
+    #         self.optimizer, step_size=self.settings.model.lr_step_size, gamma=self.settings.model.lr_gamma)
+
+    #     self.param_name_dict = {param: name for name,
+    #                             param in self.named_parameters()}
 
     def train(self: Self, mode: bool = True) -> Self:
         self.training = mode
