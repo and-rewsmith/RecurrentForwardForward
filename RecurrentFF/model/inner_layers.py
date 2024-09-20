@@ -1,6 +1,6 @@
 import logging
 import math
-from typing import Dict, Iterator, List
+from typing import Dict, Iterator, List, Optional
 
 
 from torch import Tensor, nn
@@ -212,7 +212,7 @@ class InnerLayers(nn.Module):
             input_data: tuple[Tensor, Tensor],
             label_data: tuple[Tensor, Tensor],
             should_damp: bool,
-            layer_metrics: LayerMetrics) -> None:
+            layer_metrics: Optional[LayerMetrics]) -> None:
         """
         Advances the training process for all layers in the network by computing
         the loss for each layer and updating their activations.
@@ -246,10 +246,12 @@ class InnerLayers(nn.Module):
             layer_num = i + 1
             logging.debug("Loss for layer " +
                           str(layer_num) + ": " + str(loss))
+            
+            if layer_metrics is not None:
+                layer_metrics.ingest_layer_metrics(i, layer, loss)
 
-            layer_metrics.ingest_layer_metrics(i, layer, loss)
-
-        layer_metrics.increment_samples_seen()
+        if layer_metrics is not None:
+            layer_metrics.increment_samples_seen()
 
         for layer in self.layers:
             layer.advance_stored_activations()
