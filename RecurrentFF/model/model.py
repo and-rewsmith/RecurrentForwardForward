@@ -252,6 +252,7 @@ class RecurrentFFNet(nn.Module):
         neg_badness_per_layer = []
         iterations = input_data.pos_input.shape[0]
         pos_target_latents_averager = LatentAverager()
+        class_predictions_agg = torch.zeros(input_data.pos_input[0].shape[0], self.settings.data_config.num_classes).to(self.settings.device.device)
         for iteration in range(0, iterations):
             logging.debug("Iteration: " + str(iteration))
 
@@ -292,6 +293,9 @@ class RecurrentFFNet(nn.Module):
                 zero_correct_class_softmax(generative_input[:, self.settings.data_config.data_size:], label_data.pos_labels[iteration]),
                 # swap_top_two_softmax(torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1)),
                 )
+            
+            # class_predictions.append(torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1))
+            class_predictions_agg += torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1)
 
             self.inner_layers.advance_layers_train(
                 input_data_sample, label_data_sample, True, layer_metrics)
@@ -317,21 +321,15 @@ class RecurrentFFNet(nn.Module):
                     positive_latents_collapsed)
 
             percent_c = percent_correct(torch.softmax(reconstructed_labels, dim=1), label_data.pos_labels[iteration])
-            wandb.log({"percent_correct": percent_c}, step=total_batch_count)
-
             percent_above = percent_above_threshold(torch.softmax(reconstructed_labels, dim=1), label_data.pos_labels[iteration], 0.5)
-            wandb.log({"percent_above": percent_above}, step=total_batch_count)
-
-
-            # # TODO: for all?
-            # if it was over 90% confident in correct answer on average return
             conf, should_stop = is_confident(torch.softmax(reconstructed_labels, dim=1), label_data.pos_labels[iteration], confidence_threshold["value"])
+
+            # if it was over 90% confident in correct answer on average return
             # if should_stop:
             #     print(conf)
             #     print(confidence_threshold["value"])
             #     print(torch.softmax(reconstructed_labels, dim=1)[0:3])
             #     input()
-            wandb.log({"avg_confidence_correct_class": conf}, step=total_batch_count)
             baseline_conf = 0.5
             if should_stop and iteration > 3:
                 confidence_threshold["value"] += 0.001
@@ -340,6 +338,14 @@ class RecurrentFFNet(nn.Module):
             elif iteration > 3 and confidence_threshold["value"] > baseline_conf:
             # elif iteration > 3:
                 confidence_threshold["value"] -= 0.001
+        
+        # determine accuracy from class aggregations
+        correct_percent_agg = (torch.argmax(class_predictions_agg, dim=1) == torch.argmax(label_data.pos_labels[0], dim=1)).float().mean().item() * 100
+
+        wandb.log({"percent_correct": correct_percent_agg}, step=total_batch_count)
+        wandb.log({"percent_above": percent_above}, step=total_batch_count)
+        wandb.log({"avg_confidence_correct_class": conf}, step=total_batch_count)
+        wandb.log({"confidence_threshold": confidence_threshold["value"]}, step=total_batch_count)
 
         if self.settings.model.should_replace_neg_data:
             pos_target_latents = pos_target_latents_averager.retrieve()
