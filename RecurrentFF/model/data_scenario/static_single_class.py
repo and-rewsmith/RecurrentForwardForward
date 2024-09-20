@@ -10,7 +10,7 @@ import wandb
 
 from RecurrentFF.model.data_scenario.processor import DataScenarioProcessor
 from RecurrentFF.model.inner_layers import InnerLayers
-from RecurrentFF.util import Activations, LatentAverager, TrainLabelData, layer_activations_to_badness, ForwardMode, is_confident, zero_correct_class_softmax
+from RecurrentFF.util import Activations, LatentAverager, TrainLabelData, layer_activations_to_badness, ForwardMode, is_confident, zero_correct_class_softmax, swap_top_two_softmax
 from RecurrentFF.settings import Settings
 
 
@@ -495,7 +495,8 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                 label_data_sample = (
                     torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1),
                     # torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1),
-                    zero_correct_class_softmax(generative_output[:, self.settings.data_config.data_size:], torch.nn.functional.one_hot(labels, 10)),
+                    swap_top_two_softmax(torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1)),
+                    # zero_correct_class_softmax(generative_output[:, self.settings.data_config.data_size:], torch.nn.functional.one_hot(labels, 10)),
                     # swap_top_two_softmax(torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1)),
                 )
                 self.inner_layers.advance_layers_train(

@@ -184,7 +184,7 @@ class RecurrentFFNet(nn.Module):
                         input_data.pos_input, label_data, total_batch_count)
 
                 layer_metrics, pos_badness_per_layer, neg_badness_per_layer = self.__train_batch(
-                    batch_num, input_data, label_data, total_batch_count, confidence_threshold=confidence_threshold)
+                    epoch, batch_num, input_data, label_data, total_batch_count, confidence_threshold=confidence_threshold)
 
                 if self.settings.model.should_log_metrics:
                     self.__log_batch_metrics(
@@ -222,6 +222,7 @@ class RecurrentFFNet(nn.Module):
 
     def __train_batch(
             self,
+            epoch_num: int,
             batch_num: int,
             input_data: TrainInputData,
             label_data: TrainLabelData,
@@ -287,12 +288,16 @@ class RecurrentFFNet(nn.Module):
             input_data_sample = (
                 input_data.pos_input[iteration],
                 input_data.pos_input[iteration])
-            label_data_sample = (
-                # generative_input[:, self.settings.data_config.data_size:],
-                torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1),
-                zero_correct_class_softmax(generative_input[:, self.settings.data_config.data_size:], label_data.pos_labels[iteration]),
-                # swap_top_two_softmax(torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1)),
-                )
+            if (batch_num + epoch_num) % 2 == 0:
+                label_data_sample = (
+                    torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1),
+                    zero_correct_class_softmax(generative_input[:, self.settings.data_config.data_size:], label_data.pos_labels[iteration]),
+                    )
+            else:
+                label_data_sample = (
+                    torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1),
+                    swap_top_two_softmax(torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1)),
+                    )
             
             # class_predictions.append(torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1))
             class_predictions_agg += torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1)
