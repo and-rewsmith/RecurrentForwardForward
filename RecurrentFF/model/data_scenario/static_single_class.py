@@ -373,6 +373,28 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
             predictions by comparing them to the actual labels and returns this
             accuracy.
         """
+        for layer in self.inner_layers:
+            # enable grad for w
+            layer.forward_linear.ttt_blocks[0].ttt_head.inner.w.requires_grad_(True)
+            layer.backward_linear.ttt_blocks[0].ttt_head.inner.w.requires_grad_(True)
+            layer.lateral_linear.ttt_blocks[0].ttt_head.inner.w.requires_grad_(True)
+
+            # disable grads for the rest of the model
+            layer.forward_linear.ttt_blocks[0].ttt_head.theta_o.requires_grad_(False)
+            layer.forward_linear.ttt_blocks[0].ttt_head.theta_k.requires_grad_(False)
+            layer.forward_linear.ttt_blocks[0].ttt_head.theta_v.requires_grad_(False)
+            layer.forward_linear.ttt_blocks[0].ttt_head.theta_q.requires_grad_(False)
+
+            layer.backward_linear.ttt_blocks[0].ttt_head.theta_o.requires_grad_(False)
+            layer.backward_linear.ttt_blocks[0].ttt_head.theta_k.requires_grad_(False)
+            layer.backward_linear.ttt_blocks[0].ttt_head.theta_v.requires_grad_(False)
+            layer.backward_linear.ttt_blocks[0].ttt_head.theta_q.requires_grad_(False)
+
+            layer.lateral_linear.ttt_blocks[0].ttt_head.theta_o.requires_grad_(False)
+            layer.lateral_linear.ttt_blocks[0].ttt_head.theta_k.requires_grad_(False)
+            layer.lateral_linear.ttt_blocks[0].ttt_head.theta_v.requires_grad_(False)
+            layer.lateral_linear.ttt_blocks[0].ttt_head.theta_q.requires_grad_(False)
+
         if write_activations:
             assert self.settings.data_config.test_batch_size == 1 \
                 and is_test_set, "Cannot write activations for batch size > 1"
@@ -434,6 +456,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                 self.inner_layers.advance_layers_forward(
                     ForwardMode.NegativeData, data[0], upper_clamped_tensor, False)
                 
+
                 if write_activations:
                     activity_tracker.track_partial_activations(
                         self.inner_layers)
@@ -578,6 +601,27 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
             logging.info(f'Test accuracy: {accuracy}%')
         else:
             logging.info(f'Train accuracy: {accuracy}%')
+
+        # enable grads
+        for layer in self.inner_layers:
+            layer.forward_linear.ttt_blocks[0].ttt_head.inner.w.requires_grad_(True)
+            layer.backward_linear.ttt_blocks[0].ttt_head.inner.w.requires_grad_(True)
+            layer.lateral_linear.ttt_blocks[0].ttt_head.inner.w.requires_grad_(True)
+
+            layer.forward_linear.ttt_blocks[0].ttt_head.theta_o.requires_grad_(True)
+            layer.forward_linear.ttt_blocks[0].ttt_head.theta_k.requires_grad_(True)
+            layer.forward_linear.ttt_blocks[0].ttt_head.theta_v.requires_grad_(True)
+            layer.forward_linear.ttt_blocks[0].ttt_head.theta_q.requires_grad_(True)
+
+            layer.backward_linear.ttt_blocks[0].ttt_head.theta_o.requires_grad_(True)
+            layer.backward_linear.ttt_blocks[0].ttt_head.theta_k.requires_grad_(True)
+            layer.backward_linear.ttt_blocks[0].ttt_head.theta_v.requires_grad_(True)
+            layer.backward_linear.ttt_blocks[0].ttt_head.theta_q.requires_grad_(True)
+
+            layer.lateral_linear.ttt_blocks[0].ttt_head.theta_o.requires_grad_(True)
+            layer.lateral_linear.ttt_blocks[0].ttt_head.theta_k.requires_grad_(True)
+            layer.lateral_linear.ttt_blocks[0].ttt_head.theta_v.requires_grad_(True)
+            layer.lateral_linear.ttt_blocks[0].ttt_head.theta_q.requires_grad_(True)
 
         return accuracy
 

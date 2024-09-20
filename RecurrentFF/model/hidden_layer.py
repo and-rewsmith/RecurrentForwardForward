@@ -7,10 +7,11 @@ import torch
 from torch import Tensor, nn
 from torch.nn import Module
 from torch.nn import functional as F
-from torch.optim import RMSprop, Adam, Adadelta, Optimizer
+from torch.optim import RMSprop, Adam, Adadelta, Optimizer, SGD
 from torch.optim.lr_scheduler import StepLR
-from profilehooks import profile # type: ignore
+from profilehooks import profile
 
+from RecurrentFF.model.ttt import INPUT_DIM, LOW_PASS_FILTER_DIM, TTT_BASE_INNER_LEARNING_RATE, TTT_INNER_LEARNING_RATE_LEARNING_RATE, TTTModel
 from RecurrentFF.util import (
     Activations,
     ForwardMode,
@@ -175,16 +176,16 @@ def custom_load_state_dict(self, state_dict: Dict, strict=True):  # type: ignore
     return self
 
 
-def amplified_initialization(layer: nn.Linear, amplification_factor: float = 3.0) -> None:
+def amplified_initialization(layer: nn.Parameter, amplification_factor: float = 3.0) -> None:
     """Amplified initialization for Linear layers."""
     # Get the number of input features
-    n = layer.in_features
+    n = layer.data.shape[0]
     # Compute the standard deviation for He initialization
     std = (2.0 / n) ** 0.5
     # Amplify the standard deviation
     amplified_std = std * amplification_factor
     # Initialize weights with amplified standard deviation
-    nn.init.normal_(layer.weight, mean=0, std=amplified_std)
+    nn.init.normal_(layer.data, mean=0, std=amplified_std)
 
 
 class HiddenLayer(nn.Module):
@@ -252,20 +253,38 @@ class HiddenLayer(nn.Module):
         nn.init.kaiming_uniform_(
             self.generative_linear.weight, nonlinearity='relu')
 
-        self.forward_linear = nn.Linear(prev_size, size)
-        nn.init.kaiming_uniform_(
-            self.forward_linear.weight, nonlinearity='relu')
+        self.forward_linear = TTTModel(
+            num_layers=1, filter_dim=LOW_PASS_FILTER_DIM, embedding_dim=prev_size, output_dim=self.size,
+            ttt_base_inner_learning_rate=TTT_BASE_INNER_LEARNING_RATE)
 
-        self.backward_linear = nn.Linear(next_size, size)
+        self.backward_linear = TTTModel(
+            num_layers=1, filter_dim=LOW_PASS_FILTER_DIM, embedding_dim=next_size, output_dim=self.size,
+            ttt_base_inner_learning_rate=TTT_BASE_INNER_LEARNING_RATE)
+
+        self.lateral_linear = TTTModel(
+            num_layers=1, filter_dim=LOW_PASS_FILTER_DIM, embedding_dim=self.size, output_dim=self.size,
+            ttt_base_inner_learning_rate=TTT_BASE_INNER_LEARNING_RATE)
 
         if next_size == self.settings.data_config.num_classes:
-            amplified_initialization(self.backward_linear, 3.0)
-        else:
-            nn.init.uniform_(self.backward_linear.weight, -0.05, 0.05)
+            amplified_initialization(self.backward_linear.ttt_blocks[0].ttt_head.theta_o, 3.0)
+            amplified_initialization(self.backward_linear.ttt_blocks[0].ttt_head.theta_k, 3.0)
+            amplified_initialization(self.backward_linear.ttt_blocks[0].ttt_head.theta_q, 3.0)
+            amplified_initialization(self.backward_linear.ttt_blocks[0].ttt_head.theta_v, 3.0)
 
-        # Initialize the lateral weights to be the identity matrix
-        self.lateral_linear = nn.Linear(size, size)
-        nn.init.orthogonal_(self.lateral_linear.weight, gain=math.sqrt(2))
+        # self.forward_linear = nn.Linear(prev_size, size)
+        # nn.init.kaiming_uniform_(
+        #     self.forward_linear.weight, nonlinearity='relu')
+
+        # self.backward_linear = nn.Linear(next_size, size)
+
+        # if next_size == self.settings.data_config.num_classes:
+        #     amplified_initialization(self.backward_linear, 3.0)
+        # else:
+        #     nn.init.uniform_(self.backward_linear.weight, -0.05, 0.05)
+
+        # # Initialize the lateral weights to be the identity matrix
+        # self.lateral_linear = nn.Linear(size, size)
+        # nn.init.orthogonal_(self.lateral_linear.weight, gain=math.sqrt(2))
 
         self.previous_layer: Self = None  # type: ignore[assignment]
         self.next_layer: Self = None  # type: ignore[assignment]
@@ -283,10 +302,23 @@ class HiddenLayer(nn.Module):
             self.optimizer = Adam(self.parameters(),
                                   lr=self.settings.model.ff_adam.learning_rate)
         elif self.settings.model.ff_optimizer == "rmsprop":
+            params = []
+            params.extend(self.forward_linear.get_params_ttt_heads())
+            params.extend(self.backward_linear.get_params_ttt_heads())
+            params.extend(self.lateral_linear.get_params_ttt_heads())
             self.optimizer = RMSprop(
-                self.parameters(),
+                params,
                 lr=self.settings.model.ff_rmsprop.learning_rate,
                 momentum=self.settings.model.ff_rmsprop.momentum)
+
+            params = []
+            params.extend(self.forward_linear.get_params_inner_learning_rates())
+            params.extend(self.backward_linear.get_params_inner_learning_rates())
+            params.extend(self.lateral_linear.get_params_inner_learning_rates())
+            self.optimizer_inner_learning_rates = SGD(
+                params,
+                lr=TTT_INNER_LEARNING_RATE_LEARNING_RATE)
+
         elif self.settings.model.ff_optimizer == "adadelta":
             self.optimizer = Adadelta(
                 self.parameters(),
@@ -423,6 +455,7 @@ class HiddenLayer(nn.Module):
                     label_data: TrainLabelData,
                     should_damp: bool) -> float:
         self.optimizer.zero_grad()
+        self.optimizer_inner_learning_rates.zero_grad()
 
         pos_activations = None
         neg_activations = None
@@ -468,6 +501,7 @@ class HiddenLayer(nn.Module):
         # dot.render('model_graph_outer', format='png')
 
         self.optimizer.step()
+        self.optimizer_inner_learning_rates.step()
         return cast(float, layer_loss.item())
 
     # TODO: needs to be more DRY
@@ -560,18 +594,9 @@ class HiddenLayer(nn.Module):
             prev_act_stdized = standardize_layer_activations(
                 prev_act, self.settings.model.epsilon)
 
-            self.forward_act = F.linear(
-                prev_layer_stdized,
-                self.forward_linear.weight,
-                self.forward_linear.bias)
-            self.backward_act = -1 * F.linear(
-                next_layer_stdized,
-                self.backward_linear.weight,
-                self.backward_linear.bias)
-            self.lateral_act = F.linear(
-                prev_act_stdized,
-                self.lateral_linear.weight,
-                self.lateral_linear.bias)
+            self.forward_act = self.forward_linear(prev_layer_stdized)
+            self.backward_act = -1 * self.backward_linear(next_layer_stdized)
+            self.lateral_act = self.lateral_linear(prev_act_stdized)
 
         # Single layer scenario. Hidden layer connected to input layer and
         # output layer.
@@ -589,18 +614,9 @@ class HiddenLayer(nn.Module):
             prev_act_stdized = standardize_layer_activations(
                 prev_act, self.settings.model.epsilon)
 
-            self.forward_act = F.linear(
-                data,
-                self.forward_linear.weight,
-                self.forward_linear.bias)
-            self.backward_act = -1 * F.linear(
-                labels,
-                self.backward_linear.weight,
-                self.backward_linear.bias)
-            self.lateral_act = F.linear(
-                prev_act_stdized,
-                self.lateral_linear.weight,
-                self.lateral_linear.bias)
+            self.forward_act = self.forward_linear(data)
+            self.backward_act = -1 * self.backward_linear(labels)
+            self.lateral_act = self.lateral_linear(prev_act_stdized)
 
         # Input layer scenario. Connected to input layer and hidden layer.
         elif data is not None:
@@ -625,18 +641,9 @@ class HiddenLayer(nn.Module):
             prev_act_stdized = standardize_layer_activations(
                 prev_act, self.settings.model.epsilon)
 
-            self.forward_act = F.linear(
-                data,
-                self.forward_linear.weight,
-                self.forward_linear.bias)
-            self.backward_act = -1 * F.linear(
-                next_layer_stdized,
-                self.backward_linear.weight,
-                self.backward_linear.bias)
-            self.lateral_act = F.linear(
-                prev_act_stdized,
-                self.lateral_linear.weight,
-                self.lateral_linear.bias)
+            self.forward_act = self.forward_linear(data)
+            self.backward_act = -1 * self.backward_linear(next_layer_stdized)
+            self.lateral_act = self.lateral_linear(prev_act_stdized)
 
         # Output layer scenario. Connected to hidden layer and output layer.
         elif labels is not None:
@@ -661,29 +668,21 @@ class HiddenLayer(nn.Module):
             prev_act_stdized = standardize_layer_activations(
                 prev_act, self.settings.model.epsilon)
 
-            self.forward_act = F.linear(
-                prev_layer_stdized,
-                self.forward_linear.weight,
-                self.forward_linear.bias)
-            self.backward_act = -1 * F.linear(
-                labels,
-                self.backward_linear.weight,
-                self.backward_linear.bias)
-            self.lateral_act = F.linear(
-                prev_act_stdized,
-                self.lateral_linear.weight,
-                self.lateral_linear.bias)
+            self.forward_act = self.forward_linear(prev_layer_stdized)
+            self.backward_act = -1 * self.backward_linear(labels)
+            self.lateral_act = self.lateral_linear(prev_act_stdized)
 
-        self.forward_act = self.forward_dropout(self.forward_act)
-        self.backward_act = self.backward_dropout(self.backward_act)
-        self.lateral_act = self.lateral_dropout(self.lateral_act)
+        # self.forward_act = self.forward_dropout(self.forward_act)
+        # self.backward_act = self.backward_dropout(self.backward_act)
+        # self.lateral_act = self.lateral_dropout(self.lateral_act)
 
         summation_act = self.forward_act + self.backward_act + self.lateral_act
 
-        for residual_connection in self.residual_connections:
-            summation_act = summation_act + residual_connection.forward(mode)
+        # for residual_connection in self.residual_connections:
+        #     summation_act = summation_act + residual_connection.forward(mode)
 
         new_activation = F.leaky_relu(summation_act)
+        # new_activation = summation_act
 
         if should_damp:
             old_activation = new_activation

@@ -41,66 +41,66 @@ class LayerMetrics:
 
         pos_activations_norm = torch.norm(layer.pos_activations.current, p=2)
         neg_activations_norm = torch.norm(layer.neg_activations.current, p=2)
-        forward_weights_norm = torch.norm(layer.forward_linear.weight, p=2)
-        backward_weights_norm = torch.norm(layer.backward_linear.weight, p=2)
-        lateral_weights_norm = torch.norm(layer.lateral_linear.weight, p=2)
+        # forward_weights_norm = torch.norm(layer.forward_linear.weight, p=2)
+        # backward_weights_norm = torch.norm(layer.backward_linear.weight, p=2)
+        # lateral_weights_norm = torch.norm(layer.lateral_linear.weight, p=2)
 
-        forward_grad_norm = torch.norm(layer.forward_linear.weight.grad, p=2)
-        backward_grads_norm = torch.norm(
-            layer.backward_linear.weight.grad, p=2)
-        lateral_grads_norm = torch.norm(layer.lateral_linear.weight.grad, p=2)
+        # forward_grad_norm = torch.norm(layer.forward_linear.weight.grad, p=2)
+        # backward_grads_norm = torch.norm(
+        #     layer.backward_linear.weight.grad, p=2)
+        # lateral_grads_norm = torch.norm(layer.lateral_linear.weight.grad, p=2)
 
         self.pos_activations_norms[layer_num] += pos_activations_norm
         self.neg_activations_norms[layer_num] += neg_activations_norm
-        self.forward_weights_norms[layer_num] += forward_weights_norm
-        self.forward_grads_norms[layer_num] += forward_grad_norm
-        self.backward_weights_norms[layer_num] += backward_weights_norm
-        self.backward_grads_norms[layer_num] += backward_grads_norm
-        self.lateral_weights_norms[layer_num] += lateral_weights_norm
-        self.lateral_grads_norms[layer_num] += lateral_grads_norm
+        # self.forward_weights_norms[layer_num] += forward_weights_norm
+        # self.forward_grads_norms[layer_num] += forward_grad_norm
+        # self.backward_weights_norms[layer_num] += backward_weights_norm
+        # self.backward_grads_norms[layer_num] += backward_grads_norm
+        # self.lateral_weights_norms[layer_num] += lateral_weights_norm
+        # self.lateral_grads_norms[layer_num] += lateral_grads_norm
         self.losses_per_layer[layer_num] += loss
 
-        for group in layer.optimizer.param_groups:
-            for param in group['params']:
-                if param.grad is not None:
-                    # compute update norm
-                    update = -group['lr'] * param.grad
-                    update_norm = torch.norm(update, p=2)
-                    param_name = layer.param_name_dict[param]
+        # for group in layer.optimizer.param_groups:
+        #     for param in group['params']:
+        #         if param.grad is not None:
+        #             # compute update norm
+        #             update = -group['lr'] * param.grad
+        #             update_norm = torch.norm(update, p=2)
+        #             param_name = layer.param_name_dict[param]
 
-                    if layer_num not in self.update_norms:
-                        self.update_norms[layer_num] = {}
-                    if param_name not in self.update_norms[layer_num]:
-                        self.update_norms[layer_num][param_name] = 0
+        #             if layer_num not in self.update_norms:
+        #                 self.update_norms[layer_num] = {}
+        #             if param_name not in self.update_norms[layer_num]:
+        #                 self.update_norms[layer_num][param_name] = 0
 
-                    self.update_norms[layer_num][param_name] += update_norm
+        #             self.update_norms[layer_num][param_name] += update_norm
 
-                    # compute momentum norm
-                    try:
-                        momentum_norm = torch.norm(
-                            layer.optimizer.state[param]['momentum_buffer'])
-                        if layer_num not in self.momentum_norms:
-                            self.momentum_norms[layer_num] = {}
-                        if param_name not in self.momentum_norms[layer_num]:
-                            self.momentum_norms[layer_num][param_name] = 0
+        #             # compute momentum norm
+        #             try:
+        #                 momentum_norm = torch.norm(
+        #                     layer.optimizer.state[param]['momentum_buffer'])
+        #                 if layer_num not in self.momentum_norms:
+        #                     self.momentum_norms[layer_num] = {}
+        #                 if param_name not in self.momentum_norms[layer_num]:
+        #                     self.momentum_norms[layer_num][param_name] = 0
 
-                        self.momentum_norms[layer_num][param_name] += momentum_norm
-                    except (KeyError, AttributeError):
-                        logging.debug(
-                            "No momentum buffer for param. Assume using non-momentum optimizer.")
+        #                 self.momentum_norms[layer_num][param_name] += momentum_norm
+        #             except (KeyError, AttributeError):
+        #                 logging.debug(
+        #                     "No momentum buffer for param. Assume using non-momentum optimizer.")
 
-                    # compute angle
-                    cosine_similarity = torch.nn.functional.cosine_similarity(
-                        param.grad.view(-1), update.view(-1), dim=0)
-                    cosine_similarity = torch.clamp(cosine_similarity, -1, 1)
-                    angle_in_degrees = torch.acos(
-                        cosine_similarity) * (180 / math.pi)
-                    if layer_num not in self.update_angles:
-                        self.update_angles[layer_num] = {}
-                    if param_name not in self.update_angles[layer_num]:
-                        self.update_angles[layer_num][param_name] = 0
+        #             # compute angle
+        #             cosine_similarity = torch.nn.functional.cosine_similarity(
+        #                 param.grad.view(-1), update.view(-1), dim=0)
+        #             cosine_similarity = torch.clamp(cosine_similarity, -1, 1)
+        #             angle_in_degrees = torch.acos(
+        #                 cosine_similarity) * (180 / math.pi)
+        #             if layer_num not in self.update_angles:
+        #                 self.update_angles[layer_num] = {}
+        #             if param_name not in self.update_angles[layer_num]:
+        #                 self.update_angles[layer_num][param_name] = 0
 
-                    self.update_angles[layer_num][param_name] += angle_in_degrees.item()
+        #             self.update_angles[layer_num][param_name] += angle_in_degrees.item()
 
     def increment_samples_seen(self) -> None:
         self.num_data_points += 1

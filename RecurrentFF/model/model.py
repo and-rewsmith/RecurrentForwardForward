@@ -193,6 +193,15 @@ class RecurrentFFNet(nn.Module):
                         neg_badness_per_layer,
                         total_batch_count)
 
+                    for i, layer in enumerate(self.inner_layers):
+                        inner_loss = layer.backward_linear.ttt_blocks[0].ttt_head.inner.inner_loss + \
+                            layer.forward_linear.ttt_blocks[0].ttt_head.inner.inner_loss + \
+                            layer.lateral_linear.ttt_blocks[0].ttt_head.inner.inner_loss
+                        inner_loss /= 3
+                        wandb.log(
+                            {"inner_loss (layer " + str(i + 1) + ")": inner_loss}, step=total_batch_count)
+                        self.inner_layers.step_learning_rates()
+
                 total_batch_count += 1
 
             self.eval()
@@ -217,8 +226,6 @@ class RecurrentFFNet(nn.Module):
                     epoch,
                     total_batch_count
                 )
-
-            self.inner_layers.step_learning_rates()
 
     def __train_batch(
             self,
@@ -280,7 +287,7 @@ class RecurrentFFNet(nn.Module):
             loss.backward()
             for layer in self.inner_layers:
                 assert not torch.all(layer.generative_linear.weight.grad == 0)
-                assert layer.forward_linear.weight.grad == None or torch.all(layer.forward_linear.weight.grad == 0)
+                # assert layer.forward_linear.weight.grad == None or torch.all(layer.forward_linear.weight.grad == 0)
                 layer.optimizer.step()
             generative_input = generative_input.detach()
 
@@ -395,6 +402,7 @@ class RecurrentFFNet(nn.Module):
 
         layer_metrics.log_metrics(total_batch_count)
         average_layer_loss = layer_metrics.average_layer_loss()
+        print(average_layer_loss)
 
         if len(self.inner_layers) >= 3:
             wandb.log({"loss": average_layer_loss,
