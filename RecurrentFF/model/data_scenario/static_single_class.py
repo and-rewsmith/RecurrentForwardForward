@@ -495,6 +495,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                 label_data_sample = (
                     torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1),
                     zero_highest_logit(generative_output[:, self.settings.data_config.data_size:])
+                    # swap_top_two_softmax(torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1))
                     # torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1),
                     # swap_top_two_softmax(torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1)),
                     # zero_correct_class_softmax(generative_output[:, self.settings.data_config.data_size:], torch.nn.functional.one_hot(labels, 10)),
