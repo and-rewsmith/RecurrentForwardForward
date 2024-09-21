@@ -248,9 +248,14 @@ class HiddenLayer(nn.Module):
         self.backward_dropout = nn.Dropout(p=self.settings.model.dropout)
         self.lateral_dropout = nn.Dropout(p=self.settings.model.dropout)
 
-        self.generative_linear = nn.Linear(size, settings.data_config.data_size + settings.data_config.num_classes)
-        nn.init.kaiming_uniform_(
-            self.generative_linear.weight, nonlinearity='relu')
+        self.generative_linear = nn.Sequential(
+            nn.Linear(size, size),
+            nn.ReLU(),
+            nn.Linear(size, settings.data_config.data_size + settings.data_config.num_classes)
+        )
+        for layer in self.generative_linear:
+            if isinstance(layer, nn.Linear):
+                nn.init.kaiming_uniform_(layer.weight, nonlinearity='relu')
 
         self.forward_linear = nn.Linear(prev_size, size)
         nn.init.kaiming_uniform_(

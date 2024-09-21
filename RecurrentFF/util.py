@@ -14,6 +14,20 @@ def zero_correct_class_softmax(logits, correct_classes):
     softmax_output = F.softmax(modified_logits, dim=1)
     return softmax_output
 
+def zero_highest_logit(logits):
+    # Clone logits to avoid in-place modification
+    modified_logits = logits.clone()
+
+    # Find the index of the highest logit value for each row (batch)
+    highest_logit_indices = torch.argmax(modified_logits, dim=1, keepdim=True)
+
+    # Set the highest logit values to a large negative number (e.g., -1e9) to zero them out after softmax
+    modified_logits.scatter_(1, highest_logit_indices, -1e9)
+
+    # Apply softmax to the modified logits
+    softmax_output = F.softmax(modified_logits, dim=1)
+    return softmax_output
+
 # Function to calculate the percentage of cases where the argmax matches the correct label
 def percent_correct(softmax_output, correct_labels):
     # Convert one-hot encoded labels to indices (get the correct class indices)

@@ -268,7 +268,7 @@ class RecurrentFFNet(nn.Module):
             assert generative_input.shape[0] == input_data.pos_input[iteration].shape[0] and generative_input.shape[1] == input_data.pos_input[iteration].shape[1] + self.settings.data_config.num_classes
             reconstructed_data, reconstructed_labels = generative_input.split(
                 [self.settings.data_config.data_size, self.settings.data_config.num_classes], dim=1)
-            if random.randint(0, 10) == 1:
+            if random.randint(0, 50) == 1:
                 is_correct = torch.argmax(label_data.pos_labels[iteration][0]) == torch.argmax(torch.softmax(reconstructed_labels[0], dim=0))
                 print(is_correct.item())
             data_loss = data_criterion(reconstructed_data, input_data.pos_input[iteration])
@@ -280,7 +280,7 @@ class RecurrentFFNet(nn.Module):
             wandb.log({"label loss": label_loss.item()}, step=total_batch_count)
             loss.backward()
             for layer in self.inner_layers:
-                assert not torch.all(layer.generative_linear.weight.grad == 0)
+                # assert not torch.all(layer.generative_linear.weight.grad == 0)
                 assert layer.forward_linear.weight.grad == None or torch.all(layer.forward_linear.weight.grad == 0)
                 layer.optimizer.step()
             generative_input = generative_input.detach()
@@ -288,16 +288,20 @@ class RecurrentFFNet(nn.Module):
             input_data_sample = (
                 input_data.pos_input[iteration],
                 input_data.pos_input[iteration])
-            if (batch_num + epoch_num) % 2 == 0:
-                label_data_sample = (
-                    torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1),
-                    zero_correct_class_softmax(generative_input[:, self.settings.data_config.data_size:], label_data.pos_labels[iteration]),
-                    )
-            else:
-                label_data_sample = (
-                    torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1),
-                    swap_top_two_softmax(torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1)),
-                    )
+            label_data_sample = (
+                torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1),
+                zero_correct_class_softmax(generative_input[:, self.settings.data_config.data_size:], label_data.pos_labels[iteration]),
+            )
+            # if (batch_num + epoch_num) % 2 == 0:
+            #     label_data_sample = (
+            #         torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1),
+            #         zero_correct_class_softmax(generative_input[:, self.settings.data_config.data_size:], label_data.pos_labels[iteration]),
+            #         )
+            # else:
+            #     label_data_sample = (
+            #         torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1),
+            #         swap_top_two_softmax(torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1)),
+            #         )
             
             # class_predictions.append(torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1))
             class_predictions_agg += torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1)
@@ -335,14 +339,14 @@ class RecurrentFFNet(nn.Module):
             #     print(confidence_threshold["value"])
             #     print(torch.softmax(reconstructed_labels, dim=1)[0:3])
             #     input()
-            baseline_conf = 0.5
-            if should_stop and iteration > 3:
-                confidence_threshold["value"] += 0.001
-                print(iteration)
-                break
-            elif iteration > 3 and confidence_threshold["value"] > baseline_conf:
-            # elif iteration > 3:
-                confidence_threshold["value"] -= 0.001
+            # baseline_conf = 0.5
+            # if should_stop and iteration > 3:
+            #     confidence_threshold["value"] += 0.001
+            #     print(iteration)
+            #     break
+            # elif iteration > 3 and confidence_threshold["value"] > baseline_conf:
+            # # elif iteration > 3:
+            #     confidence_threshold["value"] -= 0.001
         
         # determine accuracy from class aggregations
         correct_percent_agg = (torch.argmax(class_predictions_agg, dim=1) == torch.argmax(label_data.pos_labels[0], dim=1)).float().mean().item() * 100
