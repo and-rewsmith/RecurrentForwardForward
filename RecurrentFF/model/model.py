@@ -263,7 +263,7 @@ class RecurrentFFNet(nn.Module):
             assert generative_input.requires_grad == False
             for layer in self.inner_layers:
                 layer.optimizer.zero_grad()
-                activations = layer.neg_activations.current
+                activations = layer.pos_activations.current
                 generative_input += layer.generative_linear(activations)
             assert generative_input.shape[0] == input_data.pos_input[iteration].shape[0] and generative_input.shape[1] == input_data.pos_input[iteration].shape[1] + self.settings.data_config.num_classes
             reconstructed_data, reconstructed_labels = generative_input.split(
