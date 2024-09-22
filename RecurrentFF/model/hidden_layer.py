@@ -3,6 +3,7 @@ import math
 from typing import Dict, Optional, cast
 from typing_extensions import Self
 
+import wandb
 import torch
 from torch import Tensor, nn
 from torch.nn import Module
@@ -284,6 +285,22 @@ class HiddenLayer(nn.Module):
     def init_residual_connection(self, residual_connection: ResidualConnection) -> None:
         self.residual_connections.append(residual_connection)
 
+    def filtered_parameters(self):
+        """
+        Returns an iterator over the parameters of the current layer,
+        excluding any parameters that start with 'previous_layer'.
+        """
+        return (param for name, param in self.named_parameters() 
+                if not name.startswith('previous_layer') and not name.startswith('next_layer'))
+
+    def filtered_parameters_gen_too(self):
+        """
+        Returns an iterator over the parameters of the current layer,
+        excluding any parameters that start with 'previous_layer'.
+        """
+        return (param for name, param in self.named_parameters() 
+                if not name.startswith('previous_layer') and not name.startswith('next_layer') and not name.startswith('generative_linear'))
+
     def init_optimizer(self) -> None:
         self.optimizer: Optimizer
         if self.settings.model.ff_optimizer == "adam":
@@ -291,7 +308,7 @@ class HiddenLayer(nn.Module):
                                   lr=self.settings.model.ff_adam.learning_rate)
         elif self.settings.model.ff_optimizer == "rmsprop":
             self.optimizer = RMSprop(
-                self.parameters(),
+                self.filtered_parameters(),
                 lr=self.settings.model.ff_rmsprop.learning_rate,
                 momentum=self.settings.model.ff_rmsprop.momentum)
         elif self.settings.model.ff_optimizer == "adadelta":
@@ -423,6 +440,49 @@ class HiddenLayer(nn.Module):
     def set_next_layer(self, next_layer: Self) -> None:
         self.next_layer = next_layer
 
+    def reset_parameters_with_small_gradients(model: nn.Module, threshold: float = 1e-6):
+        """
+        Resets parameters that have gradients below a certain threshold to a standard initialization.
+        Only considers parameters that don't start with 'previous_layer', 'next_layer', or 'generative_linear'.
+        
+        Args:
+        model (nn.Module): The model whose parameters need to be checked and possibly reset.
+        threshold (float): The gradient threshold below which parameters will be reset.
+        """
+        def parameter_filter(name_param_tuple):
+            name, _ = name_param_tuple
+            return not name.startswith('previous_layer') and not name.startswith('next_layer') and not name.startswith('generative_linear')
+
+        total_reset = 0
+        with torch.no_grad():
+            for name, param in filter(parameter_filter, model.named_parameters()):
+                if param.grad is not None:
+                    # Create a mask for parameters with small gradients
+                    mask = torch.abs(param.grad.data) < threshold
+                    num_reset = torch.sum(mask).item()
+                    total_reset += num_reset
+                    
+                    if num_reset > 0:
+                        # Calculate fan_in (assuming the parameter is a weight matrix)
+                        fan_in = param.size(1) if len(param.size()) > 1 else param.size(0)
+                        
+                        # Calculate the standard deviation for Kaiming initialization
+                        std = math.sqrt(2.0 / fan_in)
+                        
+                        # Generate new values for the parameters to be reset
+                        new_values = torch.randn_like(param.data[mask]) * std
+                        
+                        # Update only the parameters that need to be reset
+                        param.data[mask] = new_values
+                        
+                #         # print(f"Reset {num_reset} parameters in {name} (shape {param.shape}) due to small gradients")
+                #     else:
+                #         # print(f"No parameters reset in {name} (shape {param.shape})")
+                # else:
+                #     # print(f"No gradient for {name} (shape {param.shape})")
+
+        wandb.log({"reset_parameters": total_reset})
+
     # @profile(stdout=False, filename='baseline.prof',
     #          skip=Settings.new().model.skip_profiling)
     def train_layer(self,  # type: ignore[override]
@@ -475,6 +535,8 @@ class HiddenLayer(nn.Module):
         # dot.render('model_graph_outer', format='png')
 
         self.optimizer.step()
+
+        # self.reset_parameters_with_small_gradients()
         return cast(float, layer_loss.item())
 
     # TODO: needs to be more DRY

@@ -5,6 +5,36 @@ from typing import Generator
 import torch
 from torch.nn import functional as F
 
+def sample_from_logits(logits):
+    # Apply softmax to convert logits to probabilities
+    probs = F.softmax(logits, dim=1)
+    
+    # Sample from the probability distribution
+    sampled_indices = torch.multinomial(probs, num_samples=1).squeeze()
+    
+    # Create a one-hot vector from the sampled indices
+    one_hot = F.one_hot(sampled_indices, num_classes=logits.size(1)).float()
+    
+    return one_hot
+
+def sample_avoiding_correct_class(logits, correct_classes):
+    # Clone to avoid modifying original logits in-place
+    modified_logits = logits.clone()
+    
+    # Set a large negative value for logits at the index of the correct class
+    modified_logits[correct_classes == 1] = -1e9
+    
+    # Apply softmax to the modified logits
+    probabilities = F.softmax(modified_logits, dim=1)
+    
+    # Sample from the probability distribution
+    sampled_indices = torch.multinomial(probabilities, num_samples=1).squeeze()
+    
+    # Create a one-hot vector from the sampled indices
+    one_hot = F.one_hot(sampled_indices, num_classes=logits.size(1)).float()
+    
+    return one_hot
+
 def zero_correct_class_softmax(logits, correct_classes):
     # Set a large negative value for logits at the index of the correct class
     modified_logits = logits.clone()  # Clone to avoid modifying original logits in-place

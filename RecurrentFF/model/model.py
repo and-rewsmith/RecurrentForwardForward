@@ -25,7 +25,8 @@ from RecurrentFF.util import (
     is_confident,
     zero_correct_class_softmax,
     percent_above_threshold,
-    percent_correct
+    percent_correct,
+    sample_avoiding_correct_class
 )
 from RecurrentFF.settings import (
     Settings,
@@ -291,7 +292,8 @@ class RecurrentFFNet(nn.Module):
             label_data_sample = (
                 torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1),
                 # swap_top_two_softmax(torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1))
-                zero_correct_class_softmax(generative_input[:, self.settings.data_config.data_size:], label_data.pos_labels[iteration]),
+                # zero_correct_class_softmax(generative_input[:, self.settings.data_config.data_size:], label_data.pos_labels[iteration]),
+                sample_avoiding_correct_class(generative_input[:, self.settings.data_config.data_size:], label_data.pos_labels[iteration]),
             )
             # if (batch_num + epoch_num) % 2 == 0:
             #     label_data_sample = (
