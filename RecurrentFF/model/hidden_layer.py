@@ -18,66 +18,10 @@ from RecurrentFF.util import (
     TrainLabelData,
     layer_activations_to_badness,
     standardize_layer_activations,
-    scaled_dot_product_attention
 )
 from RecurrentFF.settings import (
     Settings,
 )
-
-
-class ScaledDotProductAttention(nn.Module):
-    def __init__(self, feature_dim):
-        super().__init__()
-        self.feature_dim = feature_dim
-        self.scale = 1 / (feature_dim ** 0.5)
-        
-        # Projections for Q, K, V
-        self.q_proj = nn.Linear(feature_dim, feature_dim)
-        self.k_proj = nn.Linear(feature_dim, feature_dim)
-        self.v_proj = nn.Linear(feature_dim, feature_dim)
-
-    def forward(self, query, key, value):
-        q = self.q_proj(query)
-        k = self.k_proj(key)
-        v = self.v_proj(value)
-
-        # Compute attention scores
-        attn_scores = torch.matmul(q, k.transpose(-2, -1)) * self.scale
-        attn_weights = F.softmax(attn_scores, dim=-1)
-
-        # Apply attention weights
-        output = torch.matmul(attn_weights, v)
-        
-        return output
-
-class LocalContrastiveAttentionLayer(nn.Module):
-    def __init__(self, feature_dim):
-        super().__init__()
-        self.feature_dim = feature_dim
-        
-        # Self-attention for lateral
-        self.lateral_attention = ScaledDotProductAttention(feature_dim)
-        # Cross-attention for forward and backward
-        self.forward_attention = ScaledDotProductAttention(feature_dim)
-        self.backward_attention = ScaledDotProductAttention(feature_dim)
-
-    def forward(self, forward_act, backward_act, lateral_act):
-        # Self-attention for lateral activation
-        lateral_attended = self.lateral_attention(lateral_act, lateral_act, lateral_act)
-        
-        # Cross-attention for forward activation
-        forward_attended = self.forward_attention(lateral_act, forward_act, forward_act)
-        
-        # Cross-attention for backward activation
-        backward_attended = self.backward_attention(lateral_act, backward_act, backward_act)
-        
-        # Combine the attended features (using summation)
-        combined = forward_attended + lateral_attended + backward_attended
-        
-        # Apply non-linearity
-        output = F.leaky_relu(combined)
-        
-        return output
 
 
 class WeightInitialization(Enum):
@@ -305,10 +249,10 @@ class HiddenLayer(nn.Module):
         self.lateral_dropout = nn.Dropout(p=self.settings.model.dropout)
 
         self.generative_linear = nn.Sequential(
-            # nn.Linear(size, size),
-            # nn.ReLU(),
-            # nn.Linear(size, size),
-            # nn.ReLU(),
+            nn.Linear(size, size),
+            nn.ReLU(),
+            nn.Linear(size, size),
+            nn.ReLU(),
             nn.Linear(size, settings.data_config.data_size + settings.data_config.num_classes)
         )
         for layer in self.generative_linear:
@@ -337,26 +281,8 @@ class HiddenLayer(nn.Module):
         self.backward_act: Tensor
         self.lateral_act: Tensor
 
-        self.attn_layer = LocalContrastiveAttentionLayer(size)
-
     def init_residual_connection(self, residual_connection: ResidualConnection) -> None:
         self.residual_connections.append(residual_connection)
-
-    def filtered_parameters(self):
-        """
-        Returns an iterator over the parameters of the current layer,
-        excluding any parameters that start with 'previous_layer'.
-        """
-        return (param for name, param in self.named_parameters() 
-                if not name.startswith('previous_layer') and not name.startswith('next_layer'))
-
-    def filtered_parameters_gen_too(self):
-        """
-        Returns an iterator over the parameters of the current layer,
-        excluding any parameters that start with 'previous_layer'.
-        """
-        return (param for name, param in self.named_parameters() 
-                if not name.startswith('previous_layer') and not name.startswith('next_layer') and not name.startswith('generative_linear'))
 
     def init_optimizer(self) -> None:
         self.optimizer: Optimizer
@@ -364,10 +290,8 @@ class HiddenLayer(nn.Module):
             self.optimizer = Adam(self.parameters(),
                                   lr=self.settings.model.ff_adam.learning_rate)
         elif self.settings.model.ff_optimizer == "rmsprop":
-            print(len(dict(self.named_parameters()).keys()))
-            print(len(list(self.filtered_parameters())))
             self.optimizer = RMSprop(
-                self.filtered_parameters(),
+                self.parameters(),
                 lr=self.settings.model.ff_rmsprop.learning_rate,
                 momentum=self.settings.model.ff_rmsprop.momentum)
         elif self.settings.model.ff_optimizer == "adadelta":
@@ -544,58 +468,14 @@ class HiddenLayer(nn.Module):
             (-1 * neg_badness) + self.settings.model.loss_threshold,
             pos_badness - self.settings.model.loss_threshold
         ])).mean()
-
-        for param in self.filtered_parameters_gen_too():
-            if param.grad is not None:
-                print(param.grad)
-            assert param.grad is None
-
         layer_loss.backward()
         # # go through all layers and collect their parameters
         # print(self.named_parameters())
         # dot = make_dot(loss, params=dict(self.named_parameters()))
         # dot.render('model_graph_outer', format='png')
 
-        # verify all params have grad
-        for param in self.filtered_parameters_gen_too():
-            if param.grad is None:
-                self.print_filtered_params_without_grad()
-            assert param.grad is not None
-
         self.optimizer.step()
         return cast(float, layer_loss.item())
-
-    def print_filtered_params_without_grad(model: nn.Module):
-        """
-        Iterates through the named parameters of the model, applies filtering,
-        and prints the names of parameters that pass the filter but have no gradient.
-
-        Args:
-        model (nn.Module): The PyTorch model to analyze
-
-        Returns:
-        Dict[str, int]: A dictionary with the count of parameters with and without gradients
-        """
-        params_with_grad = 0
-        params_without_grad = 0
-
-        print("Filtered parameters without gradients:")
-        for name, param in model.named_parameters():
-            if not name.startswith('previous_layer') and not name.startswith('next_layer'):
-                if param.grad is None:
-                    print(f"  {name}")
-                    params_without_grad += 1
-                else:
-                    params_with_grad += 1
-
-        print(f"\nSummary:")
-        print(f"  Parameters with gradients: {params_with_grad}")
-        print(f"  Parameters without gradients: {params_without_grad}")
-
-        return {
-            "with_grad": params_with_grad,
-            "without_grad": params_without_grad
-        }
 
     # TODO: needs to be more DRY
     def forward(self, mode: ForwardMode, data: torch.Tensor, labels: torch.Tensor, should_damp: bool) -> torch.Tensor:
@@ -700,8 +580,6 @@ class HiddenLayer(nn.Module):
                 self.lateral_linear.weight,
                 self.lateral_linear.bias)
 
-            attn_input = self.attn_layer(prev_layer_stdized, next_layer_stdized, prev_act_stdized)
-
         # Single layer scenario. Hidden layer connected to input layer and
         # output layer.
         elif data is not None and labels is not None:
@@ -730,8 +608,6 @@ class HiddenLayer(nn.Module):
                 prev_act_stdized,
                 self.lateral_linear.weight,
                 self.lateral_linear.bias)
-
-            attn_input = self.attn_layer(prev_act_stdized, prev_act_stdized, prev_act_stdized)
 
         # Input layer scenario. Connected to input layer and hidden layer.
         elif data is not None:
@@ -769,8 +645,6 @@ class HiddenLayer(nn.Module):
                 self.lateral_linear.weight,
                 self.lateral_linear.bias)
 
-            attn_input = self.attn_layer(prev_act_stdized, next_layer_stdized, prev_act_stdized)
-
         # Output layer scenario. Connected to hidden layer and output layer.
         elif labels is not None:
             prev_layer_prev_timestep_activations = None
@@ -807,24 +681,16 @@ class HiddenLayer(nn.Module):
                 self.lateral_linear.weight,
                 self.lateral_linear.bias)
 
-            attn_input = self.attn_layer(prev_layer_stdized, prev_act_stdized, prev_act_stdized)
-
-        # self.forward_act = self.forward_dropout(self.forward_act)
-        # self.backward_act = self.backward_dropout(self.backward_act)
-        # self.lateral_act = self.lateral_dropout(self.lateral_act)
-
-        # self.forward_act = scaled_dot_product_attention(self.lateral_act, self.forward_act, self.forward_act)
-        # self.backward_act = scaled_dot_product_attention(self.lateral_act, self.backward_act, self.backward_act)
-        # self.lateral_act = scaled_dot_product_attention(self.lateral_act, self.lateral_act, self.lateral_act)
+        self.forward_act = self.forward_dropout(self.forward_act)
+        self.backward_act = self.backward_dropout(self.backward_act)
+        self.lateral_act = self.lateral_dropout(self.lateral_act)
 
         summation_act = self.forward_act + self.backward_act + self.lateral_act
 
-        # for residual_connection in self.residual_connections:
-        #     summation_act = summation_act + residual_connection.forward(mode)
+        for residual_connection in self.residual_connections:
+            summation_act = summation_act + residual_connection.forward(mode)
 
-        new_activation = F.leaky_relu(summation_act) + attn_input
-
-        # new_activation = self.attn_layer(self.forward_act, self.backward_act, self.lateral_act)
+        new_activation = F.leaky_relu(summation_act)
 
         if should_damp:
             old_activation = new_activation

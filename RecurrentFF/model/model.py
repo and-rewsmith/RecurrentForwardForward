@@ -24,10 +24,8 @@ from RecurrentFF.util import (
     swap_top_two_softmax,
     is_confident,
     zero_correct_class_softmax,
-    zero_correct_and_highest_softmax,
     percent_above_threshold,
-    percent_correct,
-    sample_avoiding_correct_class
+    percent_correct
 )
 from RecurrentFF.settings import (
     Settings,
@@ -203,10 +201,10 @@ class RecurrentFFNet(nn.Module):
             # batch is w.r.t. total samples
             #
             # TODO: Fix this hacky data loader bridge format
-            test_accuracy = self.processor.brute_force_predict(
-                test_loader, 1, True)
             train_accuracy = self.processor.brute_force_predict(
                 TrainTestBridgeFormatLoader(train_loader), 10, False)  # type: ignore[arg-type]
+            test_accuracy = self.processor.brute_force_predict(
+                test_loader, 1, True)
 
             if test_accuracy > best_test_accuracy:
                 best_test_accuracy = test_accuracy
@@ -292,10 +290,8 @@ class RecurrentFFNet(nn.Module):
                 input_data.pos_input[iteration])
             label_data_sample = (
                 torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1),
-                sample_avoiding_correct_class(generative_input[:, self.settings.data_config.data_size:], label_data.pos_labels[iteration]),
                 # swap_top_two_softmax(torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1))
-                # zero_correct_class_softmax(generative_input[:, self.settings.data_config.data_size:], label_data.pos_labels[iteration]),
-                # zero_correct_and_highest_softmax(generative_input[:, self.settings.data_config.data_size:], label_data.pos_labels[iteration]),
+                zero_correct_class_softmax(generative_input[:, self.settings.data_config.data_size:], label_data.pos_labels[iteration]),
             )
             # if (batch_num + epoch_num) % 2 == 0:
             #     label_data_sample = (
