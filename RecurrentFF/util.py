@@ -1,9 +1,37 @@
+import math
 from enum import Enum
 import logging
 from typing import Generator
 
 import torch
 from torch.nn import functional as F
+
+def scaled_dot_product_attention(q, k, v):
+    """
+    Compute scaled dot-product attention without projection weights.
+    
+    Args:
+    q, k, v: Query, Key, and Value tensors, each with shape (batch_size, activation_dim)
+    
+    Returns:
+    output: Tensor with shape (batch_size, activation_dim)
+    """
+    # Get the dimension of the key vectors
+    d_k = k.size(-1)
+    
+    # Compute scaled dot-product
+    # (batch_size, activation_dim) @ (batch_size, activation_dim) -> (batch_size, )
+    scores = torch.sum(q * k, dim=-1) / math.sqrt(d_k)
+    
+    # Apply softmax to get attention weights
+    # This will be (batch_size, )
+    attention_weights = F.softmax(scores, dim=-1)
+    
+    # Apply attention weights to values
+    # (batch_size, 1) * (batch_size, activation_dim) -> (batch_size, activation_dim)
+    output = attention_weights.unsqueeze(-1) * v
+    
+    return output
 
 def sample_from_logits(logits):
     # Apply softmax to convert logits to probabilities
