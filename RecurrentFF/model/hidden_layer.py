@@ -249,10 +249,10 @@ class HiddenLayer(nn.Module):
         self.lateral_dropout = nn.Dropout(p=self.settings.model.dropout)
 
         self.generative_linear = nn.Sequential(
-            nn.Linear(size, size),
-            nn.ReLU(),
-            nn.Linear(size, size),
-            nn.ReLU(),
+            # nn.Linear(size, size),
+            # nn.ReLU(),
+            # nn.Linear(size, size),
+            # nn.ReLU(),
             nn.Linear(size, settings.data_config.data_size + settings.data_config.num_classes)
         )
         for layer in self.generative_linear:
