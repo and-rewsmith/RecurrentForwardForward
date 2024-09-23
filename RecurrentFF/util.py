@@ -9,8 +9,27 @@ def sample_from_logits(logits):
     # Apply softmax to convert logits to probabilities
     probs = F.softmax(logits, dim=1)
     
-    # Sample from the probability distribution
-    sampled_indices = torch.multinomial(probs, num_samples=1).squeeze()
+    # Find the index of the highest probability class
+    _, max_prob_indices = torch.max(probs, dim=1)
+    
+    # Create a mask to exclude the highest probability class
+    mask = torch.ones_like(probs).scatter_(1, max_prob_indices.unsqueeze(1), 0)
+    
+    # Apply the mask to the probabilities
+    masked_probs = probs * mask
+    
+    # Normalize the masked probabilities
+    normalized_probs = masked_probs / masked_probs.sum(dim=1, keepdim=True)
+    
+    # Handle the case where all probabilities were equal (resulting in all zeros after masking)
+    zero_rows = (normalized_probs.sum(dim=1) == 0)
+    if zero_rows.any():
+        # For these rows, we'll sample uniformly from all classes except the max
+        uniform_probs = mask.float() / (mask.sum(dim=1, keepdim=True) - 1)
+        normalized_probs[zero_rows] = uniform_probs[zero_rows]
+    
+    # Sample from the modified probability distribution
+    sampled_indices = torch.multinomial(normalized_probs, num_samples=1).squeeze()
     
     # Create a one-hot vector from the sampled indices
     one_hot = F.one_hot(sampled_indices, num_classes=logits.size(1)).float()
