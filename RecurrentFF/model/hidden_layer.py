@@ -10,7 +10,7 @@ from torch.nn import Module
 from torch.nn import functional as F
 from torch.optim import RMSprop, Adam, Adadelta, Optimizer
 from torch.optim.lr_scheduler import StepLR
-from profilehooks import profile # type: ignore
+from profilehooks import profile  # type: ignore
 
 from RecurrentFF.util import (
     Activations,
@@ -54,7 +54,8 @@ class ResidualConnection(nn.Module):
         elif initialization == WeightInitialization.Backward:
             nn.init.uniform_(self.weights.weight, -0.05, 0.05)
         elif initialization == WeightInitialization.Lateral:
-            raise AssertionError("Lateral connections should not be initialized with this constructor")
+            raise AssertionError(
+                "Lateral connections should not be initialized with this constructor")
 
     def train(self: Self, mode: bool = True) -> Self:
         self.training = mode
@@ -77,7 +78,8 @@ class ResidualConnection(nn.Module):
         source_activations_stdized = standardize_layer_activations(
             source_activations, self.source.settings.model.epsilon)
 
-        out: torch.Tensor = self.dropout(F.linear(source_activations_stdized, self.weights.weight, self.weights.bias))
+        out: torch.Tensor = self.dropout(
+            F.linear(source_activations_stdized, self.weights.weight, self.weights.bias))
 
         if self.weight_initialization == WeightInitialization.Backward:
             out = -1 * out
@@ -254,7 +256,8 @@ class HiddenLayer(nn.Module):
             nn.ReLU(),
             nn.Linear(size, size),
             nn.ReLU(),
-            nn.Linear(size, settings.data_config.data_size + settings.data_config.num_classes)
+            nn.Linear(size, settings.data_config.data_size +
+                      settings.data_config.num_classes)
         )
         for layer in self.generative_linear:
             if isinstance(layer, nn.Linear):
@@ -290,7 +293,7 @@ class HiddenLayer(nn.Module):
         Returns an iterator over the parameters of the current layer,
         excluding any parameters that start with 'previous_layer'.
         """
-        return (param for name, param in self.named_parameters() 
+        return (param for name, param in self.named_parameters()
                 if not name.startswith('previous_layer') and not name.startswith('next_layer'))
 
     def filtered_parameters_gen_too(self):
@@ -298,7 +301,7 @@ class HiddenLayer(nn.Module):
         Returns an iterator over the parameters of the current layer,
         excluding any parameters that start with 'previous_layer'.
         """
-        return (param for name, param in self.named_parameters() 
+        return (param for name, param in self.named_parameters()
                 if not name.startswith('previous_layer') and not name.startswith('next_layer') and not name.startswith('generative_linear'))
 
     def init_optimizer(self) -> None:
@@ -444,7 +447,7 @@ class HiddenLayer(nn.Module):
         """
         Resets parameters that have gradients below a certain threshold to a standard initialization.
         Only considers parameters that don't start with 'previous_layer', 'next_layer', or 'generative_linear'.
-        
+
         Args:
         model (nn.Module): The model whose parameters need to be checked and possibly reset.
         threshold (float): The gradient threshold below which parameters will be reset.
@@ -461,20 +464,21 @@ class HiddenLayer(nn.Module):
                     mask = torch.abs(param.grad.data) < threshold
                     num_reset = torch.sum(mask).item()
                     total_reset += num_reset
-                    
+
                     if num_reset > 0:
                         # Calculate fan_in (assuming the parameter is a weight matrix)
-                        fan_in = param.size(1) if len(param.size()) > 1 else param.size(0)
-                        
+                        fan_in = param.size(1) if len(
+                            param.size()) > 1 else param.size(0)
+
                         # Calculate the standard deviation for Kaiming initialization
                         std = math.sqrt(2.0 / fan_in)
-                        
+
                         # Generate new values for the parameters to be reset
                         new_values = torch.randn_like(param.data[mask]) * std
-                        
+
                         # Update only the parameters that need to be reset
                         param.data[mask] = new_values
-                        
+
                 #         # print(f"Reset {num_reset} parameters in {name} (shape {param.shape}) due to small gradients")
                 #     else:
                 #         # print(f"No parameters reset in {name} (shape {param.shape})")
@@ -529,6 +533,9 @@ class HiddenLayer(nn.Module):
             pos_badness - self.settings.model.loss_threshold
         ])).mean()
         layer_loss.backward()
+
+        torch.nn.utils.clip_grad_norm_(self.parameters(), 1.0)
+
         # # go through all layers and collect their parameters
         # print(self.named_parameters())
         # dot = make_dot(loss, params=dict(self.named_parameters()))

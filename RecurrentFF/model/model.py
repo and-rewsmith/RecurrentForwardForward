@@ -107,8 +107,10 @@ class RecurrentFFNet(nn.Module):
                         weight_init = WeightInitialization.Forward
                     else:
                         weight_init = WeightInitialization.Backward
-                    residual_connection = ResidualConnection(source, target.size, settings.model.dropout, weight_init)
-                    inner_layers[i].init_residual_connection(residual_connection)
+                    residual_connection = ResidualConnection(
+                        source, target.size, settings.model.dropout, weight_init)
+                    inner_layers[i].init_residual_connection(
+                        residual_connection)
 
         # initialize optimizers
         for layer in inner_layers:
@@ -202,10 +204,10 @@ class RecurrentFFNet(nn.Module):
             # batch is w.r.t. total samples
             #
             # TODO: Fix this hacky data loader bridge format
-            train_accuracy = self.processor.brute_force_predict(
-                TrainTestBridgeFormatLoader(train_loader), 10, False)  # type: ignore[arg-type]
             test_accuracy = self.processor.brute_force_predict(
                 test_loader, 1, True)
+            train_accuracy = self.processor.brute_force_predict(
+                TrainTestBridgeFormatLoader(train_loader), 1, False)  # type: ignore[arg-type]
 
             if test_accuracy > best_test_accuracy:
                 best_test_accuracy = test_accuracy
@@ -256,7 +258,7 @@ class RecurrentFFNet(nn.Module):
     #         batch_size = input_data.pos_input.shape[1]
     #         pos_target_latents_averager = LatentAverager()
     #         class_predictions_agg = torch.zeros(batch_size, self.settings.data_config.num_classes).to(self.settings.device.device)
-            
+
     #         incorrect_count = torch.zeros(batch_size, dtype=torch.int).to(self.settings.device.device)
 
     #         for iteration in range(iterations):
@@ -274,11 +276,11 @@ class RecurrentFFNet(nn.Module):
 
     #             reconstructed_data, reconstructed_labels = generative_input.split(
     #                 [self.settings.data_config.data_size, self.settings.data_config.num_classes], dim=1)
-                
+
     #             data_loss = data_criterion(reconstructed_data, input_data.pos_input[iteration])
     #             label_loss = label_criterion(reconstructed_labels, torch.argmax(label_data.pos_labels[iteration], dim=1))
     #             loss = data_loss + label_loss
-                
+
     #             wandb.log({
     #                 "generative loss": loss.item(),
     #                 "data loss": data_loss.item(),
@@ -286,11 +288,11 @@ class RecurrentFFNet(nn.Module):
     #             }, step=total_batch_count)
 
     #             loss.backward()
-                
+
     #             for layer in self.inner_layers:
     #                 assert layer.forward_linear.weight.grad is None or torch.all(layer.forward_linear.weight.grad == 0)
     #                 layer.optimizer.step()
-                
+
     #             generative_input = generative_input.detach()
 
     #             input_data_sample = (input_data.pos_input[iteration], input_data.pos_input[iteration])
@@ -298,7 +300,7 @@ class RecurrentFFNet(nn.Module):
     #                 torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1),
     #                 zero_correct_class_softmax(generative_input[:, self.settings.data_config.data_size:], label_data.pos_labels[iteration]),
     #             )
-                
+
     #             class_predictions_agg += torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1)
 
     #             self.inner_layers.advance_layers_train(
@@ -396,17 +398,17 @@ class RecurrentFFNet(nn.Module):
 
     #             reconstructed_data, reconstructed_labels = generative_input.split(
     #                 [self.settings.data_config.data_size, self.settings.data_config.num_classes], dim=1)
-                
+
     #             data_loss = data_criterion(reconstructed_data, new_input_data[iteration])
     #             label_loss = label_criterion(reconstructed_labels, torch.argmax(new_label_data[iteration], dim=1))
     #             loss = data_loss + label_loss
 
     #             loss.backward()
-                
+
     #             for layer in self.inner_layers:
     #                 assert layer.forward_linear.weight.grad is None or torch.all(layer.forward_linear.weight.grad == 0)
     #                 layer.optimizer.step()
-                
+
     #             generative_input = generative_input.detach()
 
     #             input_data_sample = (new_input_data[iteration], new_input_data[iteration])
@@ -414,7 +416,7 @@ class RecurrentFFNet(nn.Module):
     #                 torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1),
     #                 zero_correct_class_softmax(generative_input[:, self.settings.data_config.data_size:], new_label_data[iteration]),
     #             )
-                
+
     #             class_predictions_agg += torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1)
 
     #             self.inner_layers.advance_layers_train(
@@ -465,26 +467,32 @@ class RecurrentFFNet(nn.Module):
         neg_badness_per_layer = []
         iterations = input_data.pos_input.shape[0]
         pos_target_latents_averager = LatentAverager()
-        class_predictions_agg = torch.zeros(input_data.pos_input[0].shape[0], self.settings.data_config.num_classes).to(self.settings.device.device)
+        class_predictions_agg = torch.zeros(
+            input_data.pos_input[0].shape[0], self.settings.data_config.num_classes).to(self.settings.device.device)
         for iteration in range(0, iterations):
             logging.debug("Iteration: " + str(iteration))
 
             data_criterion = torch.nn.MSELoss()
             label_criterion = torch.nn.CrossEntropyLoss()
-            generative_input = torch.zeros(self.settings.data_config.train_batch_size, self.settings.data_config.data_size + self.settings.data_config.num_classes).to(self.settings.device.device)
+            generative_input = torch.zeros(self.settings.data_config.train_batch_size, self.settings.data_config.data_size +
+                                           self.settings.data_config.num_classes).to(self.settings.device.device)
             assert generative_input.requires_grad == False
             for layer in self.inner_layers:
                 layer.optimizer.zero_grad()
                 activations = layer.pos_activations.current
                 generative_input += layer.generative_linear(activations)
-            assert generative_input.shape[0] == input_data.pos_input[iteration].shape[0] and generative_input.shape[1] == input_data.pos_input[iteration].shape[1] + self.settings.data_config.num_classes
+            assert generative_input.shape[0] == input_data.pos_input[iteration].shape[0] and generative_input.shape[
+                1] == input_data.pos_input[iteration].shape[1] + self.settings.data_config.num_classes
             reconstructed_data, reconstructed_labels = generative_input.split(
                 [self.settings.data_config.data_size, self.settings.data_config.num_classes], dim=1)
             if random.randint(0, 50) == 1:
-                is_correct = torch.argmax(label_data.pos_labels[iteration][0]) == torch.argmax(torch.softmax(reconstructed_labels[0], dim=0))
+                is_correct = torch.argmax(label_data.pos_labels[iteration][0]) == torch.argmax(
+                    torch.softmax(reconstructed_labels[0], dim=0))
                 print(is_correct.item())
-            data_loss = data_criterion(reconstructed_data, input_data.pos_input[iteration])
-            label_loss = label_criterion(reconstructed_labels, torch.argmax(label_data.pos_labels[iteration], dim=1))
+            data_loss = data_criterion(
+                reconstructed_data, input_data.pos_input[iteration])
+            label_loss = label_criterion(reconstructed_labels, torch.argmax(
+                label_data.pos_labels[iteration], dim=1))
             # if epoch_num < 5:
             #     label_loss = label_criterion(reconstructed_labels, torch.argmax(label_data.pos_labels[iteration], dim=1))
             # else:
@@ -492,11 +500,13 @@ class RecurrentFFNet(nn.Module):
             loss = data_loss + label_loss
             wandb.log({"generative loss": loss.item()}, step=total_batch_count)
             wandb.log({"data loss": data_loss.item()}, step=total_batch_count)
-            wandb.log({"label loss": label_loss.item()}, step=total_batch_count)
+            wandb.log({"label loss": label_loss.item()},
+                      step=total_batch_count)
             loss.backward()
             for layer in self.inner_layers:
                 # assert not torch.all(layer.generative_linear.weight.grad == 0)
-                assert layer.forward_linear.weight.grad == None or torch.all(layer.forward_linear.weight.grad == 0)
+                assert layer.forward_linear.weight.grad == None or torch.all(
+                    layer.forward_linear.weight.grad == 0)
                 layer.optimizer.step()
             # if epoch_num < 5:
             #     for layer in self.inner_layers:
@@ -512,10 +522,12 @@ class RecurrentFFNet(nn.Module):
                 input_data.pos_input[iteration],
                 input_data.pos_input[iteration])
             label_data_sample = (
-                torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1),
+                torch.softmax(
+                    generative_input[:, self.settings.data_config.data_size:], dim=1),
                 # torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1),
                 # swap_top_two_softmax(torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1))
-                zero_correct_class_softmax(generative_input[:, self.settings.data_config.data_size:], label_data.pos_labels[iteration]),
+                zero_correct_class_softmax(
+                    generative_input[:, self.settings.data_config.data_size:], label_data.pos_labels[iteration]),
                 # sample_avoiding_correct_class(generative_input[:, self.settings.data_config.data_size:], label_data.pos_labels[iteration]),
             )
             # if (batch_num + epoch_num) % 2 == 0:
@@ -528,9 +540,10 @@ class RecurrentFFNet(nn.Module):
             #         torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1),
             #         swap_top_two_softmax(torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1)),
             #         )
-            
+
             # class_predictions.append(torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1))
-            class_predictions_agg += torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1)
+            class_predictions_agg += torch.softmax(
+                generative_input[:, self.settings.data_config.data_size:], dim=1)
 
             self.inner_layers.advance_layers_train(
                 input_data_sample, label_data_sample, True, layer_metrics)
@@ -555,9 +568,12 @@ class RecurrentFFNet(nn.Module):
                 pos_target_latents_averager.track_collapsed_latents(
                     positive_latents_collapsed)
 
-            percent_c = percent_correct(torch.softmax(reconstructed_labels, dim=1), label_data.pos_labels[iteration])
-            percent_above = percent_above_threshold(torch.softmax(reconstructed_labels, dim=1), label_data.pos_labels[iteration], 0.5)
-            conf, should_stop = is_confident(torch.softmax(reconstructed_labels, dim=1), label_data.pos_labels[iteration], confidence_threshold["value"])
+            percent_c = percent_correct(torch.softmax(
+                reconstructed_labels, dim=1), label_data.pos_labels[iteration])
+            percent_above = percent_above_threshold(torch.softmax(
+                reconstructed_labels, dim=1), label_data.pos_labels[iteration], 0.5)
+            conf, should_stop = is_confident(torch.softmax(
+                reconstructed_labels, dim=1), label_data.pos_labels[iteration], confidence_threshold["value"])
 
             # if it was over 90% confident in correct answer on average return
             # if should_stop:
@@ -573,14 +589,18 @@ class RecurrentFFNet(nn.Module):
             # elif iteration > 3 and confidence_threshold["value"] > baseline_conf:
             # # elif iteration > 3:
             #     confidence_threshold["value"] -= 0.001
-        
-        # determine accuracy from class aggregations
-        correct_percent_agg = (torch.argmax(class_predictions_agg, dim=1) == torch.argmax(label_data.pos_labels[0], dim=1)).float().mean().item() * 100
 
-        wandb.log({"percent_correct": correct_percent_agg}, step=total_batch_count)
+        # determine accuracy from class aggregations
+        correct_percent_agg = (torch.argmax(class_predictions_agg, dim=1) == torch.argmax(
+            label_data.pos_labels[0], dim=1)).float().mean().item() * 100
+
+        wandb.log({"percent_correct": correct_percent_agg},
+                  step=total_batch_count)
         wandb.log({"percent_above": percent_above}, step=total_batch_count)
-        wandb.log({"avg_confidence_correct_class": conf}, step=total_batch_count)
-        wandb.log({"confidence_threshold": confidence_threshold["value"]}, step=total_batch_count)
+        wandb.log({"avg_confidence_correct_class": conf},
+                  step=total_batch_count)
+        wandb.log(
+            {"confidence_threshold": confidence_threshold["value"]}, step=total_batch_count)
 
         if self.settings.model.should_replace_neg_data:
             pos_target_latents = pos_target_latents_averager.retrieve()
