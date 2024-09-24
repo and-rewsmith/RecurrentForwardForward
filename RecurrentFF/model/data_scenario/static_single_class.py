@@ -455,6 +455,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                 # self.inner_layers.reset_activations(not is_test_set)
                 generative_output = torch.zeros(data.shape[1], self.settings.data_config.data_size + self.settings.data_config.num_classes).to(self.settings.device.device)
                 for layer in self.inner_layers:
+                    # layer.optimizer.zero_grad()
                     if not is_test_set:
                         generative_output += layer.generative_linear(
                             layer.pos_activations.current)
@@ -473,6 +474,13 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                 reconstructed_data, reconstructed_labels = generative_output.split(
                     [self.settings.data_config.data_size, self.settings.data_config.num_classes], dim=1)
                 assert reconstructed_data.shape[1] == self.settings.data_config.data_size
+
+                # label_criterion = torch.nn.CrossEntropyLoss()
+                # label_loss = label_criterion(reconstructed_labels, torch.argmax(reconstructed_labels, dim=1))
+                # label_loss.backward()
+                # for layer in self.inner_layers:
+                #     layer.optimizer.step()
+
                 # put reconstructed labels through softmax
                 # print(reconstructed_labels[0:3])
                 reconstructed_labels_softmax = F.softmax(reconstructed_labels, dim=1)

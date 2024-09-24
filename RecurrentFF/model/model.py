@@ -274,17 +274,27 @@ class RecurrentFFNet(nn.Module):
                 print(is_correct.item())
             data_loss = data_criterion(reconstructed_data, input_data.pos_input[iteration])
             label_loss = label_criterion(reconstructed_labels, torch.argmax(label_data.pos_labels[iteration], dim=1))
+            # if epoch_num < 5:
+            #     label_loss = label_criterion(reconstructed_labels, torch.argmax(label_data.pos_labels[iteration], dim=1))
+            # else:
+            #     label_loss = label_criterion(reconstructed_labels, torch.argmax(generative_input[:, self.settings.data_config.data_size:], dim=1))
             loss = data_loss + label_loss
-            # loss = label_loss
             wandb.log({"generative loss": loss.item()}, step=total_batch_count)
             wandb.log({"data loss": data_loss.item()}, step=total_batch_count)
             wandb.log({"label loss": label_loss.item()}, step=total_batch_count)
             loss.backward()
-            if epoch_num < 5:
-                for layer in self.inner_layers:
-                    # assert not torch.all(layer.generative_linear.weight.grad == 0)
-                    assert layer.forward_linear.weight.grad == None or torch.all(layer.forward_linear.weight.grad == 0)
-                    layer.optimizer.step()
+            for layer in self.inner_layers:
+                # assert not torch.all(layer.generative_linear.weight.grad == 0)
+                assert layer.forward_linear.weight.grad == None or torch.all(layer.forward_linear.weight.grad == 0)
+                layer.optimizer.step()
+            # if epoch_num < 5:
+            #     for layer in self.inner_layers:
+            #         # assert not torch.all(layer.generative_linear.weight.grad == 0)
+            #         assert layer.forward_linear.weight.grad == None or torch.all(layer.forward_linear.weight.grad == 0)
+            #         layer.optimizer.step()
+            # else:
+            #     for layer in self.inner_layers:
+            #         layer.optimizer.step()
             generative_input = generative_input.detach()
 
             input_data_sample = (
