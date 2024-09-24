@@ -280,10 +280,11 @@ class RecurrentFFNet(nn.Module):
             wandb.log({"data loss": data_loss.item()}, step=total_batch_count)
             wandb.log({"label loss": label_loss.item()}, step=total_batch_count)
             loss.backward()
-            for layer in self.inner_layers:
-                # assert not torch.all(layer.generative_linear.weight.grad == 0)
-                assert layer.forward_linear.weight.grad == None or torch.all(layer.forward_linear.weight.grad == 0)
-                layer.optimizer.step()
+            if epoch_num < 5:
+                for layer in self.inner_layers:
+                    # assert not torch.all(layer.generative_linear.weight.grad == 0)
+                    assert layer.forward_linear.weight.grad == None or torch.all(layer.forward_linear.weight.grad == 0)
+                    layer.optimizer.step()
             generative_input = generative_input.detach()
 
             input_data_sample = (
@@ -291,6 +292,7 @@ class RecurrentFFNet(nn.Module):
                 input_data.pos_input[iteration])
             label_data_sample = (
                 torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1),
+                # torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1),
                 # swap_top_two_softmax(torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1))
                 zero_correct_class_softmax(generative_input[:, self.settings.data_config.data_size:], label_data.pos_labels[iteration]),
                 # sample_avoiding_correct_class(generative_input[:, self.settings.data_config.data_size:], label_data.pos_labels[iteration]),

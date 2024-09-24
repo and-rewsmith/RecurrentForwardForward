@@ -488,12 +488,14 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                 # print(correct)
                 # print(total)
                 # print(str(correct / total * 100) + str("%"))
+                generative_output = generative_output.detach()
 
                 input_data_sample = (
                     data[iteration],
                     data[iteration])
                 label_data_sample = (
                     torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1),
+                    # torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1),
                     zero_highest_logit(generative_output[:, self.settings.data_config.data_size:])
                     # sample_from_logits(generative_output[:, self.settings.data_config.data_size:])
                     # swap_top_two_softmax(torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1))
