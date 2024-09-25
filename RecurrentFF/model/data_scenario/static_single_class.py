@@ -433,7 +433,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                     ForwardMode.PositiveData, data[0], upper_clamped_tensor, False)
                 self.inner_layers.advance_layers_forward(
                     ForwardMode.NegativeData, data[0], upper_clamped_tensor, False)
-                
+
                 if write_activations:
                     activity_tracker.track_partial_activations(
                         self.inner_layers)
@@ -449,11 +449,13 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
             upper_iteration_threshold = iterations // 2 + \
                 iterations // 10
             badnesses = []
-            class_predictions_agg = torch.zeros(data.shape[1], self.settings.data_config.num_classes).to(self.settings.device.device)
+            class_predictions_agg = torch.zeros(
+                data.shape[1], self.settings.data_config.num_classes).to(self.settings.device.device)
             for iteration in range(0, iterations):
                 # decode
                 # self.inner_layers.reset_activations(not is_test_set)
-                generative_output = torch.zeros(data.shape[1], self.settings.data_config.data_size + self.settings.data_config.num_classes).to(self.settings.device.device)
+                generative_output = torch.zeros(
+                    data.shape[1], self.settings.data_config.data_size + self.settings.data_config.num_classes).to(self.settings.device.device)
                 for layer in self.inner_layers:
                     # layer.optimizer.zero_grad()
                     if not is_test_set:
@@ -470,20 +472,25 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                         # print(layer.predict_activations.current[0:5])
                 # print(generative_output.shape)
                 # print(generative_output[0:3, self.settings.data_config.data_size:])
-                assert generative_output.shape[0] == data.shape[1] and generative_output.shape[1] == self.settings.data_config.data_size + self.settings.data_config.num_classes
+                assert generative_output.shape[0] == data.shape[1] and generative_output.shape[
+                    1] == self.settings.data_config.data_size + self.settings.data_config.num_classes
                 reconstructed_data, reconstructed_labels = generative_output.split(
                     [self.settings.data_config.data_size, self.settings.data_config.num_classes], dim=1)
                 assert reconstructed_data.shape[1] == self.settings.data_config.data_size
 
-                # label_criterion = torch.nn.CrossEntropyLoss()
-                # label_loss = label_criterion(reconstructed_labels, torch.argmax(reconstructed_labels, dim=1))
-                # label_loss.backward()
-                # for layer in self.inner_layers:
-                #     layer.optimizer.step()
+                for layer in self.inner_layers:
+                    layer.optimizer.zero_grad()
+                label_criterion = torch.nn.CrossEntropyLoss()
+                label_loss = label_criterion(
+                    reconstructed_labels, torch.argmax(reconstructed_labels, dim=1))
+                label_loss.backward()
+                for layer in self.inner_layers:
+                    layer.optimizer.step()
 
                 # put reconstructed labels through softmax
                 # print(reconstructed_labels[0:3])
-                reconstructed_labels_softmax = F.softmax(reconstructed_labels, dim=1)
+                reconstructed_labels_softmax = F.softmax(
+                    reconstructed_labels, dim=1)
                 assert reconstructed_labels.shape[1] == self.settings.data_config.num_classes
                 assert reconstructed_labels.shape[0] == data.shape[1]
                 # argmax to select the label
@@ -502,9 +509,11 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                     data[iteration],
                     data[iteration])
                 label_data_sample = (
-                    torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1),
+                    torch.softmax(
+                        generative_output[:, self.settings.data_config.data_size:], dim=1),
                     # torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1),
-                    zero_highest_logit(generative_output[:, self.settings.data_config.data_size:])
+                    zero_highest_logit(
+                        generative_output[:, self.settings.data_config.data_size:])
                     # sample_from_logits(generative_output[:, self.settings.data_config.data_size:])
                     # swap_top_two_softmax(torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1))
                     # torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1),
@@ -515,24 +524,25 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                 self.inner_layers.advance_layers_train(
                     input_data_sample, label_data_sample, True, None)
 
-                # if iteration >= lower_iteration_threshold and iteration <= upper_iteration_threshold:
                 if iteration >= lower_iteration_threshold and iteration <= upper_iteration_threshold:
-                    class_predictions_agg += torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1)
+                    # if iteration >= lower_iteration_threshold:
+                    class_predictions_agg += torch.softmax(
+                        generative_output[:, self.settings.data_config.data_size:], dim=1)
 
                 # self.inner_layers.advance_layers_forward(
                 #     forward_mode, data[iteration], zero_correct_class_softmax(reconstructed_labels_softmax, torch.nn.functional.one_hot(labels, 10)), True)
                 if write_activations:
                     activity_tracker.track_partial_activations(
                         self.inner_layers)
-                
+
                 # conf, should_stop = is_confident(reconstructed_labels_softmax, torch.nn.functional.one_hot(labels, 10), .5)
                 # if should_stop and iteration > 3:
                 #     print(iteration)
                 #     break
 
-            correct_number_agg = (torch.argmax(class_predictions_agg, dim=1) == labels).float().sum().item()
+            correct_number_agg = (torch.argmax(
+                class_predictions_agg, dim=1) == labels).float().sum().item()
             accuracy_contexts.append((correct_number_agg, data.size(1)))
-
 
             #         if iteration >= lower_iteration_threshold and iteration <= upper_iteration_threshold:
             #             layer_badnesses = []
