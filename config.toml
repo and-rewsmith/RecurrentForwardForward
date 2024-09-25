@@ -4,7 +4,7 @@ device = "cuda:1"
 [model]
 hidden_sizes = [1500, 1500, 1500, 1500, 1500, 1500]
 epochs = 30000
-prelabel_timesteps = 6
+prelabel_timesteps = 2
 loss_threshold = 1.5
 damping_factor = 0.7
 epsilon = 0.00000001
@@ -21,7 +21,7 @@ dropout = 0.0
 
 [model.ff_rmsprop]
 momentum = 0.0
-learning_rate = 0.00005
+learning_rate = 0.000005
 
 [model.classifier_rmsprop]
 momentum = 0
