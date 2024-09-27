@@ -251,15 +251,11 @@ class HiddenLayer(nn.Module):
         self.backward_dropout = nn.Dropout(p=self.settings.model.dropout)
         self.lateral_dropout = nn.Dropout(p=self.settings.model.dropout)
 
-        self.layer_norm_forward = nn.LayerNorm(size)
-        self.layer_norm_backward = nn.LayerNorm(size)
-        self.layer_norm_lateral = nn.LayerNorm(size)
-
         self.generative_linear = nn.Sequential(
-            # nn.Linear(size, size),
-            # nn.ReLU(),
-            # nn.Linear(size, size),
-            # nn.ReLU(),
+            nn.Linear(size, size),
+            nn.ReLU(),
+            nn.Linear(size, size),
+            nn.ReLU(),
             nn.Linear(size, settings.data_config.data_size +
                       settings.data_config.num_classes)
         )
@@ -629,17 +625,16 @@ class HiddenLayer(nn.Module):
                     Activations, previous_layer.predict_activations).previous
                 prev_act = cast(Activations, self.predict_activations).previous
 
+            prev_layer_prev_timestep_activations = prev_layer_prev_timestep_activations
             prev_layer_stdized = standardize_layer_activations(
                 prev_layer_prev_timestep_activations, self.settings.model.epsilon)
-            prev_layer_stdized = self.layer_norm_lateral(prev_layer_prev_timestep_activations)
 
-            # next_layer_stdized = standardize_layer_activations(
-            #     next_layer_prev_timestep_activations, self.settings.model.epsilon)
-            next_layer_stdized = self.layer_norm_lateral(next_layer_prev_timestep_activations)
+            next_layer_prev_timestep_activations = next_layer_prev_timestep_activations
+            next_layer_stdized = standardize_layer_activations(
+                next_layer_prev_timestep_activations, self.settings.model.epsilon)
 
-            # prev_act_stdized = standardize_layer_activations(
-            #     prev_act, self.settings.model.epsilon)
-            prev_act_stdized = self.layer_norm_lateral(prev_act)
+            prev_act_stdized = standardize_layer_activations(
+                prev_act, self.settings.model.epsilon)
 
             self.forward_act = F.linear(
                 prev_layer_stdized,
@@ -667,9 +662,8 @@ class HiddenLayer(nn.Module):
                 assert self.predict_activations is not None
                 prev_act = cast(Activations, self.predict_activations).previous
 
-            # prev_act_stdized = standardize_layer_activations(
-            #     prev_act, self.settings.model.epsilon)
-            prev_act_stdized = self.layer_norm_lateral(prev_act)
+            prev_act_stdized = standardize_layer_activations(
+                prev_act, self.settings.model.epsilon)
 
             self.forward_act = F.linear(
                 data,
@@ -700,13 +694,12 @@ class HiddenLayer(nn.Module):
                     Activations, next_layer.predict_activations).previous
                 prev_act = cast(Activations, self.predict_activations).previous
 
-            # next_layer_stdized = standardize_layer_activations(
-            #     next_layer_prev_timestep_activations, self.settings.model.epsilon)
-            next_layer_stdized = self.layer_norm_lateral(next_layer_prev_timestep_activations)
+            next_layer_prev_timestep_activations = next_layer_prev_timestep_activations
+            next_layer_stdized = standardize_layer_activations(
+                next_layer_prev_timestep_activations, self.settings.model.epsilon)
 
-            # prev_act_stdized = standardize_layer_activations(
-            #     prev_act, self.settings.model.epsilon)
-            prev_act_stdized = self.layer_norm_lateral(prev_act)
+            prev_act_stdized = standardize_layer_activations(
+                prev_act, self.settings.model.epsilon)
 
             self.forward_act = F.linear(
                 data,
@@ -737,13 +730,12 @@ class HiddenLayer(nn.Module):
                     Activations, previous_layer.predict_activations).previous
                 prev_act = cast(Activations, self.predict_activations).previous
 
-            # prev_layer_stdized = standardize_layer_activations(
-            #     prev_layer_prev_timestep_activations, self.settings.model.epsilon)
-            prev_layer_stdized = self.layer_norm_lateral(prev_layer_prev_timestep_activations)
+            prev_layer_prev_timestep_activations = prev_layer_prev_timestep_activations
+            prev_layer_stdized = standardize_layer_activations(
+                prev_layer_prev_timestep_activations, self.settings.model.epsilon)
 
-            # prev_act_stdized = standardize_layer_activations(
-            #     prev_act, self.settings.model.epsilon)
-            prev_act_stdized = self.layer_norm_lateral(prev_act)
+            prev_act_stdized = standardize_layer_activations(
+                prev_act, self.settings.model.epsilon)
 
             self.forward_act = F.linear(
                 prev_layer_stdized,

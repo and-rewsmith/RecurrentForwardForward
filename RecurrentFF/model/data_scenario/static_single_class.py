@@ -478,14 +478,14 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                     [self.settings.data_config.data_size, self.settings.data_config.num_classes], dim=1)
                 assert reconstructed_data.shape[1] == self.settings.data_config.data_size
 
-                # for layer in self.inner_layers:
-                #     layer.optimizer.zero_grad()
-                # label_criterion = torch.nn.CrossEntropyLoss()
-                # label_loss = label_criterion(
-                #     reconstructed_labels, torch.argmax(reconstructed_labels, dim=1))
-                # label_loss.backward()
-                # for layer in self.inner_layers:
-                #     layer.optimizer.step()
+                for layer in self.inner_layers:
+                    layer.optimizer.zero_grad()
+                label_criterion = torch.nn.CrossEntropyLoss()
+                label_loss = label_criterion(
+                    reconstructed_labels, torch.argmax(reconstructed_labels, dim=1))
+                label_loss.backward()
+                for layer in self.inner_layers:
+                    layer.optimizer.step()
 
                 # put reconstructed labels through softmax
                 # print(reconstructed_labels[0:3])
