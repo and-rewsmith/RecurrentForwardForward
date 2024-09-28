@@ -212,6 +212,7 @@ class MaskedLinear(nn.Linear):
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         return F.linear(input, self.weight * self.mask, self.bias)
+        # return F.linear(input, self.weight, self.bias)
 
     def visualize_connectivity(self):
         plt.figure(figsize=(10, 10))
@@ -323,7 +324,7 @@ class HiddenLayer(nn.Module):
             nn.init.uniform_(self.backward_linear.weight, -0.05, 0.05)
 
         # Initialize the lateral weights to be the identity matrix
-        self.lateral_linear = MaskedLinear(size, size, block_size=100, bleed_factor=0.3)
+        self.lateral_linear = MaskedLinear(size, size, block_size=200, bleed_factor=0.3)
         nn.init.orthogonal_(self.lateral_linear.weight, gain=math.sqrt(2))
 
         self.previous_layer: Self = None  # type: ignore[assignment]

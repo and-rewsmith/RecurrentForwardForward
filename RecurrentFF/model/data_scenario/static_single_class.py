@@ -460,13 +460,13 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                     # layer.optimizer.zero_grad()
                     if not is_test_set:
                         generative_output += layer.generative_linear(
-                            layer.neg_activations.current)
+                            layer.pos_activations.current)
                         # print(id(layer.pos_activations.current))
                         # print(layer.pos_activations.current.shape)
                         # print(layer.pos_activations.current[0:5])
                     else:
                         generative_output += layer.generative_linear(
-                            layer.neg_activations.current)
+                            layer.pos_activations.current)
                         # print(id(layer.predict_activations.current))
                         # print(layer.predict_activations.current.shape)
                         # print(layer.predict_activations.current[0:5])
@@ -507,10 +507,13 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
 
                 input_data_sample = (
                     data[iteration],
+                    # generative_output[:, 0:self.settings.data_config.data_size])
                     data[iteration])
                 label_data_sample = (
                     torch.softmax(
                         generative_output[:, self.settings.data_config.data_size:], dim=1),
+                    # torch.softmax(
+                    #     generative_output[:, self.settings.data_config.data_size:], dim=1),
                     # torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1),
                     zero_highest_logit(
                         generative_output[:, self.settings.data_config.data_size:])

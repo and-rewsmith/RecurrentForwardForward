@@ -479,7 +479,7 @@ class RecurrentFFNet(nn.Module):
             assert generative_input.requires_grad == False
             for layer in self.inner_layers:
                 layer.optimizer.zero_grad()
-                activations = layer.neg_activations.current
+                activations = layer.pos_activations.current
                 generative_input += layer.generative_linear(activations)
             assert generative_input.shape[0] == input_data.pos_input[iteration].shape[0] and generative_input.shape[
                 1] == input_data.pos_input[iteration].shape[1] + self.settings.data_config.num_classes
@@ -520,10 +520,13 @@ class RecurrentFFNet(nn.Module):
 
             input_data_sample = (
                 input_data.pos_input[iteration],
+                # generative_input[:, 0:self.settings.data_config.data_size])
                 input_data.pos_input[iteration])
             label_data_sample = (
                 torch.softmax(
                     generative_input[:, self.settings.data_config.data_size:], dim=1),
+                # torch.softmax(
+                #     generative_input[:, self.settings.data_config.data_size:], dim=1),
                 # torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1),
                 # swap_top_two_softmax(torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1))
                 zero_correct_class_softmax(
