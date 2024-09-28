@@ -190,6 +190,24 @@ def amplified_initialization(layer: nn.Linear, amplification_factor: float = 3.0
     nn.init.normal_(layer.weight, mean=0, std=amplified_std)
 
 
+class MaskedLinear(nn.Linear):
+    def __init__(self, in_features: int, out_features: int, block_size: int, bias: bool = True):
+        super(MaskedLinear, self).__init__(in_features, out_features, bias)
+        self.block_size = block_size
+        self.register_buffer('mask', self.create_mask())
+
+    def create_mask(self):
+        mask = torch.zeros(self.weight.size())
+        for i in range(0, self.out_features, self.block_size):
+            j = i  # This ensures block diagonal structure
+            mask[i:i+self.block_size, j:j+self.block_size] = 1
+        return mask
+
+    def forward(self, input: torch.Tensor) -> torch.Tensor:
+        return F.linear(input, self.weight, self.bias)
+        # return F.linear(input, self.weight * self.mask, self.bias)
+
+
 class HiddenLayer(nn.Module):
     """
     A HiddenLayer class for a novel Forward-Forward Recurrent Network, with
@@ -252,10 +270,10 @@ class HiddenLayer(nn.Module):
         self.lateral_dropout = nn.Dropout(p=self.settings.model.dropout)
 
         self.generative_linear = nn.Sequential(
-            nn.Linear(size, size),
-            nn.ReLU(),
-            nn.Linear(size, size),
-            nn.ReLU(),
+            # nn.Linear(size, size),
+            # nn.ReLU(),
+            # nn.Linear(size, size),
+            # nn.ReLU(),
             nn.Linear(size, settings.data_config.data_size +
                       settings.data_config.num_classes)
         )
@@ -263,11 +281,11 @@ class HiddenLayer(nn.Module):
             if isinstance(layer, nn.Linear):
                 nn.init.kaiming_uniform_(layer.weight, nonlinearity='relu')
 
-        self.forward_linear = nn.Linear(prev_size, size)
+        self.forward_linear = MaskedLinear(prev_size, size, block_size=3)
         nn.init.kaiming_uniform_(
             self.forward_linear.weight, nonlinearity='relu')
 
-        self.backward_linear = nn.Linear(next_size, size)
+        self.backward_linear = MaskedLinear(next_size, size, block_size=3)
 
         if next_size == self.settings.data_config.num_classes:
             amplified_initialization(self.backward_linear, 3.0)
@@ -275,7 +293,7 @@ class HiddenLayer(nn.Module):
             nn.init.uniform_(self.backward_linear.weight, -0.05, 0.05)
 
         # Initialize the lateral weights to be the identity matrix
-        self.lateral_linear = nn.Linear(size, size)
+        self.lateral_linear = MaskedLinear(size, size, block_size=10)
         nn.init.orthogonal_(self.lateral_linear.weight, gain=math.sqrt(2))
 
         self.previous_layer: Self = None  # type: ignore[assignment]
@@ -454,7 +472,8 @@ class HiddenLayer(nn.Module):
         """
         def parameter_filter(name_param_tuple):
             name, _ = name_param_tuple
-            return not name.startswith('previous_layer') and not name.startswith('next_layer') and not name.startswith('generative_linear')
+            return not name.startswith('previous_layer') and not name.startswith('next_layer') and not name.startswith(
+                'generative_linear')
 
         total_reset = 0
         with torch.no_grad():
@@ -636,18 +655,9 @@ class HiddenLayer(nn.Module):
             prev_act_stdized = standardize_layer_activations(
                 prev_act, self.settings.model.epsilon)
 
-            self.forward_act = F.linear(
-                prev_layer_stdized,
-                self.forward_linear.weight,
-                self.forward_linear.bias)
-            self.backward_act = -1 * F.linear(
-                next_layer_stdized,
-                self.backward_linear.weight,
-                self.backward_linear.bias)
-            self.lateral_act = F.linear(
-                prev_act_stdized,
-                self.lateral_linear.weight,
-                self.lateral_linear.bias)
+            self.forward_act = self.forward_linear.forward(prev_layer_stdized)
+            self.backward_act = -1 * self.backward_linear.forward(next_layer_stdized)
+            self.lateral_act = self.lateral_linear.forward(prev_act_stdized)
 
         # Single layer scenario. Hidden layer connected to input layer and
         # output layer.
@@ -665,18 +675,9 @@ class HiddenLayer(nn.Module):
             prev_act_stdized = standardize_layer_activations(
                 prev_act, self.settings.model.epsilon)
 
-            self.forward_act = F.linear(
-                data,
-                self.forward_linear.weight,
-                self.forward_linear.bias)
-            self.backward_act = -1 * F.linear(
-                labels,
-                self.backward_linear.weight,
-                self.backward_linear.bias)
-            self.lateral_act = F.linear(
-                prev_act_stdized,
-                self.lateral_linear.weight,
-                self.lateral_linear.bias)
+            self.forward_act = self.forward_linear.forward(data)
+            self.backward_act = -1 * self.backward_linear.forward(labels)
+            self.lateral_act = self.lateral_linear.forward(prev_act_stdized)
 
         # Input layer scenario. Connected to input layer and hidden layer.
         elif data is not None:
@@ -701,18 +702,9 @@ class HiddenLayer(nn.Module):
             prev_act_stdized = standardize_layer_activations(
                 prev_act, self.settings.model.epsilon)
 
-            self.forward_act = F.linear(
-                data,
-                self.forward_linear.weight,
-                self.forward_linear.bias)
-            self.backward_act = -1 * F.linear(
-                next_layer_stdized,
-                self.backward_linear.weight,
-                self.backward_linear.bias)
-            self.lateral_act = F.linear(
-                prev_act_stdized,
-                self.lateral_linear.weight,
-                self.lateral_linear.bias)
+            self.forward_act = self.forward_linear.forward(data)
+            self.backward_act = -1 * self.backward_linear.forward(next_layer_stdized)
+            self.lateral_act = self.lateral_linear.forward(prev_act_stdized)
 
         # Output layer scenario. Connected to hidden layer and output layer.
         elif labels is not None:
@@ -737,27 +729,18 @@ class HiddenLayer(nn.Module):
             prev_act_stdized = standardize_layer_activations(
                 prev_act, self.settings.model.epsilon)
 
-            self.forward_act = F.linear(
-                prev_layer_stdized,
-                self.forward_linear.weight,
-                self.forward_linear.bias)
-            self.backward_act = -1 * F.linear(
-                labels,
-                self.backward_linear.weight,
-                self.backward_linear.bias)
-            self.lateral_act = F.linear(
-                prev_act_stdized,
-                self.lateral_linear.weight,
-                self.lateral_linear.bias)
+            self.forward_act = self.forward_linear.forward(prev_layer_stdized)
+            self.backward_act = -1 * self.backward_linear.forward(labels)
+            self.lateral_act = self.lateral_linear.forward(prev_act_stdized)
 
-        self.forward_act = self.forward_dropout(self.forward_act)
-        self.backward_act = self.backward_dropout(self.backward_act)
-        self.lateral_act = self.lateral_dropout(self.lateral_act)
+        # self.forward_act = self.forward_dropout(self.forward_act)
+        # self.backward_act = self.backward_dropout(self.backward_act)
+        # self.lateral_act = self.lateral_dropout(self.lateral_act)
 
         summation_act = self.forward_act + self.backward_act + self.lateral_act
 
-        for residual_connection in self.residual_connections:
-            summation_act = summation_act + residual_connection.forward(mode)
+        # for residual_connection in self.residual_connections:
+        #     summation_act = summation_act + residual_connection.forward(mode)
 
         new_activation = F.leaky_relu(summation_act)
 
