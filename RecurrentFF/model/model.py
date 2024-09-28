@@ -473,7 +473,7 @@ class RecurrentFFNet(nn.Module):
             logging.debug("Iteration: " + str(iteration))
 
             data_criterion = torch.nn.MSELoss()
-            label_criterion = torch.nn.CrossEntropyLoss()
+            label_criterion = torch.nn.MultiMarginLoss()
             generative_input = torch.zeros(self.settings.data_config.train_batch_size, self.settings.data_config.data_size +
                                            self.settings.data_config.num_classes).to(self.settings.device.device)
             assert generative_input.requires_grad == False

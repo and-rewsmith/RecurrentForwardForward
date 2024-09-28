@@ -1,8 +1,8 @@
 [device]
-device = "cuda"
+device = "cuda:1"
 
 [model]
-hidden_sizes = [1000, 1000, 1000, 1000, 1000, 1000]
+hidden_sizes = [2000, 2000, 2000]
 epochs = 30000
 prelabel_timesteps = 2
 loss_threshold = 1.5
@@ -21,7 +21,7 @@ dropout = 0.0
 
 [model.ff_rmsprop]
 momentum = 0.0
-learning_rate = 0.00001
+learning_rate = 0.0001
 
 [model.classifier_rmsprop]
 momentum = 0
