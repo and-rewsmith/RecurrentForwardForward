@@ -460,13 +460,13 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                     # layer.optimizer.zero_grad()
                     if not is_test_set:
                         generative_output += layer.generative_linear(
-                            layer.pos_activations.current)
+                            layer.neg_activations.current)
                         # print(id(layer.pos_activations.current))
                         # print(layer.pos_activations.current.shape)
                         # print(layer.pos_activations.current[0:5])
                     else:
                         generative_output += layer.generative_linear(
-                            layer.pos_activations.current)
+                            layer.neg_activations.current)
                         # print(id(layer.predict_activations.current))
                         # print(layer.predict_activations.current.shape)
                         # print(layer.predict_activations.current[0:5])
