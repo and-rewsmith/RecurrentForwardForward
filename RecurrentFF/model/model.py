@@ -127,6 +127,23 @@ class RecurrentFFNet(nn.Module):
             "_" + datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + "_" + ''.join(
                 random.choices(string.ascii_uppercase + string.digits, k=6)) + ".pth"
 
+        # size = self.settings.model.hidden_sizes[-1]
+        # num_layers = len(self.settings.model.hidden_sizes)
+        # generative_size = size * num_layers
+        # self.generative_linear = torch.nn.Sequential(
+        #     nn.Linear(generative_size, generative_size),
+        #     nn.ReLU(),
+        #     nn.Linear(generative_size, size),
+        #     nn.ReLU(),
+        #     nn.Linear(size, settings.data_config.data_size +
+        #               settings.data_config.num_classes)
+        # )
+        # for layer in self.generative_linear:
+        #     if isinstance(layer, nn.Linear):
+        #         nn.init.kaiming_uniform_(layer.weight, nonlinearity='relu')
+        # self.optimizer = torch.optim.Adam(
+        #     self.generative_linear.parameters(), lr=self.settings.model.ff_rmsprop.learning_rate)
+
         logging.info("Finished initializing network")
 
     def predict(
@@ -523,6 +540,10 @@ class RecurrentFFNet(nn.Module):
                 # generative_input[:, 0:self.settings.data_config.data_size])
                 input_data.pos_input[iteration])
             label_data_sample = (
+                # torch.zeros(self.settings.data_config.train_batch_size, self.settings.data_config.num_classes).to(
+                #     self.settings.device.device),
+                # torch.zeros(self.settings.data_config.train_batch_size, self.settings.data_config.num_classes).to(
+                #     self.settings.device.device),
                 torch.softmax(
                     generative_input[:, self.settings.data_config.data_size:], dim=1),
                 # torch.softmax(

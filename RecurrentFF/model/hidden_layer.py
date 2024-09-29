@@ -301,10 +301,10 @@ class HiddenLayer(nn.Module):
         self.lateral_dropout = nn.Dropout(p=self.settings.model.dropout)
 
         self.generative_linear = nn.Sequential(
-            # nn.Linear(size, size),
-            # nn.ReLU(),
-            # nn.Linear(size, size),
-            # nn.ReLU(),
+            nn.Linear(size, size),
+            nn.ReLU(),
+            nn.Linear(size, size),
+            nn.ReLU(),
             nn.Linear(size, settings.data_config.data_size +
                       settings.data_config.num_classes)
         )
@@ -312,11 +312,11 @@ class HiddenLayer(nn.Module):
             if isinstance(layer, nn.Linear):
                 nn.init.kaiming_uniform_(layer.weight, nonlinearity='relu')
 
-        self.forward_linear = MaskedLinear(prev_size, size, bleed_factor=0.3, block_size=50)
+        self.forward_linear = MaskedLinear(prev_size, size, bleed_factor=0.3, block_size=20)
         nn.init.kaiming_uniform_(
             self.forward_linear.weight, nonlinearity='relu')
 
-        self.backward_linear = MaskedLinear(next_size, size, bleed_factor=0.3, block_size=50)
+        self.backward_linear = MaskedLinear(next_size, size, bleed_factor=0.3, block_size=20)
 
         if next_size == self.settings.data_config.num_classes:
             amplified_initialization(self.backward_linear, 3.0)
