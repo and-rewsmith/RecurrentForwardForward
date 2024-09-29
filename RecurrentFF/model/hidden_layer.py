@@ -211,8 +211,8 @@ class MaskedLinear(nn.Linear):
         return mask[:self.out_features, :self.in_features]
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
-        return F.linear(input, self.weight * self.mask, self.bias)
-        # return F.linear(input, self.weight, self.bias)
+        # return F.linear(input, self.weight * self.mask, self.bias)
+        return F.linear(input, self.weight, self.bias)
 
     def visualize_connectivity(self):
         plt.figure(figsize=(10, 10))
