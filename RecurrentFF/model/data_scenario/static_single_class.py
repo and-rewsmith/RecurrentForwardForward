@@ -522,20 +522,22 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                     #     generative_output[:, self.settings.data_config.data_size:], dim=1),
                     # torch.softmax(
                     #     generative_output[:, self.settings.data_config.data_size:], dim=1),
-                    # torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1),
+                    torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1),
                     # zero_highest_logit(
                     #     generative_output[:, self.settings.data_config.data_size:])
-                    sample_from_logits(zero_highest_logit(
-                        generative_output[:, self.settings.data_config.data_size:])),
-                    # torch.nn.functional.one_hot(torch.argmax(
-                    #     generative_output[:, self.settings.data_config.data_size:], dim=1)).to(dtype=torch.float32, device=self.settings.device.device),
+                    # torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1),
+                    # sample_from_logits(zero_highest_logit(
+                    #     generative_output[:, self.settings.data_config.data_size:])),
+                    torch.nn.functional.one_hot(torch.argmax(
+                        generative_output[:, self.settings.data_config.data_size:], dim=1), num_classes=10).to(dtype=torch.float32, device=self.settings.device.device),
                     # sample_from_logits(generative_output[:, self.settings.data_config.data_size:]),
                     # swap_top_two_softmax(torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1))
-                    torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1),
                     # swap_top_two_softmax(torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1)),
                     # zero_correct_class_softmax(generative_output[:, self.settings.data_config.data_size:], torch.nn.functional.one_hot(labels, 10)),
                     # swap_top_two_softmax(torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1)),
                 )
+                print(generative_output[:, self.settings.data_config.data_size:].shape)
+                print(label_data_sample[1].shape)
                 self.inner_layers.advance_layers_train(
                     input_data_sample, label_data_sample, True, None)
 

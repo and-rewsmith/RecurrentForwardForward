@@ -497,7 +497,7 @@ class RecurrentFFNet(nn.Module):
             logging.debug("Iteration: " + str(iteration))
 
             data_criterion = torch.nn.MSELoss()
-            label_criterion = torch.nn.MultiMarginLoss()
+            label_criterion = torch.nn.CrossEntropyLoss()
             # generative_input = torch.zeros(self.settings.data_config.train_batch_size, self.settings.data_config.data_size +
             #                                self.settings.data_config.num_classes).to(self.settings.device.device)
             # assert generative_input.requires_grad == False
@@ -557,16 +557,16 @@ class RecurrentFFNet(nn.Module):
                 #     self.settings.device.device),
                 # torch.zeros(self.settings.data_config.train_batch_size, self.settings.data_config.num_classes).to(
                 #     self.settings.device.device),
-                sample_avoiding_correct_class(
-                    generative_input[:, self.settings.data_config.data_size:],
-                    label_data.pos_labels[iteration]),
+                torch.softmax(
+                    generative_input[:, self.settings.data_config.data_size:], dim=1),
+                # sample_avoiding_correct_class(
+                #     generative_input[:, self.settings.data_config.data_size:],
+                #     label_data.pos_labels[iteration]),
                 # sample_from_logits(
                 #     torch.softmax(
                 #         generative_input[:, self.settings.data_config.data_size:], dim=1)
                 # ),
-                # label_data.pos_labels[iteration],
-                torch.softmax(
-                    generative_input[:, self.settings.data_config.data_size:], dim=1),
+                label_data.pos_labels[iteration],
                 # torch.softmax(
                 #     generative_input[:, self.settings.data_config.data_size:], dim=1),
                 # torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1),
