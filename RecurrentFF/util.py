@@ -5,63 +5,67 @@ from typing import Generator
 import torch
 from torch.nn import functional as F
 
+
 def sample_from_logits(logits):
     # Apply softmax to convert logits to probabilities
     probs = F.softmax(logits, dim=1)
-    
+
     # Find the index of the highest probability class
     _, max_prob_indices = torch.max(probs, dim=1)
-    
+
     # Create a mask to exclude the highest probability class
     mask = torch.ones_like(probs).scatter_(1, max_prob_indices.unsqueeze(1), 0)
-    
+
     # Apply the mask to the probabilities
     masked_probs = probs * mask
-    
+
     # Normalize the masked probabilities
     normalized_probs = masked_probs / masked_probs.sum(dim=1, keepdim=True)
-    
+
     # Handle the case where all probabilities were equal (resulting in all zeros after masking)
     zero_rows = (normalized_probs.sum(dim=1) == 0)
     if zero_rows.any():
         # For these rows, we'll sample uniformly from all classes except the max
         uniform_probs = mask.float() / (mask.sum(dim=1, keepdim=True) - 1)
         normalized_probs[zero_rows] = uniform_probs[zero_rows]
-    
+
     # Sample from the modified probability distribution
     sampled_indices = torch.multinomial(normalized_probs, num_samples=1).squeeze()
-    
+
     # Create a one-hot vector from the sampled indices
     one_hot = F.one_hot(sampled_indices, num_classes=logits.size(1)).float()
-    
+
     return one_hot
+
 
 def sample_avoiding_correct_class(logits, correct_classes):
     # Clone to avoid modifying original logits in-place
     modified_logits = logits.clone()
-    
+
     # Set a large negative value for logits at the index of the correct class
     modified_logits[correct_classes == 1] = -1e9
-    
+
     # Apply softmax to the modified logits
     probabilities = F.softmax(modified_logits, dim=1)
-    
+
     # Sample from the probability distribution
     sampled_indices = torch.multinomial(probabilities, num_samples=1).squeeze()
-    
+
     # Create a one-hot vector from the sampled indices
     one_hot = F.one_hot(sampled_indices, num_classes=logits.size(1)).float()
-    
+
     return one_hot
+
 
 def zero_correct_class_softmax(logits, correct_classes):
     # Set a large negative value for logits at the index of the correct class
     modified_logits = logits.clone()  # Clone to avoid modifying original logits in-place
     modified_logits[correct_classes == 1] = -1e9  # Use a very large negative value
-    
+
     # Apply softmax to the modified logits
     softmax_output = F.softmax(modified_logits, dim=1)
     return softmax_output
+
 
 def zero_highest_logit(logits):
     # Clone logits to avoid in-place modification
@@ -78,10 +82,12 @@ def zero_highest_logit(logits):
     return softmax_output
 
 # Function to calculate the percentage of cases where the argmax matches the correct label
+
+
 def percent_correct(softmax_output, correct_labels):
     # Convert one-hot encoded labels to indices (get the correct class indices)
     correct_indices = torch.argmax(correct_labels, dim=1)  # [batch_size]
-    
+
     # Get the predicted class from softmax output (argmax of predictions)
     predicted_indices = torch.argmax(softmax_output, dim=1)  # [batch_size]
 
@@ -95,10 +101,12 @@ def percent_correct(softmax_output, correct_labels):
     return percent_correct
 
 # Function to check the percentage of correct softmax values above a given threshold
+
+
 def percent_above_threshold(softmax_output, correct_labels, confidence_threshold):
     # Convert one-hot encoded labels to indices (get the correct class indices)
     correct_indices = torch.argmax(correct_labels, dim=1)  # [batch_size]
-    
+
     # Gather the softmax probabilities of the correct class for each example in the batch
     correct_class_probs = softmax_output.gather(1, correct_indices.unsqueeze(1)).squeeze()
 
@@ -116,7 +124,7 @@ def percent_above_threshold(softmax_output, correct_labels, confidence_threshold
 def is_confident(softmax_output, correct_labels, confidence_threshold):
     # Convert one-hot encoded labels to indices (get the correct class indices)
     correct_indices = torch.argmax(correct_labels, dim=1)  # [batch_size]
-    
+
     # Gather the softmax probabilities of the correct class for each example in the batch
     correct_class_probs = softmax_output.gather(1, correct_indices.unsqueeze(1)).squeeze()
 
@@ -129,25 +137,27 @@ def is_confident(softmax_output, correct_labels, confidence_threshold):
     # Return the confidence probabilities, average confidence, and whether all are above the threshold
     return avg_confidence.item(), all_confident.item()
 
+
 def swap_top_two_softmax(tensor):
     # Find the top two values along the softmax dimension
     top2_values, top2_indices = torch.topk(tensor, 2, dim=1)
-    
+
     # Clone the original tensor so we can modify it
     swapped_tensor = tensor.clone()
-    
+
     # Create a tensor of batch indices
     batch_indices = torch.arange(tensor.size(0)).unsqueeze(1)
-    
+
     # Get the indices of the top two values
     max_indices = top2_indices[:, 0]  # Highest value indices
     second_max_indices = top2_indices[:, 1]  # Second highest value indices
-    
+
     # Swap the values
     swapped_tensor[batch_indices, max_indices] = top2_values[:, 1]
     swapped_tensor[batch_indices, second_max_indices] = top2_values[:, 0]
-    
+
     return swapped_tensor
+
 
 def set_logging() -> None:
     """
@@ -221,7 +231,7 @@ class Activations:
         yield self.previous
 
     def advance(self) -> None:
-        self.previous = self.current
+        self.previous = F.softplus(self.current)
 
 
 class ForwardMode(Enum):
