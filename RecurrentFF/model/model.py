@@ -68,6 +68,7 @@ class RecurrentFFNet(nn.Module):
 
         self.settings = settings
 
+        logging.info("Creating layers")
         inner_layers = nn.ModuleList()
         prev_size = self.settings.data_config.data_size
         for i, size in enumerate(self.settings.model.hidden_sizes):
@@ -86,6 +87,7 @@ class RecurrentFFNet(nn.Module):
             prev_size = size
 
         # attach layers to each other
+        logging.info("Attaching layers")
         for i in range(1, len(inner_layers)):
             hidden_layer = inner_layers[i]
             hidden_layer.set_previous_layer(inner_layers[i - 1])
@@ -95,6 +97,7 @@ class RecurrentFFNet(nn.Module):
             hidden_layer.set_next_layer(inner_layers[i + 1])
 
         # initialize the residual connections
+        logging.info("Attaching residual layer connections")
         for i in range(0, len(inner_layers)):
             for j in range(0, len(inner_layers)):
                 # TODO: Perform testing for residual connections and determine best scheme. Examples:
@@ -113,6 +116,7 @@ class RecurrentFFNet(nn.Module):
                         residual_connection)
 
         # initialize optimizers
+        logging.info("Initializing optimizer")
         for layer in inner_layers:
             layer.init_optimizer()
 
@@ -120,6 +124,7 @@ class RecurrentFFNet(nn.Module):
 
         # when we eventually support changing/multiclass scenarios this will be
         # configurable
+        logging.info("Initializing processor")
         self.processor = StaticSingleClassProcessor(
             self.inner_layers, self.settings)
 
@@ -127,22 +132,23 @@ class RecurrentFFNet(nn.Module):
             "_" + datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + "_" + ''.join(
                 random.choices(string.ascii_uppercase + string.digits, k=6)) + ".pth"
 
-        # size = self.settings.model.hidden_sizes[-1]
-        # num_layers = len(self.settings.model.hidden_sizes)
-        # generative_size = size * num_layers
-        # self.generative_linear = torch.nn.Sequential(
-        #     nn.Linear(generative_size, generative_size),
-        #     nn.ReLU(),
-        #     nn.Linear(generative_size, size),
-        #     nn.ReLU(),
-        #     nn.Linear(size, settings.data_config.data_size +
-        #               settings.data_config.num_classes)
-        # )
-        # for layer in self.generative_linear:
-        #     if isinstance(layer, nn.Linear):
-        #         nn.init.kaiming_uniform_(layer.weight, nonlinearity='relu')
-        # self.optimizer = torch.optim.Adam(
-        #     self.generative_linear.parameters(), lr=self.settings.model.ff_rmsprop.learning_rate)
+        logging.info("Constructing decoder")
+        size = self.settings.model.hidden_sizes[-1]
+        num_layers = len(self.settings.model.hidden_sizes)
+        generative_size = size * num_layers
+        self.generative_linear = torch.nn.Sequential(
+            nn.Linear(generative_size, generative_size),
+            nn.ReLU(),
+            nn.Linear(generative_size, size),
+            nn.ReLU(),
+            nn.Linear(size, settings.data_config.data_size +
+                      settings.data_config.num_classes)
+        )
+        for layer in self.generative_linear:
+            if isinstance(layer, nn.Linear):
+                nn.init.kaiming_uniform_(layer.weight, nonlinearity='relu')
+        self.optimizer = torch.optim.Adam(
+            self.generative_linear.parameters(), lr=self.settings.model.ff_rmsprop.learning_rate)
 
         logging.info("Finished initializing network")
 
@@ -190,7 +196,7 @@ class RecurrentFFNet(nn.Module):
 
         total_batch_count = 0
         best_test_accuracy: float = 0
-        confidence_threshold = {"value": 0.5}
+        confidence_threshold = {"value": 0.01}
         for epoch in range(0, self.settings.model.epochs):
             logging.info("Epoch: " + str(epoch))
             self.train()
@@ -222,9 +228,9 @@ class RecurrentFFNet(nn.Module):
             #
             # TODO: Fix this hacky data loader bridge format
             test_accuracy = self.processor.brute_force_predict(
-                test_loader, 1, True)
+                test_loader, self.generative_linear, 1, True)
             train_accuracy = self.processor.brute_force_predict(
-                TrainTestBridgeFormatLoader(train_loader), 1, False)  # type: ignore[arg-type]
+                TrainTestBridgeFormatLoader(train_loader), self.generative_linear, 1, False)  # type: ignore[arg-type]
 
             if test_accuracy > best_test_accuracy:
                 best_test_accuracy = test_accuracy
@@ -491,13 +497,17 @@ class RecurrentFFNet(nn.Module):
 
             data_criterion = torch.nn.MSELoss()
             label_criterion = torch.nn.CrossEntropyLoss()
-            generative_input = torch.zeros(self.settings.data_config.train_batch_size, self.settings.data_config.data_size +
-                                           self.settings.data_config.num_classes).to(self.settings.device.device)
-            assert generative_input.requires_grad == False
-            for layer in self.inner_layers:
-                layer.optimizer.zero_grad()
-                activations = layer.pos_activations.current
-                generative_input += layer.generative_linear(activations)
+            # generative_input = torch.zeros(self.settings.data_config.train_batch_size, self.settings.data_config.data_size +
+            #                                self.settings.data_config.num_classes).to(self.settings.device.device)
+            # assert generative_input.requires_grad == False
+            # for layer in self.inner_layers:
+            #     layer.optimizer.zero_grad()
+            #     activations = layer.pos_activations.current
+            #     generative_input += layer.generative_linear(activations)
+            self.optimizer.zero_grad()
+            generative_input = self.generative_linear(
+                torch.cat([layer.pos_activations.current for layer in self.inner_layers], dim=1)
+            )
             assert generative_input.shape[0] == input_data.pos_input[iteration].shape[0] and generative_input.shape[
                 1] == input_data.pos_input[iteration].shape[1] + self.settings.data_config.num_classes
             reconstructed_data, reconstructed_labels = generative_input.split(
@@ -520,11 +530,13 @@ class RecurrentFFNet(nn.Module):
             wandb.log({"label loss": label_loss.item()},
                       step=total_batch_count)
             loss.backward()
-            for layer in self.inner_layers:
-                # assert not torch.all(layer.generative_linear.weight.grad == 0)
-                assert layer.forward_linear.weight.grad == None or torch.all(
-                    layer.forward_linear.weight.grad == 0)
-                layer.optimizer.step()
+            self.optimizer.step()
+
+            # for layer in self.inner_layers:
+            #     # assert not torch.all(layer.generative_linear.weight.grad == 0)
+            #     assert layer.forward_linear.weight.grad == None or torch.all(
+            #         layer.forward_linear.weight.grad == 0)
+            #     layer.optimizer.step()
             # if epoch_num < 5:
             #     for layer in self.inner_layers:
             #         # assert not torch.all(layer.generative_linear.weight.grad == 0)
@@ -605,14 +617,14 @@ class RecurrentFFNet(nn.Module):
             #     print(confidence_threshold["value"])
             #     print(torch.softmax(reconstructed_labels, dim=1)[0:3])
             #     input()
-            # baseline_conf = 0.5
-            # if should_stop and iteration > 3:
-            #     confidence_threshold["value"] += 0.001
-            #     print(iteration)
-            #     break
-            # elif iteration > 3 and confidence_threshold["value"] > baseline_conf:
-            # # elif iteration > 3:
-            #     confidence_threshold["value"] -= 0.001
+            baseline_conf = 0.01
+            if should_stop and iteration > 3:
+                confidence_threshold["value"] += 0.001
+                print(iteration)
+                break
+            elif iteration > 3 and confidence_threshold["value"] > baseline_conf:
+            # elif iteration > 3:
+                confidence_threshold["value"] -= 0.001
 
         # determine accuracy from class aggregations
         correct_percent_agg = (torch.argmax(class_predictions_agg, dim=1) == torch.argmax(

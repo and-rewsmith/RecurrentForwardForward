@@ -336,9 +336,11 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
     def brute_force_predict(
             self,
             loader: torch.utils.data.DataLoader,
+            generative_linear: torch.nn.modules.container.Sequential,
             limit_batches: Optional[int] = None,
             is_test_set: bool = False,
-            write_activations: bool = False) -> float:
+            write_activations: bool = False,
+            ) -> float:
         """
         This function predicts the class labels for the provided test data using
         the trained RecurrentFFNet model. It does so by enumerating all possible
@@ -452,24 +454,25 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
             class_predictions_agg = torch.zeros(
                 data.shape[1], self.settings.data_config.num_classes).to(self.settings.device.device)
             for iteration in range(0, iterations):
+                generative_output = generative_linear(torch.cat([layer.pos_activations.current for layer in self.inner_layers], dim=1))
                 # decode
                 # self.inner_layers.reset_activations(not is_test_set)
-                generative_output = torch.zeros(
-                    data.shape[1], self.settings.data_config.data_size + self.settings.data_config.num_classes).to(self.settings.device.device)
-                for layer in self.inner_layers:
-                    # layer.optimizer.zero_grad()
-                    if not is_test_set:
-                        generative_output += layer.generative_linear(
-                            layer.pos_activations.current)
-                        # print(id(layer.pos_activations.current))
-                        # print(layer.pos_activations.current.shape)
-                        # print(layer.pos_activations.current[0:5])
-                    else:
-                        generative_output += layer.generative_linear(
-                            layer.pos_activations.current)
-                        # print(id(layer.predict_activations.current))
-                        # print(layer.predict_activations.current.shape)
-                        # print(layer.predict_activations.current[0:5])
+                # generative_output = torch.zeros(
+                #     data.shape[1], self.settings.data_config.data_size + self.settings.data_config.num_classes).to(self.settings.device.device)
+                # for layer in self.inner_layers:
+                #     # layer.optimizer.zero_grad()
+                #     if not is_test_set:
+                #         generative_output += layer.generative_linear(
+                #             layer.pos_activations.current)
+                #         # print(id(layer.pos_activations.current))
+                #         # print(layer.pos_activations.current.shape)
+                #         # print(layer.pos_activations.current[0:5])
+                #     else:
+                #         generative_output += layer.generative_linear(
+                #             layer.pos_activations.current)
+                #         # print(id(layer.predict_activations.current))
+                #         # print(layer.predict_activations.current.shape)
+                #         # print(layer.predict_activations.current[0:5])
                 # print(generative_output.shape)
                 # print(generative_output[0:3, self.settings.data_config.data_size:])
                 assert generative_output.shape[0] == data.shape[1] and generative_output.shape[
