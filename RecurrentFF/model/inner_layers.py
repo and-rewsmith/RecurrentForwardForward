@@ -246,9 +246,9 @@ class InnerLayers(nn.Module):
             layer_num = i + 1
             logging.debug("Loss for layer " +
                           str(layer_num) + ": " + str(loss))
-            
-            if layer_metrics is not None:
-                layer_metrics.ingest_layer_metrics(i, layer, loss)
+
+            # if layer_metrics is not None:
+            #     layer_metrics.ingest_layer_metrics(i, layer, loss)
 
         if layer_metrics is not None:
             layer_metrics.increment_samples_seen()

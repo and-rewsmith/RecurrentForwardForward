@@ -340,7 +340,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
             limit_batches: Optional[int] = None,
             is_test_set: bool = False,
             write_activations: bool = False,
-            ) -> float:
+    ) -> float:
         """
         This function predicts the class labels for the provided test data using
         the trained RecurrentFFNet model. It does so by enumerating all possible
@@ -454,7 +454,8 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
             class_predictions_agg = torch.zeros(
                 data.shape[1], self.settings.data_config.num_classes).to(self.settings.device.device)
             for iteration in range(0, iterations):
-                generative_output = generative_linear(torch.cat([layer.pos_activations.current for layer in self.inner_layers], dim=1))
+                generative_output = generative_linear(
+                    torch.cat([layer.pos_activations.current for layer in self.inner_layers], dim=1))
                 # decode
                 # self.inner_layers.reset_activations(not is_test_set)
                 # generative_output = torch.zeros(
@@ -517,16 +518,20 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                     #     self.settings.device.device),
                     # torch.zeros(data.size(1), self.settings.data_config.num_classes).to(
                     #     self.settings.device.device),
-                    torch.softmax(
-                        generative_output[:, self.settings.data_config.data_size:], dim=1),
+                    # torch.softmax(
+                    #     generative_output[:, self.settings.data_config.data_size:], dim=1),
                     # torch.softmax(
                     #     generative_output[:, self.settings.data_config.data_size:], dim=1),
                     # torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1),
-                    zero_highest_logit(
-                        generative_output[:, self.settings.data_config.data_size:])
-                    # sample_from_logits(generative_output[:, self.settings.data_config.data_size:])
+                    # zero_highest_logit(
+                    #     generative_output[:, self.settings.data_config.data_size:])
+                    sample_from_logits(zero_highest_logit(
+                        generative_output[:, self.settings.data_config.data_size:])),
+                    # torch.nn.functional.one_hot(torch.argmax(
+                    #     generative_output[:, self.settings.data_config.data_size:], dim=1)).to(dtype=torch.float32, device=self.settings.device.device),
+                    # sample_from_logits(generative_output[:, self.settings.data_config.data_size:]),
                     # swap_top_two_softmax(torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1))
-                    # torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1),
+                    torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1),
                     # swap_top_two_softmax(torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1)),
                     # zero_correct_class_softmax(generative_output[:, self.settings.data_config.data_size:], torch.nn.functional.one_hot(labels, 10)),
                     # swap_top_two_softmax(torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1)),

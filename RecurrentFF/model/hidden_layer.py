@@ -189,6 +189,7 @@ def amplified_initialization(layer: nn.Linear, amplification_factor: float = 3.0
     # Initialize weights with amplified standard deviation
     nn.init.normal_(layer.weight, mean=0, std=amplified_std)
 
+
 class MaskedLinear(nn.Linear):
     def __init__(self, in_features: int, out_features: int, block_size: int, bleed_factor: float = 0.0, bias: bool = True):
         super(MaskedLinear, self).__init__(in_features, out_features, bias)
@@ -198,7 +199,7 @@ class MaskedLinear(nn.Linear):
 
     def create_mask(self):
         mask = torch.zeros(self.weight.size())
-        
+
         # Compute how much additional overlap is allowed based on the bleed factor
         bleed_size = int(self.block_size * self.bleed_factor)
 
@@ -206,7 +207,7 @@ class MaskedLinear(nn.Linear):
             j = i  # Keep the block diagonal structure
             # Set the mask for the block and the bleed regions
             mask[i:i+self.block_size+bleed_size, j:j+self.block_size+bleed_size] = 1
-        
+
         # Clip the mask to the matrix size (in case of overflow due to bleeding)
         return mask[:self.out_features, :self.in_features]
 
@@ -301,10 +302,10 @@ class HiddenLayer(nn.Module):
         self.lateral_dropout = nn.Dropout(p=self.settings.model.dropout)
 
         self.generative_linear = nn.Sequential(
-            nn.Linear(size, size),
-            nn.ReLU(),
-            nn.Linear(size, size),
-            nn.ReLU(),
+            # nn.Linear(size, size),
+            # nn.ReLU(),
+            # nn.Linear(size, size),
+            # nn.ReLU(),
             nn.Linear(size, settings.data_config.data_size +
                       settings.data_config.num_classes)
         )
@@ -312,11 +313,11 @@ class HiddenLayer(nn.Module):
             if isinstance(layer, nn.Linear):
                 nn.init.kaiming_uniform_(layer.weight, nonlinearity='relu')
 
-        self.forward_linear = MaskedLinear(prev_size, size, bleed_factor=0.3, block_size=20)
+        self.forward_linear = MaskedLinear(prev_size, size, bleed_factor=0.0, block_size=10)
         nn.init.kaiming_uniform_(
             self.forward_linear.weight, nonlinearity='relu')
 
-        self.backward_linear = MaskedLinear(next_size, size, bleed_factor=0.3, block_size=20)
+        self.backward_linear = MaskedLinear(next_size, size, bleed_factor=0.0, block_size=200)
 
         if next_size == self.settings.data_config.num_classes:
             amplified_initialization(self.backward_linear, 3.0)
@@ -324,7 +325,7 @@ class HiddenLayer(nn.Module):
             nn.init.uniform_(self.backward_linear.weight, -0.05, 0.05)
 
         # Initialize the lateral weights to be the identity matrix
-        self.lateral_linear = MaskedLinear(size, size, block_size=100, bleed_factor=0.3)
+        self.lateral_linear = MaskedLinear(size, size, block_size=20, bleed_factor=0.0)
         nn.init.orthogonal_(self.lateral_linear.weight, gain=math.sqrt(2))
 
         self.previous_layer: Self = None  # type: ignore[assignment]
@@ -584,7 +585,7 @@ class HiddenLayer(nn.Module):
         ])).mean()
         layer_loss.backward()
 
-        torch.nn.utils.clip_grad_norm_(self.parameters(), 1.0)
+        # torch.nn.utils.clip_grad_norm_(self.parameters(), 1.0)
 
         # # go through all layers and collect their parameters
         # print(self.named_parameters())
@@ -768,7 +769,8 @@ class HiddenLayer(nn.Module):
         # self.backward_act = self.backward_dropout(self.backward_act)
         # self.lateral_act = self.lateral_dropout(self.lateral_act)
 
-        summation_act = self.forward_act + self.backward_act + self.lateral_act
+        # summation_act = self.forward_act + self.backward_act + self.lateral_act
+        summation_act = self.forward_act + self.backward_act
 
         # for residual_connection in self.residual_connections:
         #     summation_act = summation_act + residual_connection.forward(mode)
