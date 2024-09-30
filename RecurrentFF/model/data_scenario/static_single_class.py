@@ -536,8 +536,6 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                     # zero_correct_class_softmax(generative_output[:, self.settings.data_config.data_size:], torch.nn.functional.one_hot(labels, 10)),
                     # swap_top_two_softmax(torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1)),
                 )
-                print(generative_output[:, self.settings.data_config.data_size:].shape)
-                print(label_data_sample[1].shape)
                 self.inner_layers.advance_layers_train(
                     input_data_sample, label_data_sample, True, None)
 

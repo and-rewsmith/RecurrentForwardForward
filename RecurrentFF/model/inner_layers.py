@@ -48,7 +48,7 @@ class LayerMetrics:
         forward_grad_norm = torch.norm(layer.forward_linear.weight.grad, p=2)
         backward_grads_norm = torch.norm(
             layer.backward_linear.weight.grad, p=2)
-        lateral_grads_norm = torch.norm(layer.lateral_linear.weight.grad, p=2)
+        # lateral_grads_norm = torch.norm(layer.lateral_linear.weight.grad, p=2)
 
         self.pos_activations_norms[layer_num] += pos_activations_norm
         self.neg_activations_norms[layer_num] += neg_activations_norm
@@ -57,7 +57,7 @@ class LayerMetrics:
         self.backward_weights_norms[layer_num] += backward_weights_norm
         self.backward_grads_norms[layer_num] += backward_grads_norm
         self.lateral_weights_norms[layer_num] += lateral_weights_norm
-        self.lateral_grads_norms[layer_num] += lateral_grads_norm
+        # self.lateral_grads_norms[layer_num] += lateral_grads_norm
         self.losses_per_layer[layer_num] += loss
 
         for group in layer.optimizer.param_groups:
@@ -247,8 +247,8 @@ class InnerLayers(nn.Module):
             logging.debug("Loss for layer " +
                           str(layer_num) + ": " + str(loss))
 
-            # if layer_metrics is not None:
-            #     layer_metrics.ingest_layer_metrics(i, layer, loss)
+            if layer_metrics is not None:
+                layer_metrics.ingest_layer_metrics(i, layer, loss)
 
         if layer_metrics is not None:
             layer_metrics.increment_samples_seen()
