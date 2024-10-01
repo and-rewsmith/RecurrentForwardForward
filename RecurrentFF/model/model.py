@@ -230,10 +230,8 @@ class RecurrentFFNet(nn.Module):
             # batch is w.r.t. total samples
             #
             # TODO: Fix this hacky data loader bridge format
-            for i in range(0, 10):
-                test_accuracy = self.processor.brute_force_predict(
-                    test_loader, self.generative_linear, self.optimizer, 1, True)
-                print(test_accuracy)
+            test_accuracy = self.processor.brute_force_predict(
+                test_loader, self.generative_linear, self.optimizer, 1, True)
             train_accuracy = self.processor.brute_force_predict(
                 TrainTestBridgeFormatLoader(train_loader), self.generative_linear, self.optimizer, 1, False)  # type: ignore[arg-type]
 
