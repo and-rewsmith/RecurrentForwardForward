@@ -276,7 +276,8 @@ class HiddenLayer(nn.Module):
             prev_size: int,
             size: int,
             next_size: int,
-            damping_factor: float):
+            damping_factor: float,
+            layer_num: int):
         super(HiddenLayer, self).__init__()
 
         self.size = size
@@ -313,11 +314,12 @@ class HiddenLayer(nn.Module):
             if isinstance(layer, nn.Linear):
                 nn.init.kaiming_uniform_(layer.weight, nonlinearity='relu')
 
-        self.forward_linear = MaskedLinear(prev_size, size, bleed_factor=0.0, block_size=10)
+        connection_profile = self.settings.model.connection_profile
+        self.forward_linear = MaskedLinear(prev_size, size, bleed_factor=connection_profile.forward_block_bleed[layer_num], block_size=connection_profile.forward_block_sizes[layer_num])
         nn.init.kaiming_uniform_(
             self.forward_linear.weight, nonlinearity='relu')
 
-        self.backward_linear = MaskedLinear(next_size, size, bleed_factor=0.0, block_size=200)
+        self.backward_linear = MaskedLinear(next_size, size, bleed_factor=connection_profile.backward_block_bleed[layer_num], block_size=connection_profile.backward_block_sizes[layer_num])
 
         if next_size == self.settings.data_config.num_classes:
             amplified_initialization(self.backward_linear, 3.0)
@@ -325,7 +327,7 @@ class HiddenLayer(nn.Module):
             nn.init.uniform_(self.backward_linear.weight, -0.05, 0.05)
 
         # Initialize the lateral weights to be the identity matrix
-        self.lateral_linear = MaskedLinear(size, size, block_size=20, bleed_factor=0.0)
+        self.lateral_linear = MaskedLinear(size, size, block_size=connection_profile.lateral_block_sizes[layer_num], bleed_factor=connection_profile.lateral_block_bleed[layer_num])
         nn.init.orthogonal_(self.lateral_linear.weight, gain=math.sqrt(2))
 
         self.previous_layer: Self = None  # type: ignore[assignment]

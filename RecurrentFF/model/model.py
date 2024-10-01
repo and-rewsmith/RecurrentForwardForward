@@ -76,6 +76,7 @@ class RecurrentFFNet(nn.Module):
             next_size = self.settings.model.hidden_sizes[i + 1] if i < len(
                 self.settings.model.hidden_sizes) - 1 else self.settings.data_config.num_classes
 
+            layer_num = i
             hidden_layer = HiddenLayer(
                 self.settings,
                 self.settings.data_config.train_batch_size,
@@ -83,7 +84,8 @@ class RecurrentFFNet(nn.Module):
                 prev_size,
                 size,
                 next_size,
-                self.settings.model.damping_factor)
+                self.settings.model.damping_factor,
+                layer_num)
             inner_layers.append(hidden_layer)
             prev_size = size
 

@@ -19,6 +19,14 @@ lr_step_size = 10000
 lr_gamma = 0.90
 dropout = 0.0
 
+[model.connection_profile]
+forward_block_sizes = [3, 3, 3, 3, 3, 3]
+backward_block_sizes = [3, 3, 3, 3, 3, 3]
+lateral_block_sizes = [1, 1, 2, 2, 3, 3]
+forward_block_bleed = [0.1, 0.15, 0.2, 0.25, 0.3, 0.35]
+backward_block_bleed = [0.1, 0.15, 0.2, 0.3, 0.4, 0.5]
+lateral_block_bleed = [0.15, 0.2, 0.3, 0.35, 0.45, 0.5]
+
 [model.ff_rmsprop]
 momentum = 0.0
 learning_rate = 0.000005

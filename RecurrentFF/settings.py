@@ -7,6 +7,14 @@ from RecurrentFF.benchmarks.arguments import get_arguments
 
 CONFIG_FILE = "./config.toml"
 
+class ConnectionProfile(BaseModel):
+    forward_block_sizes: list
+    backward_block_sizes: list
+    lateral_block_sizes: list
+    forward_block_bleed: list
+    backward_block_bleed: list
+    lateral_block_bleed: list
+
 
 class DataConfig(BaseModel):
     data_size: int
@@ -71,6 +79,8 @@ class Model(BaseModel):
     classifier_adam: ClassifierAdam
     classifier_adadelta: FfAdadelta
 
+    connection_profile: ConnectionProfile
+
 
 class Device(BaseModel):
     device: str
@@ -87,6 +97,8 @@ class Settings(BaseModel):
     def from_config_file(cls, path: str) -> Self:
         config = toml.load(path)
         model = config['model']
+        model['connection_profile'] = ConnectionProfile(
+            **model['connection_profile'])
 
         if model['ff_optimizer'] == "rmsprop":
             model['ff_rmsprop'] = FfRmsprop(**model['ff_rmsprop'])
