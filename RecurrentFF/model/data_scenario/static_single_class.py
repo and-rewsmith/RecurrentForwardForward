@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional, cast
+from typing import List, Optional, cast, Tuple
 from pyparsing import Iterator
 
 import torch
@@ -540,17 +540,42 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                 )
                 self.inner_layers.advance_layers_train(
                     input_data_sample, label_data_sample, True, None)
+                # pre_op_grad = self.inner_layers.layers[0].forward_linear.weight.grad[0][2].item()
+
+                pre_opt_softmax_predicted_classes = torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1)
+                self.optimizer.zero_grad()
+                post_opt_logits = generative_linear(
+                    torch.cat([layer.pos_activations.current for layer in self.inner_layers], dim=1))[:, self.settings.data_config.data_size:]
+                post_op_log_softmax_predicted_classes = torch.log_softmax(post_opt_logits, dim=1)
+                criterion = torch.nn.KLDivLoss()
+                loss = criterion(post_op_log_softmax_predicted_classes, pre_opt_softmax_predicted_classes)
+                loss.backward()
+
+                # from torchviz import make_dot
+                # from itertools import chain
+                # # Generate the dot graph
+                # def combine_iterators_with_prefix(*iterators: Iterator[Tuple[str, nn.Parameter]]) -> dict:
+                #     result = {}
+                #     for i, iterator in enumerate(iterators):
+                #         for name, param in iterator:
+                #             result[f"{i}_{name}"] = param
+                #     return result
+                # params = combine_iterators_with_prefix(generative_linear.named_parameters(), self.inner_layers.layers[0].filtered_named_parameters(), self.inner_layers.layers[1].filtered_named_parameters(), self.inner_layers.layers[2].filtered_named_parameters(), self.inner_layers.layers[3].filtered_named_parameters(), self.inner_layers.layers[4].filtered_named_parameters(), self.inner_layers.layers[5].filtered_named_parameters())
+                # print("Params keys:")
+                # for key in list(params.keys())[:200]:  # Print first 20 keys
+                #     print(f"  {key}")
+                # input()
+                # dot = make_dot(loss, params=params)
+                # # Save the graph to a file (you can use .png, .svg, .pdf, etc.)
+                # dot.render("computation_graph", format="png", cleanup=True)
+                # input("resume")
+
+                # post_op_grad = self.inner_layers.layers[0].forward_linear.weight.grad[0][2].item()
+                # assert pre_op_grad != post_op_grad
+
+                optimizer.step()
                 for layer in self.inner_layers:
                     layer.optimizer.step()
-
-                # pre_opt_predicted_classes = torch.argmax(generative_output[:, self.settings.data_config.data_size:], dim=1)
-                # self.optimizer.zero_grad()
-                # post_opt_logits = generative_linear(
-                #     torch.cat([layer.pos_activations.current for layer in self.inner_layers], dim=1))
-                # criterion = torch.nn.CrossEntropyLoss()
-                # loss = criterion(post_opt_logits, labels)
-                # loss.backward()
-                # optimizer.step()
                 
                 for layer in self.inner_layers:
                     layer.pos_activations.current = layer.pos_activations.current.clone().detach()

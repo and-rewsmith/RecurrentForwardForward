@@ -339,6 +339,15 @@ class HiddenLayer(nn.Module):
 
     def init_residual_connection(self, residual_connection: ResidualConnection) -> None:
         self.residual_connections.append(residual_connection)
+    
+    def filtered_named_parameters(self):
+        """
+        Returns an iterator over the named parameters of the current layer,
+        excluding any parameters that start with 'previous_layer' or 'next_layer'.
+        Each item in the iterator is a tuple of (name, param).
+        """
+        return ((name, param) for name, param in self.named_parameters()
+                if not name.startswith('previous_layer') and not name.startswith('next_layer'))
 
     def filtered_parameters(self):
         """
