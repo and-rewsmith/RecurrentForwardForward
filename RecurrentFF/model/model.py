@@ -639,12 +639,11 @@ class RecurrentFFNet(nn.Module):
             #     input()
             #
             # baseline_conf = 0.01
-            # if should_stop and iteration > 3:
+            # if should_stop and iteration > lower_iteration_threshold:
             #     confidence_threshold["value"] += 0.001
             #     print(iteration)
             #     break
             # elif iteration > 3 and confidence_threshold["value"] > baseline_conf:
-            # # elif iteration > 3:
             #     confidence_threshold["value"] -= 0.001
 
         # determine accuracy from class aggregations
