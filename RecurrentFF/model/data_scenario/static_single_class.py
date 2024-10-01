@@ -479,14 +479,14 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                     input_data_sample, label_data_sample, True, None)
                 # pre_op_grad = self.inner_layers.layers[0].forward_linear.weight.grad[0][2].item()
 
-                pre_opt_softmax_predicted_classes = torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1)
-                self.optimizer.zero_grad()
-                post_opt_logits = generative_linear(
-                    torch.cat([layer.pos_activations.current for layer in self.inner_layers], dim=1))[:, self.settings.data_config.data_size:]
-                post_op_log_softmax_predicted_classes = torch.log_softmax(post_opt_logits, dim=1)
-                criterion = torch.nn.KLDivLoss()
-                loss = criterion(post_op_log_softmax_predicted_classes, pre_opt_softmax_predicted_classes)
-                loss.backward()
+                # pre_opt_softmax_predicted_classes = torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1)
+                # self.optimizer.zero_grad()
+                # post_opt_logits = generative_linear(
+                #     torch.cat([layer.pos_activations.current for layer in self.inner_layers], dim=1))[:, self.settings.data_config.data_size:]
+                # post_op_log_softmax_predicted_classes = torch.log_softmax(post_opt_logits, dim=1)
+                # criterion = torch.nn.KLDivLoss()
+                # loss = criterion(post_op_log_softmax_predicted_classes, pre_opt_softmax_predicted_classes)
+                # loss.backward()
 
                 # from torchviz import make_dot
                 # from itertools import chain
@@ -510,15 +510,15 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                 # post_op_grad = self.inner_layers.layers[0].forward_linear.weight.grad[0][2].item()
                 # assert pre_op_grad != post_op_grad
 
-                optimizer.step()
+                # optimizer.step()
                 for layer in self.inner_layers:
                     layer.optimizer.step()
                 
-                for layer in self.inner_layers:
-                    layer.pos_activations.current = layer.pos_activations.current.clone().detach()
-                    layer.neg_activations.current = layer.neg_activations.current.clone().detach()
-                    layer.pos_activations.previous = layer.pos_activations.previous.clone().detach()
-                    layer.neg_activations.previous = layer.neg_activations.previous.clone().detach()
+                # for layer in self.inner_layers:
+                #     layer.pos_activations.current = layer.pos_activations.current.clone().detach()
+                #     layer.neg_activations.current = layer.neg_activations.current.clone().detach()
+                #     layer.pos_activations.previous = layer.pos_activations.previous.clone().detach()
+                #     layer.neg_activations.previous = layer.neg_activations.previous.clone().detach()
 
                 # if iteration >= lower_iteration_threshold and iteration <= upper_iteration_threshold:
                 if iteration >= lower_iteration_threshold:
