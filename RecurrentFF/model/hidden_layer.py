@@ -769,8 +769,8 @@ class HiddenLayer(nn.Module):
         # self.backward_act = self.backward_dropout(self.backward_act)
         # self.lateral_act = self.lateral_dropout(self.lateral_act)
 
-        # summation_act = self.forward_act + self.backward_act + self.lateral_act
-        summation_act = self.forward_act + self.backward_act
+        summation_act = self.forward_act + self.backward_act + self.lateral_act
+        # summation_act = self.forward_act + self.backward_act
 
         # for residual_connection in self.residual_connections:
         #     summation_act = summation_act + residual_connection.forward(mode)

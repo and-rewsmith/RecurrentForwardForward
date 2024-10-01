@@ -529,9 +529,9 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                     # torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1),
                     # sample_from_logits(zero_highest_logit(
                     #     generative_output[:, self.settings.data_config.data_size:])),
-                    torch.nn.functional.one_hot(torch.argmax(
-                        generative_output[:, self.settings.data_config.data_size:], dim=1), num_classes=10).to(dtype=torch.float32, device=self.settings.device.device),
-                    # sample_from_logits(generative_output[:, self.settings.data_config.data_size:]),
+                    # torch.nn.functional.one_hot(torch.argmax(
+                    #     generative_output[:, self.settings.data_config.data_size:], dim=1), num_classes=10).to(dtype=torch.float32, device=self.settings.device.device),
+                    sample_from_logits(generative_output[:, self.settings.data_config.data_size:]),
                     # swap_top_two_softmax(torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1))
                     # swap_top_two_softmax(torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1)),
                     # zero_correct_class_softmax(generative_output[:, self.settings.data_config.data_size:], torch.nn.functional.one_hot(labels, 10)),
@@ -542,14 +542,14 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                 for layer in self.inner_layers:
                     layer.optimizer.step()
 
-                pre_opt_predicted_classes = torch.argmax(generative_output[:, self.settings.data_config.data_size:], dim=1)
-                self.optimizer.zero_grad()
-                post_opt_logits = generative_linear(
-                    torch.cat([layer.pos_activations.current for layer in self.inner_layers], dim=1))
-                criterion = torch.nn.CrossEntropyLoss()
-                loss = criterion(post_opt_logits, labels)
-                loss.backward()
-                optimizer.step()
+                # pre_opt_predicted_classes = torch.argmax(generative_output[:, self.settings.data_config.data_size:], dim=1)
+                # self.optimizer.zero_grad()
+                # post_opt_logits = generative_linear(
+                #     torch.cat([layer.pos_activations.current for layer in self.inner_layers], dim=1))
+                # criterion = torch.nn.CrossEntropyLoss()
+                # loss = criterion(post_opt_logits, labels)
+                # loss.backward()
+                # optimizer.step()
                 
                 for layer in self.inner_layers:
                     layer.pos_activations.current = layer.pos_activations.current.clone().detach()

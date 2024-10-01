@@ -567,14 +567,14 @@ class RecurrentFFNet(nn.Module):
                 #     self.settings.device.device),
                 torch.softmax(
                     generative_input[:, self.settings.data_config.data_size:], dim=1),
-                # sample_avoiding_correct_class(
-                #     generative_input[:, self.settings.data_config.data_size:],
-                #     label_data.pos_labels[iteration]),
+                sample_avoiding_correct_class(
+                    generative_input[:, self.settings.data_config.data_size:],
+                    label_data.pos_labels[iteration]),
                 # sample_from_logits(
                 #     torch.softmax(
                 #         generative_input[:, self.settings.data_config.data_size:], dim=1)
                 # ),
-                label_data.pos_labels[iteration],
+                # label_data.pos_labels[iteration],
                 # torch.softmax(
                 #     generative_input[:, self.settings.data_config.data_size:], dim=1),
                 # torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1),
