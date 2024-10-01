@@ -229,9 +229,9 @@ class RecurrentFFNet(nn.Module):
             #
             # TODO: Fix this hacky data loader bridge format
             test_accuracy = self.processor.brute_force_predict(
-                test_loader, self.generative_linear, 1, True)
+                test_loader, self.generative_linear, self.optimizer, 1, True)
             train_accuracy = self.processor.brute_force_predict(
-                TrainTestBridgeFormatLoader(train_loader), self.generative_linear, 1, False)  # type: ignore[arg-type]
+                TrainTestBridgeFormatLoader(train_loader), self.generative_linear, self.optimizer, 1, False)  # type: ignore[arg-type]
 
             if test_accuracy > best_test_accuracy:
                 best_test_accuracy = test_accuracy
@@ -536,11 +536,6 @@ class RecurrentFFNet(nn.Module):
             for layer in self.inner_layers:
                 layer.optimizer.step()
             for layer in self.inner_layers:
-                # with torch.no_grad():
-                #     layer.pos_activations.current = layer.pos_activations.current.data.clone()
-                #     layer.neg_activations.current = layer.neg_activations.current.data.clone()
-                #     layer.pos_activations.previous = layer.pos_activations.previous.data.clone()
-                #     layer.neg_activations.previous = layer.neg_activations.previous.data.clone()
                 layer.pos_activations.current = layer.pos_activations.current.clone().detach()
                 layer.neg_activations.current = layer.neg_activations.current.clone().detach()
                 layer.pos_activations.previous = layer.pos_activations.previous.clone().detach()

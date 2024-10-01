@@ -337,6 +337,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
             self,
             loader: torch.utils.data.DataLoader,
             generative_linear: torch.nn.modules.container.Sequential,
+            optimizer: torch.optim.Optimizer,
             limit_batches: Optional[int] = None,
             is_test_set: bool = False,
             write_activations: bool = False,
@@ -538,6 +539,23 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                 )
                 self.inner_layers.advance_layers_train(
                     input_data_sample, label_data_sample, True, None)
+                for layer in self.inner_layers:
+                    layer.optimizer.step()
+
+                pre_opt_predicted_classes = torch.argmax(generative_output[:, self.settings.data_config.data_size:], dim=1)
+                self.optimizer.zero_grad()
+                post_opt_logits = generative_linear(
+                    torch.cat([layer.pos_activations.current for layer in self.inner_layers], dim=1))
+                criterion = torch.nn.CrossEntropyLoss()
+                loss = criterion(post_opt_logits, labels)
+                loss.backward()
+                optimizer.step()
+                
+                for layer in self.inner_layers:
+                    layer.pos_activations.current = layer.pos_activations.current.clone().detach()
+                    layer.neg_activations.current = layer.neg_activations.current.clone().detach()
+                    layer.pos_activations.previous = layer.pos_activations.previous.clone().detach()
+                    layer.neg_activations.previous = layer.neg_activations.previous.clone().detach()
 
                 # if iteration >= lower_iteration_threshold and iteration <= upper_iteration_threshold:
                 if iteration >= lower_iteration_threshold:
