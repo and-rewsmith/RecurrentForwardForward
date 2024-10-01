@@ -1,5 +1,5 @@
 [device]
-device = "cuda:0"
+device = "cuda:1"
 
 [model]
 hidden_sizes = [1500, 1500, 1500, 1500, 1500, 1500]
@@ -20,16 +20,16 @@ lr_gamma = 0.90
 dropout = 0.0
 
 [model.connection_profile]
-forward_block_sizes = [20, 20, 20, 20, 20, 20]
-backward_block_sizes = [100, 100, 100, 100, 100, 100]
-lateral_block_sizes = [50, 50, 50, 50, 50, 50]
+forward_block_sizes = [3, 3, 3, 3, 3, 3]
+backward_block_sizes = [3, 3, 3, 3, 3, 3]
+lateral_block_sizes = [1, 1, 2, 2, 3, 3]
 forward_block_bleed = [0.1, 0.15, 0.2, 0.25, 0.3, 0.35]
 backward_block_bleed = [0.1, 0.15, 0.2, 0.3, 0.4, 0.5]
 lateral_block_bleed = [0.15, 0.2, 0.3, 0.35, 0.45, 0.5]
 
 [model.ff_rmsprop]
 momentum = 0.0
-learning_rate = 0.000005
+learning_rate = 0.0005
 
 [model.classifier_rmsprop]
 momentum = 0
