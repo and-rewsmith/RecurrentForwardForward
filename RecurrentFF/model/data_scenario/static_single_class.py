@@ -512,8 +512,8 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
 
                 input_data_sample = (
                     data[iteration],
-                    # generative_output[:, 0:self.settings.data_config.data_size])
-                    data[iteration])
+                    generative_output[:, 0:self.settings.data_config.data_size])
+                    # data[iteration])
                 label_data_sample = (
                     # torch.zeros(data.size(1), self.settings.data_config.num_classes).to(
                     #     self.settings.device.device),
@@ -524,6 +524,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                     # torch.softmax(
                     #     generative_output[:, self.settings.data_config.data_size:], dim=1),
                     torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1),
+                    torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1),
                     # zero_highest_logit(
                     #     generative_output[:, self.settings.data_config.data_size:])
                     # torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1),
@@ -531,7 +532,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                     #     generative_output[:, self.settings.data_config.data_size:])),
                     # torch.nn.functional.one_hot(torch.argmax(
                     #     generative_output[:, self.settings.data_config.data_size:], dim=1), num_classes=10).to(dtype=torch.float32, device=self.settings.device.device),
-                    sample_from_logits(generative_output[:, self.settings.data_config.data_size:]),
+                    # sample_from_logits(generative_output[:, self.settings.data_config.data_size:]),
                     # swap_top_two_softmax(torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1))
                     # swap_top_two_softmax(torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1)),
                     # zero_correct_class_softmax(generative_output[:, self.settings.data_config.data_size:], torch.nn.functional.one_hot(labels, 10)),
