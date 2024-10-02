@@ -594,7 +594,7 @@ class HiddenLayer(nn.Module):
             (-1 * neg_badness) + self.settings.model.loss_threshold,
             pos_badness - self.settings.model.loss_threshold
         ])).mean()
-        # layer_loss.backward(retain_graph=True)
+        layer_loss.backward(retain_graph=True)
 
         # torch.nn.utils.clip_grad_norm_(self.parameters(), 1.0)
 
