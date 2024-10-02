@@ -556,6 +556,8 @@ class RecurrentFFNet(nn.Module):
                 #     self.settings.device.device),
                 torch.softmax(
                     generative_input[:, self.settings.data_config.data_size:], dim=1),
+                torch.softmax(
+                    generative_input[:, self.settings.data_config.data_size:], dim=1),
                 # torch.softmax(
                 #     generative_input[:, self.settings.data_config.data_size:], dim=1),
                 # sample_avoiding_correct_class(
@@ -570,8 +572,8 @@ class RecurrentFFNet(nn.Module):
                 #     generative_input[:, self.settings.data_config.data_size:], dim=1),
                 # torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1),
                 # swap_top_two_softmax(torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1))
-                zero_correct_class_softmax(
-                    generative_input[:, self.settings.data_config.data_size:], label_data.pos_labels[iteration]),
+                # zero_correct_class_softmax(
+                #     generative_input[:, self.settings.data_config.data_size:], label_data.pos_labels[iteration]),
             )
             # if (batch_num + epoch_num) % 2 == 0:
             #     label_data_sample = (
