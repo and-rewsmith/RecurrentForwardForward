@@ -563,14 +563,14 @@ class RecurrentFFNet(nn.Module):
                 generative_input[:, 0:self.settings.data_config.data_size])
                 # input_data.pos_input[iteration])
             label_data_sample = (
-                # torch.zeros(self.settings.data_config.train_batch_size, self.settings.data_config.num_classes).to(
-                #     self.settings.device.device),
-                # torch.zeros(self.settings.data_config.train_batch_size, self.settings.data_config.num_classes).to(
-                #     self.settings.device.device),
-                torch.softmax(
-                    generative_input[:, self.settings.data_config.data_size:], dim=1),
-                torch.softmax(
-                    generative_input[:, self.settings.data_config.data_size:], dim=1),
+                torch.zeros(self.settings.data_config.train_batch_size, self.settings.data_config.num_classes).to(
+                    self.settings.device.device),
+                torch.zeros(self.settings.data_config.train_batch_size, self.settings.data_config.num_classes).to(
+                    self.settings.device.device),
+                # torch.softmax(
+                #     generative_input[:, self.settings.data_config.data_size:], dim=1),
+                # torch.softmax(
+                #     generative_input[:, self.settings.data_config.data_size:], dim=1),
                 # sample_avoiding_correct_class(
                 #     generative_input[:, self.settings.data_config.data_size:],
                 #     label_data.pos_labels[iteration]),
