@@ -27,7 +27,7 @@ from RecurrentFF.util import (
     percent_above_threshold,
     percent_correct,
     sample_avoiding_correct_class,
-    sample_from_logits
+    sample_from_logits_excluding_highest
 )
 from RecurrentFF.settings import (
     Settings,
@@ -543,19 +543,6 @@ class RecurrentFFNet(nn.Module):
                 layer.pos_activations.previous = layer.pos_activations.previous.clone().detach()
                 layer.neg_activations.previous = layer.neg_activations.previous.clone().detach()
 
-            # for layer in self.inner_layers:
-            #     # assert not torch.all(layer.generative_linear.weight.grad == 0)
-            #     assert layer.forward_linear.weight.grad == None or torch.all(
-            #         layer.forward_linear.weight.grad == 0)
-            #     layer.optimizer.step()
-            # if epoch_num < 5:
-            #     for layer in self.inner_layers:
-            #         # assert not torch.all(layer.generative_linear.weight.grad == 0)
-            #         assert layer.forward_linear.weight.grad == None or torch.all(layer.forward_linear.weight.grad == 0)
-            #         layer.optimizer.step()
-            # else:
-            #     for layer in self.inner_layers:
-            #         layer.optimizer.step()
             generative_input = generative_input.detach()
 
             input_data_sample = (
@@ -574,11 +561,11 @@ class RecurrentFFNet(nn.Module):
                 # sample_avoiding_correct_class(
                 #     generative_input[:, self.settings.data_config.data_size:],
                 #     label_data.pos_labels[iteration]),
+                # label_data.pos_labels[iteration],
                 # sample_from_logits(
                 #     torch.softmax(
                 #         generative_input[:, self.settings.data_config.data_size:], dim=1)
                 # ),
-                # label_data.pos_labels[iteration],
                 # torch.softmax(
                 #     generative_input[:, self.settings.data_config.data_size:], dim=1),
                 # torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1),

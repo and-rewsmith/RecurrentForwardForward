@@ -10,7 +10,7 @@ import wandb
 
 from RecurrentFF.model.data_scenario.processor import DataScenarioProcessor
 from RecurrentFF.model.inner_layers import InnerLayers
-from RecurrentFF.util import Activations, LatentAverager, TrainLabelData, layer_activations_to_badness, ForwardMode, is_confident, zero_correct_class_softmax, swap_top_two_softmax, zero_highest_logit, sample_from_logits
+from RecurrentFF.util import Activations, LatentAverager, TrainLabelData, layer_activations_to_badness, ForwardMode, is_confident, zero_correct_class_softmax, swap_top_two_softmax, zero_highest_logit, sample_from_logits_excluding_highest
 from RecurrentFF.settings import Settings
 
 
@@ -467,9 +467,9 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                     # torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1),
                     # sample_from_logits(zero_highest_logit(
                     #     generative_output[:, self.settings.data_config.data_size:])),
+                    # sample_from_logits_excluding_highest(generative_output[:, self.settings.data_config.data_size:]),
                     # torch.nn.functional.one_hot(torch.argmax(
                     #     generative_output[:, self.settings.data_config.data_size:], dim=1), num_classes=10).to(dtype=torch.float32, device=self.settings.device.device),
-                    # sample_from_logits(generative_output[:, self.settings.data_config.data_size:]),
                     # swap_top_two_softmax(torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1))
                     # swap_top_two_softmax(torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1)),
                     # zero_correct_class_softmax(generative_output[:, self.settings.data_config.data_size:], torch.nn.functional.one_hot(labels, 10)),

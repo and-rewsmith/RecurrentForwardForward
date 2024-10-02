@@ -5,7 +5,7 @@ from typing import Generator
 import torch
 from torch.nn import functional as F
 
-def sample_from_logits(logits):
+def sample_from_logits_excluding_highest(logits):
     # Apply softmax to convert logits to probabilities
     probs = F.softmax(logits, dim=1)
     
