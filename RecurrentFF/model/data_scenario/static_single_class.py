@@ -449,21 +449,21 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
 
                 input_data_sample = (
                     data[iteration],
-                    generative_output[:, 0:self.settings.data_config.data_size])
-                    # data[iteration])
+                    # generative_output[:, 0:self.settings.data_config.data_size])
+                    data[iteration])
                 label_data_sample = (
+                    torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1),
                     # torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1),
-                    # torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1),
-                    torch.zeros(data.size(1), self.settings.data_config.num_classes).to(
-                        self.settings.device.device),
-                    torch.zeros(data.size(1), self.settings.data_config.num_classes).to(
-                        self.settings.device.device),
+                    # torch.zeros(data.size(1), self.settings.data_config.num_classes).to(
+                    #     self.settings.device.device),
+                    # torch.zeros(data.size(1), self.settings.data_config.num_classes).to(
+                    #     self.settings.device.device),
                     # torch.softmax(
                     #     generative_output[:, self.settings.data_config.data_size:], dim=1),
                     # torch.softmax(
                     #     generative_output[:, self.settings.data_config.data_size:], dim=1),
-                    # zero_highest_logit(
-                    #     generative_output[:, self.settings.data_config.data_size:])
+                    zero_highest_logit(
+                        generative_output[:, self.settings.data_config.data_size:])
                     # torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1),
                     # sample_from_logits(zero_highest_logit(
                     #     generative_output[:, self.settings.data_config.data_size:])),
