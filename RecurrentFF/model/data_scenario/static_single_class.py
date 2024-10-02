@@ -510,8 +510,8 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                 # assert pre_op_grad != post_op_grad
 
                 # optimizer.step()
-                for layer in self.inner_layers:
-                    layer.optimizer.step()
+                # for layer in self.inner_layers:
+                #     layer.optimizer.step()
                 for layer in self.inner_layers:
                     layer.pos_activations.current = layer.pos_activations.current.clone().detach()
                     layer.neg_activations.current = layer.neg_activations.current.clone().detach()
