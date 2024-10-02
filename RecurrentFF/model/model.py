@@ -547,8 +547,8 @@ class RecurrentFFNet(nn.Module):
 
             input_data_sample = (
                 input_data.pos_input[iteration],
-                # generative_input[:, 0:self.settings.data_config.data_size])
-                input_data.pos_input[iteration])
+                generative_input[:, 0:self.settings.data_config.data_size])
+                # input_data.pos_input[iteration])
             label_data_sample = (
                 # torch.zeros(self.settings.data_config.train_batch_size, self.settings.data_config.num_classes).to(
                 #     self.settings.device.device),
