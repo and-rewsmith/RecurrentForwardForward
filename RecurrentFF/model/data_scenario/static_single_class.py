@@ -512,11 +512,11 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                 # optimizer.step()
                 # for layer in self.inner_layers:
                 #     layer.optimizer.step()
-                for layer in self.inner_layers:
-                    layer.pos_activations.current = layer.pos_activations.current.clone().detach()
-                    layer.neg_activations.current = layer.neg_activations.current.clone().detach()
-                    layer.pos_activations.previous = layer.pos_activations.previous.clone().detach()
-                    layer.neg_activations.previous = layer.neg_activations.previous.clone().detach()
+                # for layer in self.inner_layers:
+                #     layer.pos_activations.current = layer.pos_activations.current.clone().detach()
+                #     layer.neg_activations.current = layer.neg_activations.current.clone().detach()
+                #     layer.pos_activations.previous = layer.pos_activations.previous.clone().detach()
+                #     layer.neg_activations.previous = layer.neg_activations.previous.clone().detach()
 
                 # if iteration >= lower_iteration_threshold and iteration <= upper_iteration_threshold:
                 if iteration >= lower_iteration_threshold:
