@@ -2,7 +2,7 @@
 device = "cuda:0"
 
 [model]
-hidden_sizes = [1500, 1500, 1500, 1500, 1500, 1500]
+hidden_sizes = [1500, 1500, 1500, 1500, 1500]
 epochs = 30000
 prelabel_timesteps = 2
 loss_threshold = 1.5

@@ -554,7 +554,8 @@ class HiddenLayer(nn.Module):
     def train_layer(self,  # type: ignore[override]
                     input_data: TrainInputData,
                     label_data: TrainLabelData,
-                    should_damp: bool) -> float:
+                    should_damp: bool,
+                    retain_graph: bool) -> float:
         self.optimizer.zero_grad()
 
         pos_activations = None
@@ -594,7 +595,7 @@ class HiddenLayer(nn.Module):
             (-1 * neg_badness) + self.settings.model.loss_threshold,
             pos_badness - self.settings.model.loss_threshold
         ])).mean()
-        layer_loss.backward(retain_graph=True)
+        layer_loss.backward(retain_graph=retain_graph)
         # layer_loss.backward()
 
         # torch.nn.utils.clip_grad_norm_(self.parameters(), 1.0)

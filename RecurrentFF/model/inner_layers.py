@@ -231,17 +231,18 @@ class InnerLayers(nn.Module):
 
             The training process is parallelized using ThreadPoolExecutor.
         """
+        retain_graph = True
         for i, layer in enumerate(self.layers):
             logging.debug("Training layer " + str(i))
             loss = None
             if i == 0 and len(self.layers) == 1:
-                loss = layer.train_layer(input_data, label_data, should_damp)
+                loss = layer.train_layer(input_data, label_data, should_damp, retain_graph)
             elif i == 0:
-                loss = layer.train_layer(input_data, None, should_damp)
+                loss = layer.train_layer(input_data, None, should_damp, retain_graph)
             elif i == len(self.layers) - 1:
-                loss = layer.train_layer(None, label_data, should_damp)
+                loss = layer.train_layer(None, label_data, should_damp, retain_graph)
             else:
-                loss = layer.train_layer(None, None, should_damp)
+                loss = layer.train_layer(None, None, should_damp, retain_graph)
 
             layer_num = i + 1
             logging.debug("Loss for layer " +
