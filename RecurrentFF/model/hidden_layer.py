@@ -796,15 +796,15 @@ class HiddenLayer(nn.Module):
 
         if mode == ForwardMode.PositiveData:
             assert self.pos_activations is not None
-            self.pos_activations.current = new_activation.detach()
+            self.pos_activations.current = new_activation
             # self.pos_activations.current.requires_grad = False
         elif mode == ForwardMode.NegativeData:
             assert self.neg_activations is not None
-            self.neg_activations.current = new_activation.detach()
+            self.neg_activations.current = new_activation
             # self.neg_activations.current.requires_grad = False
         elif mode == ForwardMode.PredictData:
             assert self.predict_activations is not None
-            self.predict_activations.current = new_activation.detach()
+            self.predict_activations.current = new_activation
             # self.predict_activations.current.requires_grad = False
 
         return new_activation
