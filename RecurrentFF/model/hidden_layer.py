@@ -191,29 +191,41 @@ def amplified_initialization(layer: nn.Linear, amplification_factor: float = 3.0
 
 
 class MaskedLinear(nn.Linear):
-    def __init__(self, in_features: int, out_features: int, block_size: int, bleed_factor: float = 0.0, bias: bool = False):
+    def __init__(self, in_features: int, out_features: int, block_size: int, bleed_factor: float = 0.0, bias: bool = True):
         super(MaskedLinear, self).__init__(in_features, out_features, bias)
+
+        if in_features == out_features:
+            self.block_size_i = block_size
+            self.block_size_j = block_size
+        elif in_features > out_features:
+            self.block_size_i = math.ceil(in_features / (out_features // block_size))
+            self.block_size_j = block_size
+        else:
+            self.block_size_i = block_size
+            self.block_size_j = math.ceil(out_features / (in_features // block_size))
+
         self.block_size = block_size
         self.bleed_factor = bleed_factor  # New parameter to control bleeding
         self.register_buffer('mask', self.create_mask())
 
     def create_mask(self):
         mask = torch.zeros(self.weight.size())
-
+        
         # Compute how much additional overlap is allowed based on the bleed factor
-        bleed_size = int(self.block_size * self.bleed_factor)
+        bleed_size_i = int(self.block_size_i * self.bleed_factor)
+        bleed_size_j = int(self.block_size_j * self.bleed_factor)
 
-        for i in range(0, self.out_features, self.block_size):
-            j = i  # Keep the block diagonal structure
+        i = 0
+        for j in range(0, self.out_features, self.block_size_j):
             # Set the mask for the block and the bleed regions
-            mask[i:i+self.block_size+bleed_size, j:j+self.block_size+bleed_size] = 1
-
+            mask[j:j+self.block_size_j+bleed_size_j, i:i+self.block_size_i+bleed_size_i] = 1
+            i = i + self.block_size_i
+        
         # Clip the mask to the matrix size (in case of overflow due to bleeding)
         return mask[:self.out_features, :self.in_features]
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         return F.linear(input, self.weight * self.mask, self.bias)
-        # return F.linear(input, self.weight, self.bias)
 
     def visualize_connectivity(self):
         plt.figure(figsize=(10, 10))
@@ -222,22 +234,39 @@ class MaskedLinear(nn.Linear):
         plt.colorbar()
         plt.show()
 
-# class MaskedLinear(nn.Linear):
-#     def __init__(self, in_features: int, out_features: int, block_size: int, bias: bool = True):
+
+#  class MaskedLinear(nn.Linear):
+#     def __init__(self, in_features: int, out_features: int, block_size: int, bleed_factor: float = 0.0, bias: bool = False):
 #         super(MaskedLinear, self).__init__(in_features, out_features, bias)
 #         self.block_size = block_size
+#         self.bleed_factor = bleed_factor  # New parameter to control bleeding
 #         self.register_buffer('mask', self.create_mask())
 
 #     def create_mask(self):
 #         mask = torch.zeros(self.weight.size())
+
+#         # Compute how much additional overlap is allowed based on the bleed factor
+#         bleed_size = int(self.block_size * self.bleed_factor)
+
 #         for i in range(0, self.out_features, self.block_size):
-#             j = i  # This ensures block diagonal structure
-#             mask[i:i+self.block_size, j:j+self.block_size] = 1
-#         return mask
+#             j = i  # Keep the block diagonal structure
+#             # Set the mask for the block and the bleed regions
+#             mask[i:i+self.block_size+bleed_size, j:j+self.block_size+bleed_size] = 1
+
+#         # Clip the mask to the matrix size (in case of overflow due to bleeding)
+#         return mask[:self.out_features, :self.in_features]
 
 #     def forward(self, input: torch.Tensor) -> torch.Tensor:
-#         # return F.linear(input, self.weight, self.bias)
 #         return F.linear(input, self.weight * self.mask, self.bias)
+#         # return F.linear(input, self.weight, self.bias)
+
+#     def visualize_connectivity(self):
+#         plt.figure(figsize=(10, 10))
+#         plt.imshow(self.weight.data * self.mask, cmap='viridis')
+#         plt.title(f'Connectivity Pattern (Block Size: {self.block_size}, Bleed Factor: {self.bleed_factor})')
+#         plt.colorbar()
+#         plt.show()
+
 
 
 class HiddenLayer(nn.Module):
