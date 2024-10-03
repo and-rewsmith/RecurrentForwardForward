@@ -625,8 +625,8 @@ class HiddenLayer(nn.Module):
             (-1 * neg_badness) + self.settings.model.loss_threshold,
             pos_badness - self.settings.model.loss_threshold
         ])).mean()
-        # layer_loss.backward(retain_graph=retain_graph)
-        layer_loss.backward()
+        layer_loss.backward(retain_graph=retain_graph)
+        # layer_loss.backward()
 
         # torch.nn.utils.clip_grad_norm_(self.parameters(), 1.0)
 
@@ -635,7 +635,7 @@ class HiddenLayer(nn.Module):
         # dot = make_dot(loss, params=dict(self.named_parameters()))
         # dot.render('model_graph_outer', format='png')
 
-        self.optimizer.step()
+        # self.optimizer.step()
 
         # self.reset_parameters_with_small_gradients()
         return cast(float, layer_loss.item())
@@ -827,15 +827,15 @@ class HiddenLayer(nn.Module):
 
         if mode == ForwardMode.PositiveData:
             assert self.pos_activations is not None
-            self.pos_activations.current = new_activation.detach()
+            self.pos_activations.current = new_activation
             # self.pos_activations.current.requires_grad = False
         elif mode == ForwardMode.NegativeData:
             assert self.neg_activations is not None
-            self.neg_activations.current = new_activation.detach()
+            self.neg_activations.current = new_activation
             # self.neg_activations.current.requires_grad = False
         elif mode == ForwardMode.PredictData:
             assert self.predict_activations is not None
-            self.predict_activations.current = new_activation.detach()
+            self.predict_activations.current = new_activation
             # self.predict_activations.current.requires_grad = False
 
         return new_activation
