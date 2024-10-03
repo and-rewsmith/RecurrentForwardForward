@@ -194,6 +194,9 @@ class MaskedLinear(nn.Linear):
     def __init__(self, in_features: int, out_features: int, block_size: int, bleed_factor: float = 0.0, bias: bool = False):
         super(MaskedLinear, self).__init__(in_features, out_features, bias)
 
+        assert block_size * 2 < in_features, 'Block size must be less than half of the input features'
+        assert block_size * 2 < out_features, 'Block size must be less than half of the output features'
+
         if in_features == out_features:
             self.block_size_i = block_size
             self.block_size_j = block_size
