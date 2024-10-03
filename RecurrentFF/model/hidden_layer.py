@@ -348,11 +348,12 @@ class HiddenLayer(nn.Module):
         nn.init.kaiming_uniform_(
             self.forward_linear.weight, nonlinearity='relu')
 
-        self.backward_linear = MaskedLinear(next_size, size, bleed_factor=connection_profile.backward_block_bleed[layer_num], block_size=connection_profile.backward_block_sizes[layer_num])
 
         if next_size == self.settings.data_config.num_classes:
+            self.backward_linear = nn.Linear(next_size, size, bias=False)
             amplified_initialization(self.backward_linear, 3.0)
         else:
+            self.backward_linear = MaskedLinear(next_size, size, bleed_factor=connection_profile.backward_block_bleed[layer_num], block_size=connection_profile.backward_block_sizes[layer_num])
             nn.init.uniform_(self.backward_linear.weight, -0.05, 0.05)
 
         # Initialize the lateral weights to be the identity matrix
