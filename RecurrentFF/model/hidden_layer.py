@@ -191,7 +191,7 @@ def amplified_initialization(layer: nn.Linear, amplification_factor: float = 3.0
 
 
 class MaskedLinear(nn.Linear):
-    def __init__(self, in_features: int, out_features: int, block_size: int, bleed_factor: float = 0.0, bias: bool = True):
+    def __init__(self, in_features: int, out_features: int, block_size: int, bleed_factor: float = 0.0, bias: bool = False):
         super(MaskedLinear, self).__init__(in_features, out_features, bias)
 
         if in_features == out_features:
