@@ -1,16 +1,19 @@
 import torch
+import random
+import numpy as np
 
-from RecurrentFF.benchmarks.mnist.mnist import DATA_SIZE, ITERATIONS, NUM_CLASSES, \
-    TRAIN_BATCH_SIZE, MNIST_loaders, DATASET
+from RecurrentFF.benchmarks.cifar10.cifar10 import DATA_SIZE, ITERATIONS, NUM_CLASSES, \
+    TRAIN_BATCH_SIZE, DATASET
+from RecurrentFF.benchmarks.cifar10.cifar10 import CIFAR10_loaders
 from RecurrentFF.model.data_scenario.processor import DataScenario
 from RecurrentFF.util import set_logging
 from RecurrentFF.model.model import RecurrentFFNet
 from RecurrentFF.settings import Settings, DataConfig
 
-TEST_BATCH_SIZE = 1
+TEST_BATCH_SIZE = TRAIN_BATCH_SIZE
 NUM_BATCHES = 1000
 
-WEIGHTS_PATH = ""
+WEIGHTS_PATH = "/home/localuser/Documents/projects/RecurrentForwardForward/CIFAR10_2024-10-03_12-55-29_EAOMAW.pth"
 
 if __name__ == "__main__":
     settings = Settings.new()
@@ -30,26 +33,37 @@ if __name__ == "__main__":
 
     set_logging()
 
+    # Set seed for random, numpy, and PyTorch (both CPU and GPU)
+    seed = 42
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)  # For GPU-specific random numbers
+    torch.cuda.manual_seed_all(seed)  # If you are using multiple GPUs
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    torch.set_num_threads(1)
+
     # Pytorch utils.
     # torch.autograd.set_detect_anomaly(True)
-    torch.manual_seed(1234)
 
     # Generate train data.
-    train_loader, test_loader = MNIST_loaders(
+    train_loader, test_loader = CIFAR10_loaders(
         settings.data_config.train_batch_size, settings.data_config.test_batch_size)
 
-    # Create and run model.
+    # # Create and run model.
     model = RecurrentFFNet(settings).to(settings.device.device)
-
     model.load_state_dict(torch.load(
         WEIGHTS_PATH, map_location=settings.device.device))
-
-    _train_loader, test_loader_tmp = MNIST_loaders(
-        settings.data_config.train_batch_size, 1000)
     model.predict(DataScenario.StaticSingleClass,
-                  test_loader_tmp, 1, write_activations=False)
+                  test_loader, 1, write_activations=False)
 
-    input("Does the accuracy look good?")
+    # _train_loader, test_loader_tmp = MNIST_loaders(
+    #     settings.data_config.train_batch_size, 1000)
+    # model.predict(DataScenario.StaticSingleClass,
+    #               test_loader_tmp, 1, write_activations=False)
 
-    model.predict(DataScenario.StaticSingleClass,
-                  test_loader, NUM_BATCHES, write_activations=True)
+    # input("Does the accuracy look good?")
+
+    # model.predict(DataScenario.StaticSingleClass,
+    #               test_loader, NUM_BATCHES, write_activations=True)

@@ -427,9 +427,15 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
             badnesses = []
             class_predictions_agg = torch.zeros(
                 data.shape[1], self.settings.data_config.num_classes).to(self.settings.device.device)
-            for iteration in range(0, iterations):
+            for iteration in range(0, iterations // 4 * 3):
+                iteration = min(iteration, iterations - 1)
+
                 generative_output = generative_linear(
                     torch.cat([layer.pos_activations.current for layer in self.inner_layers], dim=1))
+                # print(generative_output.shape)
+                # print(data.shape)
+                # print(self.settings.data_config.data_size)
+                # print(self.settings.data_config.num_classes)
                 assert generative_output.shape[0] == data.shape[1] and generative_output.shape[
                     1] == self.settings.data_config.data_size + self.settings.data_config.num_classes
                 reconstructed_data, reconstructed_labels = generative_output.split(
@@ -474,16 +480,16 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                 )
                 self.inner_layers.advance_layers_train(
                     input_data_sample, label_data_sample, True, None)
-                # pre_op_grad = self.inner_layers.layers[0].forward_linear.weight.grad[0][2].item()
 
-                # pre_opt_softmax_predicted_classes = torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1)
-                # self.optimizer.zero_grad()
-                # post_opt_logits = generative_linear(
-                #     torch.cat([layer.pos_activations.current for layer in self.inner_layers], dim=1))[:, self.settings.data_config.data_size:]
-                # post_op_log_softmax_predicted_classes = torch.log_softmax(post_opt_logits, dim=1)
-                # criterion = torch.nn.KLDivLoss()
-                # loss = criterion(post_op_log_softmax_predicted_classes, pre_opt_softmax_predicted_classes)
-                # loss.backward()
+                pre_op_grad = self.inner_layers.layers[0].forward_linear.weight.grad[0][2].item()
+                pre_opt_softmax_predicted_classes = torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1)
+                self.optimizer.zero_grad()
+                post_opt_logits = generative_linear(
+                    torch.cat([layer.pos_activations.current for layer in self.inner_layers], dim=1))[:, self.settings.data_config.data_size:]
+                post_op_log_softmax_predicted_classes = torch.log_softmax(post_opt_logits, dim=1)
+                criterion = torch.nn.KLDivLoss()
+                loss = criterion(post_op_log_softmax_predicted_classes, pre_opt_softmax_predicted_classes)
+                loss.backward()
 
                 # from torchviz import make_dot
                 # from itertools import chain
@@ -504,7 +510,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                 # dot.render("computation_graph", format="png", cleanup=True)
                 # input("resume")
 
-                # post_op_grad = self.inner_layers.layers[0].forward_linear.weight.grad[0][2].item()
+                post_op_grad = self.inner_layers.layers[0].forward_linear.weight.grad[0][2].item()
                 # assert pre_op_grad != post_op_grad
 
                 # optimizer.step()
@@ -517,9 +523,9 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                     layer.neg_activations.previous = layer.neg_activations.previous.clone().detach()
 
                 # if iteration >= lower_iteration_threshold and iteration <= upper_iteration_threshold:
-                if iteration >= lower_iteration_threshold:
-                    class_predictions_agg += torch.softmax(
-                        generative_output[:, self.settings.data_config.data_size:], dim=1)
+                # if iteration >= lower_iteration_threshold:
+                class_predictions_agg += torch.softmax(
+                    generative_output[:, self.settings.data_config.data_size:], dim=1)
 
                 if write_activations:
                     activity_tracker.track_partial_activations(

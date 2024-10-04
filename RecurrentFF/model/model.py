@@ -165,9 +165,12 @@ class RecurrentFFNet(nn.Module):
         if data_scenario == DataScenario.StaticSingleClass:
             self.processor.brute_force_predict(
                 data_loader,
+                self.generative_linear,
+                self.optimizer,
                 num_batches,
                 is_test_set=True,
                 write_activations=write_activations)
+            print("complete")
 
     def train_model(self, train_loader: torch.utils.data.DataLoader, test_loader: torch.utils.data.DataLoader) -> None:
         """
