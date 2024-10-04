@@ -393,7 +393,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
             badnesses = []
             class_predictions_agg = torch.zeros(
                 data.shape[1], self.settings.data_config.num_classes).to(self.settings.device.device)
-            for iteration in range(0, iterations // 4 * 3):
+            for iteration in range(0, iterations // 3 * 2):
                 iteration = min(iteration, iterations - 1)
 
                 generative_output = generative_linear(
@@ -412,6 +412,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                     reconstructed_labels_softmax, dim=1)
                 assert reconstructed_labels.shape == labels.shape
                 correct = (reconstructed_labels == labels).sum().item()
+                print(correct / data.shape[1] * 100)
                 total = data.size(1)
                 generative_output = generative_output.detach()
 
