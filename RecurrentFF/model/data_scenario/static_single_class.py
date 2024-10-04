@@ -342,40 +342,6 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
             is_test_set: bool = False,
             write_activations: bool = False,
     ) -> float:
-        """
-        This function predicts the class labels for the provided test data using
-        the trained RecurrentFFNet model. It does so by enumerating all possible
-        class labels and choosing the one that produces the lowest 'badness'
-        score. We cannot use this function for datasets with changing classes.
-
-        Args:
-            test_data (object): A tuple containing the test data, one-hot labels,
-            and the actual labels. The data is assumed to be PyTorch tensors.
-
-        Returns:
-            float: The prediction accuracy as a percentage.
-
-        Procedure:
-            The function first moves the test data and labels to the appropriate
-            device. It then calculates the 'badness' metric for each possible
-            class label, using a two-step process:
-
-                1. Resetting the network's activations and forwarding the data
-                   through the network with the current label.
-                2. For each iteration within a specified threshold, forwarding
-                   the data again, but this time retaining the
-                activations, which are used to calculate the 'badness' for each
-                layer.
-
-            The 'badness' values across iterations and layers are then averaged
-            to produce a single 'badness' score for each class label. The class
-            with the lowest 'badness' score is chosen as the prediction for
-            each test sample.
-
-            Finally, the function calculates the overall accuracy of the model's
-            predictions by comparing them to the actual labels and returns this
-            accuracy.
-        """
         if write_activations:
             assert self.settings.data_config.test_batch_size == 1 \
                 and is_test_set, "Cannot write activations for batch size > 1"
@@ -432,10 +398,6 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
 
                 generative_output = generative_linear(
                     torch.cat([layer.pos_activations.current for layer in self.inner_layers], dim=1))
-                # print(generative_output.shape)
-                # print(data.shape)
-                # print(self.settings.data_config.data_size)
-                # print(self.settings.data_config.num_classes)
                 assert generative_output.shape[0] == data.shape[1] and generative_output.shape[
                     1] == self.settings.data_config.data_size + self.settings.data_config.num_classes
                 reconstructed_data, reconstructed_labels = generative_output.split(
@@ -522,8 +484,6 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                     layer.pos_activations.previous = layer.pos_activations.previous.clone().detach()
                     layer.neg_activations.previous = layer.neg_activations.previous.clone().detach()
 
-                # if iteration >= lower_iteration_threshold and iteration <= upper_iteration_threshold:
-                # if iteration >= lower_iteration_threshold:
                 class_predictions_agg += torch.softmax(
                     generative_output[:, self.settings.data_config.data_size:], dim=1)
 
