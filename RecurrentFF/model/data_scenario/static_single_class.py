@@ -394,6 +394,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
             class_predictions_agg = torch.zeros(
                 data.shape[1], self.settings.data_config.num_classes).to(self.settings.device.device)
             for iteration in range(0, iterations // 3 * 2):
+            # for iteration in range(0, 1):
                 iteration = min(iteration, iterations - 1)
 
                 generative_output = generative_linear(
@@ -500,6 +501,59 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
             correct_number_agg = (torch.argmax(
                 class_predictions_agg, dim=1) == labels).float().sum().item()
             accuracy_contexts.append((correct_number_agg, data.size(1)))
+
+        # Calculate sum of squared activations and separate correct/incorrect predictions
+        import matplotlib.pyplot as plt
+
+        # Calculate sum of squared activations and separate correct/incorrect predictions
+        predictions = torch.argmax(class_predictions_agg, dim=1)
+        correct_mask = predictions == labels
+        squared_sums_by_layer = []
+        top_quartile_stats = []
+
+        for layer in self.inner_layers:
+            activations = layer.pos_activations.current
+            squared_sums = torch.sum(activations ** 2, dim=1)
+            squared_sums_by_layer.append(squared_sums.cpu().numpy())
+
+            # Calculate top quartile statistics
+            top_quartile_threshold = torch.quantile(squared_sums, 0.8)
+            top_quartile_mask = squared_sums >= top_quartile_threshold
+            top_quartile_correct = torch.sum(correct_mask & top_quartile_mask).item()
+            top_quartile_incorrect = torch.sum(~correct_mask & top_quartile_mask).item()
+            top_quartile_stats.append((top_quartile_correct, top_quartile_incorrect))
+
+        # Plot histograms for each layer
+        num_layers = len(self.inner_layers)
+        fig, axes = plt.subplots(num_layers, 2, figsize=(20, 5 * num_layers))
+        if num_layers == 1:
+            axes = [axes]
+
+        for i, (squared_sums, (top_correct, top_incorrect), ax_row) in enumerate(zip(squared_sums_by_layer, top_quartile_stats, axes)):
+            correct_sums = squared_sums[correct_mask.cpu().numpy()]
+            incorrect_sums = squared_sums[~correct_mask.cpu().numpy()]
+
+            # Histogram of squared activations
+            ax_row[0].hist(correct_sums, bins='auto', alpha=0.7, color='green', label='Correct')
+            ax_row[0].hist(incorrect_sums, bins='auto', alpha=0.7, color='red', label='Incorrect')
+            
+            ax_row[0].set_title(f'Layer {i+1} Sum of Squared Activations Distribution')
+            ax_row[0].set_xlabel('Sum of Squared Activations')
+            ax_row[0].set_ylabel('Frequency')
+            ax_row[0].legend()
+
+            # Bar chart of top quartile statistics
+            ax_row[1].bar(['Correct', 'Incorrect'], [top_correct, top_incorrect], color=['green', 'red'])
+            ax_row[1].set_title(f'Layer {i+1} Top Quartile of Activations')
+            ax_row[1].set_ylabel('Count')
+            ax_row[1].set_ylim(0, max(top_correct, top_incorrect) * 1.2)  # Set y-axis limit with 20% headroom
+            
+            for j, v in enumerate([top_correct, top_incorrect]):
+                ax_row[1].text(j, v, str(v), ha='center', va='bottom')
+
+        plt.tight_layout()
+        plt.savefig(f'activations_analysis_batch_{batch}.png')
+        plt.close()
 
         total_correct = sum(correct for correct, _total in accuracy_contexts)
         total_submissions = sum(
