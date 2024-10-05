@@ -502,19 +502,15 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                 class_predictions_agg, dim=1) == labels).float().sum().item()
             accuracy_contexts.append((correct_number_agg, data.size(1)))
 
-        # Calculate sum of squared activations and separate correct/incorrect predictions
         import matplotlib.pyplot as plt
-
         # Calculate sum of squared activations and separate correct/incorrect predictions
         predictions = torch.argmax(class_predictions_agg, dim=1)
         correct_mask = predictions == labels
-        squared_sums_by_layer = []
         top_quartile_stats = []
 
         for layer in self.inner_layers:
             activations = layer.pos_activations.current
             squared_sums = torch.sum(activations ** 2, dim=1)
-            squared_sums_by_layer.append(squared_sums.cpu().numpy())
 
             # Calculate top quartile statistics
             top_quartile_threshold = torch.quantile(squared_sums, 0.8)
@@ -523,37 +519,32 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
             top_quartile_incorrect = torch.sum(~correct_mask & top_quartile_mask).item()
             top_quartile_stats.append((top_quartile_correct, top_quartile_incorrect))
 
-        # Plot histograms for each layer
+        # Plot horizontal bar chart for quartiles analysis
         num_layers = len(self.inner_layers)
-        fig, axes = plt.subplots(num_layers, 2, figsize=(20, 5 * num_layers))
-        if num_layers == 1:
-            axes = [axes]
+        fig, ax = plt.subplots(figsize=(12, num_layers * 0.5 + 2))  # Adjust figure height based on number of layers
 
-        for i, (squared_sums, (top_correct, top_incorrect), ax_row) in enumerate(zip(squared_sums_by_layer, top_quartile_stats, axes)):
-            correct_sums = squared_sums[correct_mask.cpu().numpy()]
-            incorrect_sums = squared_sums[~correct_mask.cpu().numpy()]
+        layer_names = [f'Layer {i+1}' for i in range(num_layers)]
+        correct_counts = [stats[0] for stats in top_quartile_stats]
+        incorrect_counts = [stats[1] for stats in top_quartile_stats]
 
-            # Histogram of squared activations
-            ax_row[0].hist(correct_sums, bins='auto', alpha=0.7, color='green', label='Correct')
-            ax_row[0].hist(incorrect_sums, bins='auto', alpha=0.7, color='red', label='Incorrect')
-            
-            ax_row[0].set_title(f'Layer {i+1} Sum of Squared Activations Distribution')
-            ax_row[0].set_xlabel('Sum of Squared Activations')
-            ax_row[0].set_ylabel('Frequency')
-            ax_row[0].legend()
+        ax.barh(layer_names, correct_counts, label='Correct', color='green', alpha=0.7)
+        ax.barh(layer_names, incorrect_counts, left=correct_counts, label='Incorrect', color='red', alpha=0.7)
 
-            # Bar chart of top quartile statistics
-            ax_row[1].bar(['Correct', 'Incorrect'], [top_correct, top_incorrect], color=['green', 'red'])
-            ax_row[1].set_title(f'Layer {i+1} Top Quartile of Activations')
-            ax_row[1].set_ylabel('Count')
-            ax_row[1].set_ylim(0, max(top_correct, top_incorrect) * 1.2)  # Set y-axis limit with 20% headroom
-            
-            for j, v in enumerate([top_correct, top_incorrect]):
-                ax_row[1].text(j, v, str(v), ha='center', va='bottom')
+        ax.set_title('Top Quartile of Activations by Layer')
+        ax.set_xlabel('Count')
+        ax.set_ylabel('Layers')
+        ax.legend(loc='lower right')
+
+        # Add text labels
+        for i, (correct, incorrect) in enumerate(zip(correct_counts, incorrect_counts)):
+            total = correct + incorrect
+            ax.text(total/2, i, f'{correct}/{total}', 
+                    ha='center', va='center', color='black', fontweight='bold')
 
         plt.tight_layout()
-        plt.savefig(f'activations_analysis_batch_{batch}.png')
+        plt.savefig(f'quartile_analysis_batch_{batch}.png')
         plt.close()
+
 
         total_correct = sum(correct for correct, _total in accuracy_contexts)
         total_submissions = sum(
