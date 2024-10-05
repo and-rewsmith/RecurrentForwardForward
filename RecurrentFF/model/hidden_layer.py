@@ -624,7 +624,7 @@ class HiddenLayer(nn.Module):
         # Loss function equivelent to:
         # plot3d log(1 + exp(-n + 1)) + log(1 + exp(p - 1)) for n=0 to 3, p=0
         # to 3
-        layer_loss: Tensor = F.softplus(torch.cat([
+        layer_loss: Tensor = 10 * F.softplus(torch.cat([
             (-1 * neg_badness) + self.settings.model.loss_threshold,
             pos_badness - self.settings.model.loss_threshold
         ])).mean()
