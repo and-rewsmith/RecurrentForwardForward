@@ -13,13 +13,13 @@ DATA_SIZE = 3072  # 32x32x3
 NUM_CLASSES = 10
 TRAIN_BATCH_SIZE = 500
 TEST_BATCH_SIZE = 500
-ITERATIONS = 12
+ITERATIONS = 18
 DATASET = "CIFAR10"
 
 # If you want to load weights fill this in.
 WEIGHTS_PATH = ""
 
-PATCH_SIZE = 4
+PATCH_SIZE = 8
 
 
 class CustomTrainDataset(Dataset):

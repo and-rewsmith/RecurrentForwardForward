@@ -502,48 +502,48 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                 class_predictions_agg, dim=1) == labels).float().sum().item()
             accuracy_contexts.append((correct_number_agg, data.size(1)))
 
-        import matplotlib.pyplot as plt
-        # Calculate sum of squared activations and separate correct/incorrect predictions
-        predictions = torch.argmax(class_predictions_agg, dim=1)
-        correct_mask = predictions == labels
-        top_quartile_stats = []
+        # import matplotlib.pyplot as plt
+        # # Calculate sum of squared activations and separate correct/incorrect predictions
+        # predictions = torch.argmax(class_predictions_agg, dim=1)
+        # correct_mask = predictions == labels
+        # top_quartile_stats = []
 
-        for layer in self.inner_layers:
-            activations = layer.pos_activations.current
-            squared_sums = torch.sum(activations ** 2, dim=1)
+        # for layer in self.inner_layers:
+        #     activations = layer.pos_activations.current
+        #     squared_sums = torch.sum(activations ** 2, dim=1)
 
-            # Calculate top quartile statistics
-            top_quartile_threshold = torch.quantile(squared_sums, 0.8)
-            top_quartile_mask = squared_sums >= top_quartile_threshold
-            top_quartile_correct = torch.sum(correct_mask & top_quartile_mask).item()
-            top_quartile_incorrect = torch.sum(~correct_mask & top_quartile_mask).item()
-            top_quartile_stats.append((top_quartile_correct, top_quartile_incorrect))
+        #     # Calculate top quartile statistics
+        #     top_quartile_threshold = torch.quantile(squared_sums, 0.8)
+        #     top_quartile_mask = squared_sums >= top_quartile_threshold
+        #     top_quartile_correct = torch.sum(correct_mask & top_quartile_mask).item()
+        #     top_quartile_incorrect = torch.sum(~correct_mask & top_quartile_mask).item()
+        #     top_quartile_stats.append((top_quartile_correct, top_quartile_incorrect))
 
-        # Plot horizontal bar chart for quartiles analysis
-        num_layers = len(self.inner_layers)
-        fig, ax = plt.subplots(figsize=(12, num_layers * 0.5 + 2))  # Adjust figure height based on number of layers
+        # # Plot horizontal bar chart for quartiles analysis
+        # num_layers = len(self.inner_layers)
+        # fig, ax = plt.subplots(figsize=(12, num_layers * 0.5 + 2))  # Adjust figure height based on number of layers
 
-        layer_names = [f'Layer {i+1}' for i in range(num_layers)]
-        correct_counts = [stats[0] for stats in top_quartile_stats]
-        incorrect_counts = [stats[1] for stats in top_quartile_stats]
+        # layer_names = [f'Layer {i+1}' for i in range(num_layers)]
+        # correct_counts = [stats[0] for stats in top_quartile_stats]
+        # incorrect_counts = [stats[1] for stats in top_quartile_stats]
 
-        ax.barh(layer_names, correct_counts, label='Correct', color='green', alpha=0.7)
-        ax.barh(layer_names, incorrect_counts, left=correct_counts, label='Incorrect', color='red', alpha=0.7)
+        # ax.barh(layer_names, correct_counts, label='Correct', color='green', alpha=0.7)
+        # ax.barh(layer_names, incorrect_counts, left=correct_counts, label='Incorrect', color='red', alpha=0.7)
 
-        ax.set_title('Top Quartile of Activations by Layer')
-        ax.set_xlabel('Count')
-        ax.set_ylabel('Layers')
-        ax.legend(loc='lower right')
+        # ax.set_title('Top Quartile of Activations by Layer')
+        # ax.set_xlabel('Count')
+        # ax.set_ylabel('Layers')
+        # ax.legend(loc='lower right')
 
-        # Add text labels
-        for i, (correct, incorrect) in enumerate(zip(correct_counts, incorrect_counts)):
-            total = correct + incorrect
-            ax.text(total/2, i, f'{correct}/{total}', 
-                    ha='center', va='center', color='black', fontweight='bold')
+        # # Add text labels
+        # for i, (correct, incorrect) in enumerate(zip(correct_counts, incorrect_counts)):
+        #     total = correct + incorrect
+        #     ax.text(total/2, i, f'{correct}/{total}', 
+        #             ha='center', va='center', color='black', fontweight='bold')
 
-        plt.tight_layout()
-        plt.savefig(f'quartile_analysis_batch_{batch}.png')
-        plt.close()
+        # plt.tight_layout()
+        # plt.savefig(f'quartile_analysis_batch_{batch}.png')
+        # plt.close()
 
 
         total_correct = sum(correct for correct, _total in accuracy_contexts)
