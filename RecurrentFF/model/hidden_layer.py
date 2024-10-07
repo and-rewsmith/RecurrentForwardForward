@@ -724,19 +724,17 @@ class HiddenLayer(nn.Module):
                     Activations, previous_layer.predict_activations).previous
                 prev_act = cast(Activations, self.predict_activations).previous
 
-            prev_layer_prev_timestep_activations = prev_layer_prev_timestep_activations
-            # prev_layer_stdized = standardize_layer_activations(
-            #     prev_layer_prev_timestep_activations, self.settings.model.epsilon)
-            prev_layer_stdized = prev_layer_prev_timestep_activations
+            prev_layer_stdized = standardize_layer_activations(
+                prev_layer_prev_timestep_activations, self.settings.model.epsilon)
+            # prev_layer_stdized = prev_layer_prev_timestep_activations
 
-            next_layer_prev_timestep_activations = next_layer_prev_timestep_activations
-            # next_layer_stdized = standardize_layer_activations(
-            #     next_layer_prev_timestep_activations, self.settings.model.epsilon)
-            next_layer_stdized = next_layer_prev_timestep_activations
+            next_layer_stdized = standardize_layer_activations(
+                next_layer_prev_timestep_activations, self.settings.model.epsilon)
+            # next_layer_stdized = next_layer_prev_timestep_activations
 
-            # prev_act_stdized = standardize_layer_activations(
-            #     prev_act, self.settings.model.epsilon)
-            prev_act_stdized = prev_act
+            prev_act_stdized = standardize_layer_activations(
+                prev_act, self.settings.model.epsilon)
+            # prev_act_stdized = prev_act
 
             self.forward_act = self.forward_linear.forward(prev_layer_stdized)
             self.backward_act = -1 * self.backward_linear.forward(next_layer_stdized)
@@ -755,9 +753,9 @@ class HiddenLayer(nn.Module):
                 assert self.predict_activations is not None
                 prev_act = cast(Activations, self.predict_activations).previous
 
-            # prev_act_stdized = standardize_layer_activations(
-            #     prev_act, self.settings.model.epsilon)
-            prev_act_stdized = prev_act
+            prev_act_stdized = standardize_layer_activations(
+                prev_act, self.settings.model.epsilon)
+            # prev_act_stdized = prev_act
 
             self.forward_act = self.forward_linear.forward(data)
             self.backward_act = -1 * self.backward_linear.forward(labels)
@@ -779,13 +777,13 @@ class HiddenLayer(nn.Module):
                     Activations, next_layer.predict_activations).previous
                 prev_act = cast(Activations, self.predict_activations).previous
 
-            # next_layer_stdized = standardize_layer_activations(
-            #     next_layer_prev_timestep_activations, self.settings.model.epsilon)
-            next_layer_stdized = next_layer_prev_timestep_activations
+            next_layer_stdized = standardize_layer_activations(
+                next_layer_prev_timestep_activations, self.settings.model.epsilon)
+            # next_layer_stdized = next_layer_prev_timestep_activations
 
-            # prev_act_stdized = standardize_layer_activations(
-            #     prev_act, self.settings.model.epsilon)
-            prev_act_stdized = prev_act
+            prev_act_stdized = standardize_layer_activations(
+                prev_act, self.settings.model.epsilon)
+            # prev_act_stdized = prev_act
 
             self.forward_act = self.forward_linear.forward(data)
             self.backward_act = -1 * self.backward_linear.forward(next_layer_stdized)
@@ -807,13 +805,13 @@ class HiddenLayer(nn.Module):
                     Activations, previous_layer.predict_activations).previous
                 prev_act = cast(Activations, self.predict_activations).previous
 
-            # prev_layer_stdized = standardize_layer_activations(
-            #     prev_layer_prev_timestep_activations, self.settings.model.epsilon)
-            prev_layer_stdized = prev_layer_prev_timestep_activations
+            prev_layer_stdized = standardize_layer_activations(
+                prev_layer_prev_timestep_activations, self.settings.model.epsilon)
+            # prev_layer_stdized = prev_layer_prev_timestep_activations
 
-            # prev_act_stdized = standardize_layer_activations(
-            #     prev_act, self.settings.model.epsilon)
-            prev_act_stdized = prev_act
+            prev_act_stdized = standardize_layer_activations(
+                prev_act, self.settings.model.epsilon)
+            # prev_act_stdized = prev_act
 
             self.forward_act = self.forward_linear.forward(prev_layer_stdized)
             self.backward_act = -1 * self.backward_linear.forward(labels)
