@@ -10,7 +10,7 @@ import wandb
 
 from RecurrentFF.model.data_scenario.processor import DataScenarioProcessor
 from RecurrentFF.model.inner_layers import InnerLayers
-from RecurrentFF.util import Activations, LatentAverager, TrainLabelData, layer_activations_to_badness, ForwardMode, is_confident, zero_correct_class_softmax, swap_top_two_softmax, zero_highest_logit, sample_from_logits_excluding_highest
+from RecurrentFF.util import Activations, LatentAverager, TrainLabelData, layer_activations_to_badness, ForwardMode, is_confident, zero_correct_class_softmax, swap_top_two_softmax, zero_highest_logit, sample_from_logits_excluding_highest, standardize_layer_activations
 from RecurrentFF.settings import Settings
 
 
@@ -502,6 +502,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                 class_predictions_agg, dim=1) == labels).float().sum().item()
             accuracy_contexts.append((correct_number_agg, data.size(1)))
 
+        # ###
         # import matplotlib.pyplot as plt
         # # Calculate sum of squared activations and separate correct/incorrect predictions
         # predictions = torch.argmax(class_predictions_agg, dim=1)
@@ -544,6 +545,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
         # plt.tight_layout()
         # plt.savefig(f'quartile_analysis_batch_{batch}.png')
         # plt.close()
+        # ###
 
 
         total_correct = sum(correct for correct, _total in accuracy_contexts)

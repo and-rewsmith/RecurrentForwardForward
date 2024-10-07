@@ -27,7 +27,8 @@ from RecurrentFF.util import (
     percent_above_threshold,
     percent_correct,
     sample_avoiding_correct_class,
-    sample_from_logits_excluding_highest
+    sample_from_logits_excluding_highest,
+    standardize_layer_activations
 )
 from RecurrentFF.settings import (
     Settings,

@@ -137,7 +137,7 @@ def CIFAR10_loaders(train_batch_size, test_batch_size):
                 download=True,
                 transform=transform)),
         batch_size=test_batch_size,
-        shuffle=True,
+        shuffle=False,
         collate_fn=test_collate_fn,
         num_workers=0)
 
