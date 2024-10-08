@@ -204,6 +204,7 @@ class RecurrentFFNet(nn.Module):
         total_batch_count = 0
         best_test_accuracy: float = 0
         confidence_threshold = {"value": 0.01}
+        grad_pass_acc_threshold = {"value": 1, "should_pass_back": False, "value_contingent": 1, "times_exceeded": 0}
         for epoch in range(0, self.settings.model.epochs):
             logging.info("Epoch: " + str(epoch))
             self.train()
@@ -217,7 +218,7 @@ class RecurrentFFNet(nn.Module):
                         input_data.pos_input, label_data, total_batch_count)
 
                 layer_metrics, pos_badness_per_layer, neg_badness_per_layer = self.__train_batch(
-                    epoch, batch_num, input_data, label_data, total_batch_count, confidence_threshold=confidence_threshold)
+                    epoch, batch_num, input_data, label_data, total_batch_count, confidence_threshold=confidence_threshold, grad_pass_acc_threshold=grad_pass_acc_threshold)
 
                 if self.settings.model.should_log_metrics:
                     self.__log_batch_metrics(
@@ -225,6 +226,21 @@ class RecurrentFFNet(nn.Module):
                         pos_badness_per_layer,
                         neg_badness_per_layer,
                         total_batch_count)
+
+                test_accuracy = self.processor.brute_force_predict(
+                    test_loader, self.generative_linear, self.optimizer, 1, True)
+                if test_accuracy > grad_pass_acc_threshold["value_contingent"]:
+                    grad_pass_acc_threshold["should_pass_back"] = not grad_pass_acc_threshold["should_pass_back"]
+                    grad_pass_acc_threshold["value"] = test_accuracy
+                    grad_pass_acc_threshold["value_contingent"] = test_accuracy
+                    grad_pass_acc_threshold["times_exceeded"] = 0
+                    print(f"--------------- new threshold: {test_accuracy} ----- enabled: {grad_pass_acc_threshold['should_pass_back']}")
+                else:  # TODO: try only if still contrastive
+                    grad_pass_acc_threshold["value_contingent"] = test_accuracy
+                    grad_pass_acc_threshold["value"] = test_accuracy
+                    grad_pass_acc_threshold["times_exceeded"] = 0
+                print()
+
 
                 total_batch_count += 1
 
@@ -471,7 +487,8 @@ class RecurrentFFNet(nn.Module):
             input_data: TrainInputData,
             label_data: TrainLabelData,
             total_batch_count: int,
-            confidence_threshold: dict) -> Tuple[LayerMetrics, List[float], List[float]]:
+            confidence_threshold: dict,
+            grad_pass_acc_threshold: dict) -> Tuple[LayerMetrics, List[float], List[float]]:
         logging.info("Batch: " + str(batch_num))
 
         self.inner_layers.reset_activations(True)
@@ -499,6 +516,7 @@ class RecurrentFFNet(nn.Module):
         pos_target_latents_averager = LatentAverager()
         class_predictions_agg = torch.zeros(
             input_data.pos_input[0].shape[0], self.settings.data_config.num_classes).to(self.settings.device.device)
+        percent_c = None
         for iteration in range(0, iterations):
             logging.debug("Iteration: " + str(iteration))
 
@@ -513,16 +531,17 @@ class RecurrentFFNet(nn.Module):
             #     generative_input += layer.generative_linear(activations)
             self.optimizer.zero_grad()
             generative_input = self.generative_linear(
-                torch.cat([layer.pos_activations.current for layer in self.inner_layers], dim=1)
+                torch.cat(
+                    [layer.pos_activations.current for layer in self.inner_layers], dim=1)
             )
             assert generative_input.shape[0] == input_data.pos_input[iteration].shape[0] and generative_input.shape[
                 1] == input_data.pos_input[iteration].shape[1] + self.settings.data_config.num_classes
             reconstructed_data, reconstructed_labels = generative_input.split(
                 [self.settings.data_config.data_size, self.settings.data_config.num_classes], dim=1)
-            if random.randint(0, 50) == 1:
-                is_correct = torch.argmax(label_data.pos_labels[iteration][0]) == torch.argmax(
-                    torch.softmax(reconstructed_labels[0], dim=0))
-                print(is_correct.item())
+            # if random.randint(0, 50) == 1:
+            #     is_correct = torch.argmax(label_data.pos_labels[iteration][0]) == torch.argmax(
+            #         torch.softmax(reconstructed_labels[0], dim=0))
+            #     print(is_correct.item())
             # data_loss = data_criterion(
             #     reconstructed_data, input_data.pos_input[iteration])
             label_loss = label_criterion(reconstructed_labels, torch.argmax(
@@ -537,10 +556,24 @@ class RecurrentFFNet(nn.Module):
             # wandb.log({"data loss": data_loss.item()}, step=total_batch_count)
             wandb.log({"label loss": label_loss.item()},
                       step=total_batch_count)
+
+            # percent_c_after_update = percent_correct(torch.softmax(
+            #     reconstructed_labels, dim=1), label_data.pos_labels[iteration])
+            if percent_c != None and percent_c > grad_pass_acc_threshold["value"]:
+                grad_pass_acc_threshold["times_exceeded"] += 1
+                if grad_pass_acc_threshold["times_exceeded"] > 3:
+                    grad_pass_acc_threshold["should_pass_back"] = False
+
+            # print(
+            #     f'{grad_pass_acc_threshold["should_pass_back"]}: {grad_pass_acc_threshold["value"]} vs {percent_c}')
+            if not grad_pass_acc_threshold["should_pass_back"]:
+                for layer in self.inner_layers:
+                    layer.optimizer.step()
             loss.backward()
             self.optimizer.step()
-            for layer in self.inner_layers:
-                layer.optimizer.step()
+            if grad_pass_acc_threshold["should_pass_back"]:
+                for layer in self.inner_layers:
+                    layer.optimizer.step()
             for layer in self.inner_layers:
                 layer.pos_activations.current = layer.pos_activations.current.clone().detach()
                 layer.neg_activations.current = layer.neg_activations.current.clone().detach()
@@ -575,7 +608,8 @@ class RecurrentFFNet(nn.Module):
                 # torch.softmax(
                 #     generative_input[:, self.settings.data_config.data_size:], dim=1),
                 # torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1),
-                swap_top_two_softmax(torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1))
+                swap_top_two_softmax(torch.softmax(
+                    generative_input[:, self.settings.data_config.data_size:], dim=1))
                 # zero_correct_class_softmax(
                 #     generative_input[:, self.settings.data_config.data_size:], label_data.pos_labels[iteration]),
             )
@@ -623,6 +657,13 @@ class RecurrentFFNet(nn.Module):
                 reconstructed_labels, dim=1), label_data.pos_labels[iteration], 0.5)
             conf, should_stop = is_confident(torch.softmax(
                 reconstructed_labels, dim=1), label_data.pos_labels[iteration], confidence_threshold["value"])
+
+            if percent_c < grad_pass_acc_threshold["value_contingent"]:
+                grad_pass_acc_threshold["value_contingent"] -= 0.02
+                print(f"++ updated contingent thresh: {round(grad_pass_acc_threshold['value_contingent'], 2)}")
+            elif grad_pass_acc_threshold["value"] != grad_pass_acc_threshold["value_contingent"] and percent_c > grad_pass_acc_threshold["value_contingent"]:
+                grad_pass_acc_threshold["value_contingent"] = grad_pass_acc_threshold["value"]
+                print(f"++ reset contingent thresh: {round(grad_pass_acc_threshold['value_contingent'], 2)}")
 
             # if it was over 90% confident in correct answer on average return
             # if should_stop:

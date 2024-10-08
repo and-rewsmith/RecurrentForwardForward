@@ -394,7 +394,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
             class_predictions_agg = torch.zeros(
                 data.shape[1], self.settings.data_config.num_classes).to(self.settings.device.device)
             for iteration in range(0, iterations // 3 * 2):
-            # for iteration in range(0, 1):
+                # for iteration in range(0, 1):
                 iteration = min(iteration, iterations - 1)
 
                 generative_output = generative_linear(
@@ -413,7 +413,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                     reconstructed_labels_softmax, dim=1)
                 assert reconstructed_labels.shape == labels.shape
                 correct = (reconstructed_labels == labels).sum().item()
-                print(correct / data.shape[1] * 100)
+                # print(correct / data.shape[1] * 100)
                 total = data.size(1)
                 generative_output = generative_output.detach()
 
@@ -422,7 +422,8 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                     # generative_output[:, 0:self.settings.data_config.data_size])
                     data[iteration])
                 label_data_sample = (
-                    torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1),
+                    torch.softmax(
+                        generative_output[:, self.settings.data_config.data_size:], dim=1),
                     # torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1),
                     # torch.zeros(data.size(1), self.settings.data_config.num_classes).to(
                     #     self.settings.device.device),
@@ -440,19 +441,24 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                     # sample_from_logits_excluding_highest(generative_output[:, self.settings.data_config.data_size:]),
                     # torch.nn.functional.one_hot(torch.argmax(
                     #     generative_output[:, self.settings.data_config.data_size:], dim=1), num_classes=10).to(dtype=torch.float32, device=self.settings.device.device),
-                    swap_top_two_softmax(torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1))
+                    swap_top_two_softmax(torch.softmax(
+                        generative_output[:, self.settings.data_config.data_size:], dim=1))
                 )
                 self.inner_layers.advance_layers_train(
                     input_data_sample, label_data_sample, True, None)
 
-                pre_op_grad = self.inner_layers.layers[0].forward_linear.weight.grad[0][2].item()
-                pre_opt_softmax_predicted_classes = torch.softmax(generative_output[:, self.settings.data_config.data_size:], dim=1)
+                pre_op_grad = self.inner_layers.layers[0].forward_linear.weight.grad[0][2].item(
+                )
+                pre_opt_softmax_predicted_classes = torch.softmax(
+                    generative_output[:, self.settings.data_config.data_size:], dim=1)
                 self.optimizer.zero_grad()
                 post_opt_logits = generative_linear(
                     torch.cat([layer.pos_activations.current for layer in self.inner_layers], dim=1))[:, self.settings.data_config.data_size:]
-                post_op_log_softmax_predicted_classes = torch.log_softmax(post_opt_logits, dim=1)
+                post_op_log_softmax_predicted_classes = torch.log_softmax(
+                    post_opt_logits, dim=1)
                 criterion = torch.nn.KLDivLoss()
-                loss = criterion(post_op_log_softmax_predicted_classes, pre_opt_softmax_predicted_classes)
+                loss = criterion(
+                    post_op_log_softmax_predicted_classes, pre_opt_softmax_predicted_classes)
                 loss.backward()
 
                 # from torchviz import make_dot
@@ -474,7 +480,8 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                 # dot.render("computation_graph", format="png", cleanup=True)
                 # input("resume")
 
-                post_op_grad = self.inner_layers.layers[0].forward_linear.weight.grad[0][2].item()
+                post_op_grad = self.inner_layers.layers[0].forward_linear.weight.grad[0][2].item(
+                )
                 # assert pre_op_grad != post_op_grad
 
                 # optimizer.step()
@@ -502,51 +509,50 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                 class_predictions_agg, dim=1) == labels).float().sum().item()
             accuracy_contexts.append((correct_number_agg, data.size(1)))
 
-        ###
-        import matplotlib.pyplot as plt
-        # Calculate sum of squared activations and separate correct/incorrect predictions
-        predictions = torch.argmax(class_predictions_agg, dim=1)
-        correct_mask = predictions == labels
-        top_quartile_stats = []
+        # ###
+        # import matplotlib.pyplot as plt
+        # # Calculate sum of squared activations and separate correct/incorrect predictions
+        # predictions = torch.argmax(class_predictions_agg, dim=1)
+        # correct_mask = predictions == labels
+        # top_quartile_stats = []
 
-        for layer in self.inner_layers:
-            activations = layer.pos_activations.current
-            squared_sums = torch.sum(activations ** 2, dim=1)
+        # for layer in self.inner_layers:
+        #     activations = layer.pos_activations.current
+        #     squared_sums = torch.sum(activations ** 2, dim=1)
 
-            # Calculate top quartile statistics
-            top_quartile_threshold = torch.quantile(squared_sums, 0.8)
-            top_quartile_mask = squared_sums >= top_quartile_threshold
-            top_quartile_correct = torch.sum(correct_mask & top_quartile_mask).item()
-            top_quartile_incorrect = torch.sum(~correct_mask & top_quartile_mask).item()
-            top_quartile_stats.append((top_quartile_correct, top_quartile_incorrect))
+        #     # Calculate top quartile statistics
+        #     top_quartile_threshold = torch.quantile(squared_sums, 0.8)
+        #     top_quartile_mask = squared_sums >= top_quartile_threshold
+        #     top_quartile_correct = torch.sum(correct_mask & top_quartile_mask).item()
+        #     top_quartile_incorrect = torch.sum(~correct_mask & top_quartile_mask).item()
+        #     top_quartile_stats.append((top_quartile_correct, top_quartile_incorrect))
 
-        # Plot horizontal bar chart for quartiles analysis
-        num_layers = len(self.inner_layers)
-        fig, ax = plt.subplots(figsize=(12, num_layers * 0.5 + 2))  # Adjust figure height based on number of layers
+        # # Plot horizontal bar chart for quartiles analysis
+        # num_layers = len(self.inner_layers)
+        # fig, ax = plt.subplots(figsize=(12, num_layers * 0.5 + 2))  # Adjust figure height based on number of layers
 
-        layer_names = [f'Layer {i+1}' for i in range(num_layers)]
-        correct_counts = [stats[0] for stats in top_quartile_stats]
-        incorrect_counts = [stats[1] for stats in top_quartile_stats]
+        # layer_names = [f'Layer {i+1}' for i in range(num_layers)]
+        # correct_counts = [stats[0] for stats in top_quartile_stats]
+        # incorrect_counts = [stats[1] for stats in top_quartile_stats]
 
-        ax.barh(layer_names, correct_counts, label='Correct', color='green', alpha=0.7)
-        ax.barh(layer_names, incorrect_counts, left=correct_counts, label='Incorrect', color='red', alpha=0.7)
+        # ax.barh(layer_names, correct_counts, label='Correct', color='green', alpha=0.7)
+        # ax.barh(layer_names, incorrect_counts, left=correct_counts, label='Incorrect', color='red', alpha=0.7)
 
-        ax.set_title('Top Quartile of Activations by Layer')
-        ax.set_xlabel('Count')
-        ax.set_ylabel('Layers')
-        ax.legend(loc='lower right')
+        # ax.set_title('Top Quartile of Activations by Layer')
+        # ax.set_xlabel('Count')
+        # ax.set_ylabel('Layers')
+        # ax.legend(loc='lower right')
 
-        # Add text labels
-        for i, (correct, incorrect) in enumerate(zip(correct_counts, incorrect_counts)):
-            total = correct + incorrect
-            ax.text(total/2, i, f'{correct}/{total}', 
-                    ha='center', va='center', color='black', fontweight='bold')
+        # # Add text labels
+        # for i, (correct, incorrect) in enumerate(zip(correct_counts, incorrect_counts)):
+        #     total = correct + incorrect
+        #     ax.text(total/2, i, f'{correct}/{total}',
+        #             ha='center', va='center', color='black', fontweight='bold')
 
-        plt.tight_layout()
-        plt.savefig(f'quartile_analysis_batch_{batch}.png')
-        plt.close()
-        ###
-
+        # plt.tight_layout()
+        # plt.savefig(f'quartile_analysis_batch_{batch}.png')
+        # plt.close()
+        # ###
 
         total_correct = sum(correct for correct, _total in accuracy_contexts)
         total_submissions = sum(
