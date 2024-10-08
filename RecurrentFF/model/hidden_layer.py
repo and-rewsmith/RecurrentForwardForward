@@ -194,18 +194,22 @@ class MaskedLinear(nn.Linear):
     def __init__(self, in_features: int, out_features: int, block_size: int, bleed_factor: float = 0.0, bias: bool = False):
         super(MaskedLinear, self).__init__(in_features, out_features, bias)
 
-        assert block_size * 2 < in_features, 'Block size must be less than half of the input features'
-        assert block_size * 2 < out_features, 'Block size must be less than half of the output features'
+        assert block_size * \
+            2 < in_features, 'Block size must be less than half of the input features'
+        assert block_size * \
+            2 < out_features, 'Block size must be less than half of the output features'
 
         if in_features == out_features:
             self.block_size_i = block_size
             self.block_size_j = block_size
         elif in_features > out_features:
-            self.block_size_i = math.ceil(in_features / (out_features // block_size))
+            self.block_size_i = math.ceil(
+                in_features / (out_features // block_size))
             self.block_size_j = block_size
         else:
             self.block_size_i = block_size
-            self.block_size_j = math.ceil(out_features / (in_features // block_size))
+            self.block_size_j = math.ceil(
+                out_features / (in_features // block_size))
 
         self.block_size = block_size
         self.bleed_factor = bleed_factor  # New parameter to control bleeding
@@ -213,7 +217,7 @@ class MaskedLinear(nn.Linear):
 
     def create_mask(self):
         mask = torch.zeros(self.weight.size())
-        
+
         # Compute how much additional overlap is allowed based on the bleed factor
         bleed_size_i = int(self.block_size_i * self.bleed_factor)
         bleed_size_j = int(self.block_size_j * self.bleed_factor)
@@ -221,9 +225,10 @@ class MaskedLinear(nn.Linear):
         i = 0
         for j in range(0, self.out_features, self.block_size_j):
             # Set the mask for the block and the bleed regions
-            mask[j:j+self.block_size_j+bleed_size_j, i:i+self.block_size_i+bleed_size_i] = 1
+            mask[j:j+self.block_size_j+bleed_size_j,
+                 i:i+self.block_size_i+bleed_size_i] = 1
             i = i + self.block_size_i
-        
+
         # Clip the mask to the matrix size (in case of overflow due to bleeding)
         return mask[:self.out_features, :self.in_features]
 
@@ -233,7 +238,8 @@ class MaskedLinear(nn.Linear):
     def visualize_connectivity(self):
         plt.figure(figsize=(10, 10))
         plt.imshow(self.weight.data * self.mask, cmap='viridis')
-        plt.title(f'Connectivity Pattern (Block Size: {self.block_size}, Bleed Factor: {self.bleed_factor})')
+        plt.title(
+            f'Connectivity Pattern (Block Size: {self.block_size}, Bleed Factor: {self.bleed_factor})')
         plt.colorbar()
         plt.show()
 
@@ -269,7 +275,6 @@ class MaskedLinear(nn.Linear):
 #         plt.title(f'Connectivity Pattern (Block Size: {self.block_size}, Bleed Factor: {self.bleed_factor})')
 #         plt.colorbar()
 #         plt.show()
-
 
 
 class HiddenLayer(nn.Module):
@@ -347,20 +352,22 @@ class HiddenLayer(nn.Module):
                 nn.init.kaiming_uniform_(layer.weight, nonlinearity='relu')
 
         connection_profile = self.settings.model.connection_profile
-        self.forward_linear = MaskedLinear(prev_size, size, bleed_factor=connection_profile.forward_block_bleed[layer_num], block_size=connection_profile.forward_block_sizes[layer_num])
+        self.forward_linear = MaskedLinear(
+            prev_size, size, bleed_factor=connection_profile.forward_block_bleed[layer_num], block_size=connection_profile.forward_block_sizes[layer_num])
         nn.init.kaiming_uniform_(
             self.forward_linear.weight, nonlinearity='relu')
-
 
         if next_size == self.settings.data_config.num_classes:
             self.backward_linear = nn.Linear(next_size, size, bias=False)
             amplified_initialization(self.backward_linear, 3.0)
         else:
-            self.backward_linear = MaskedLinear(next_size, size, bleed_factor=connection_profile.backward_block_bleed[layer_num], block_size=connection_profile.backward_block_sizes[layer_num])
+            self.backward_linear = MaskedLinear(
+                next_size, size, bleed_factor=connection_profile.backward_block_bleed[layer_num], block_size=connection_profile.backward_block_sizes[layer_num])
             nn.init.uniform_(self.backward_linear.weight, -0.05, 0.05)
 
         # Initialize the lateral weights to be the identity matrix
-        self.lateral_linear = MaskedLinear(size, size, block_size=connection_profile.lateral_block_sizes[layer_num], bleed_factor=connection_profile.lateral_block_bleed[layer_num])
+        self.lateral_linear = MaskedLinear(
+            size, size, block_size=connection_profile.lateral_block_sizes[layer_num], bleed_factor=connection_profile.lateral_block_bleed[layer_num])
         nn.init.orthogonal_(self.lateral_linear.weight, gain=math.sqrt(2))
 
         self.previous_layer: Self = None  # type: ignore[assignment]
@@ -372,7 +379,7 @@ class HiddenLayer(nn.Module):
 
     def init_residual_connection(self, residual_connection: ResidualConnection) -> None:
         self.residual_connections.append(residual_connection)
-    
+
     def filtered_named_parameters(self):
         """
         Returns an iterator over the named parameters of the current layer,
@@ -724,22 +731,21 @@ class HiddenLayer(nn.Module):
                     Activations, previous_layer.predict_activations).previous
                 prev_act = cast(Activations, self.predict_activations).previous
 
-            prev_layer_prev_timestep_activations = prev_layer_prev_timestep_activations
-            # prev_layer_stdized = standardize_layer_activations(
-            #     prev_layer_prev_timestep_activations, self.settings.model.epsilon)
-            prev_layer_stdized = prev_layer_prev_timestep_activations
+            prev_layer_stdized = standardize_layer_activations(
+                prev_layer_prev_timestep_activations, self.settings.model.epsilon)
+            # prev_layer_stdized = prev_layer_prev_timestep_activations
 
-            next_layer_prev_timestep_activations = next_layer_prev_timestep_activations
-            # next_layer_stdized = standardize_layer_activations(
-            #     next_layer_prev_timestep_activations, self.settings.model.epsilon)
-            next_layer_stdized = next_layer_prev_timestep_activations
+            next_layer_stdized = standardize_layer_activations(
+                next_layer_prev_timestep_activations, self.settings.model.epsilon)
+            # next_layer_stdized = next_layer_prev_timestep_activations
 
-            # prev_act_stdized = standardize_layer_activations(
-            #     prev_act, self.settings.model.epsilon)
-            prev_act_stdized = prev_act
+            prev_act_stdized = standardize_layer_activations(
+                prev_act, self.settings.model.epsilon)
+            # prev_act_stdized = prev_act
 
             self.forward_act = self.forward_linear.forward(prev_layer_stdized)
-            self.backward_act = -1 * self.backward_linear.forward(next_layer_stdized)
+            self.backward_act = -1 * \
+                self.backward_linear.forward(next_layer_stdized)
             self.lateral_act = self.lateral_linear.forward(prev_act_stdized)
 
         # Single layer scenario. Hidden layer connected to input layer and
@@ -755,9 +761,9 @@ class HiddenLayer(nn.Module):
                 assert self.predict_activations is not None
                 prev_act = cast(Activations, self.predict_activations).previous
 
-            # prev_act_stdized = standardize_layer_activations(
-            #     prev_act, self.settings.model.epsilon)
-            prev_act_stdized = prev_act
+            prev_act_stdized = standardize_layer_activations(
+                prev_act, self.settings.model.epsilon)
+            # prev_act_stdized = prev_act
 
             self.forward_act = self.forward_linear.forward(data)
             self.backward_act = -1 * self.backward_linear.forward(labels)
@@ -779,16 +785,17 @@ class HiddenLayer(nn.Module):
                     Activations, next_layer.predict_activations).previous
                 prev_act = cast(Activations, self.predict_activations).previous
 
-            # next_layer_stdized = standardize_layer_activations(
-            #     next_layer_prev_timestep_activations, self.settings.model.epsilon)
-            next_layer_stdized = next_layer_prev_timestep_activations
+            next_layer_stdized = standardize_layer_activations(
+                next_layer_prev_timestep_activations, self.settings.model.epsilon)
+            # next_layer_stdized = next_layer_prev_timestep_activations
 
-            # prev_act_stdized = standardize_layer_activations(
-            #     prev_act, self.settings.model.epsilon)
-            prev_act_stdized = prev_act
+            prev_act_stdized = standardize_layer_activations(
+                prev_act, self.settings.model.epsilon)
+            # prev_act_stdized = prev_act
 
             self.forward_act = self.forward_linear.forward(data)
-            self.backward_act = -1 * self.backward_linear.forward(next_layer_stdized)
+            self.backward_act = -1 * \
+                self.backward_linear.forward(next_layer_stdized)
             self.lateral_act = self.lateral_linear.forward(prev_act_stdized)
 
         # Output layer scenario. Connected to hidden layer and output layer.
@@ -807,13 +814,13 @@ class HiddenLayer(nn.Module):
                     Activations, previous_layer.predict_activations).previous
                 prev_act = cast(Activations, self.predict_activations).previous
 
-            # prev_layer_stdized = standardize_layer_activations(
-            #     prev_layer_prev_timestep_activations, self.settings.model.epsilon)
-            prev_layer_stdized = prev_layer_prev_timestep_activations
+            prev_layer_stdized = standardize_layer_activations(
+                prev_layer_prev_timestep_activations, self.settings.model.epsilon)
+            # prev_layer_stdized = prev_layer_prev_timestep_activations
 
-            # prev_act_stdized = standardize_layer_activations(
-            #     prev_act, self.settings.model.epsilon)
-            prev_act_stdized = prev_act
+            prev_act_stdized = standardize_layer_activations(
+                prev_act, self.settings.model.epsilon)
+            # prev_act_stdized = prev_act
 
             self.forward_act = self.forward_linear.forward(prev_layer_stdized)
             self.backward_act = -1 * self.backward_linear.forward(labels)
