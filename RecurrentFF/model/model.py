@@ -236,6 +236,7 @@ class RecurrentFFNet(nn.Module):
                     grad_pass_acc_threshold["times_exceeded"] = 0
                     print(f"--------------- new threshold: {test_accuracy} ----- enabled: {grad_pass_acc_threshold['should_pass_back']}")
                 else:  # TODO: try only if still contrastive
+                    # TODO: + 1 buffer
                     grad_pass_acc_threshold["value_contingent"] = test_accuracy
                     grad_pass_acc_threshold["value"] = test_accuracy
                     grad_pass_acc_threshold["times_exceeded"] = 0
@@ -517,6 +518,7 @@ class RecurrentFFNet(nn.Module):
         class_predictions_agg = torch.zeros(
             input_data.pos_input[0].shape[0], self.settings.data_config.num_classes).to(self.settings.device.device)
         percent_c = None
+        has_decided_skip = False
         for iteration in range(0, iterations):
             logging.debug("Iteration: " + str(iteration))
 
@@ -562,16 +564,16 @@ class RecurrentFFNet(nn.Module):
             if percent_c != None and percent_c > grad_pass_acc_threshold["value"]:
                 grad_pass_acc_threshold["times_exceeded"] += 1
                 if grad_pass_acc_threshold["times_exceeded"] > 3:
-                    grad_pass_acc_threshold["should_pass_back"] = False
+                    has_decided_skip = True
 
             # print(
             #     f'{grad_pass_acc_threshold["should_pass_back"]}: {grad_pass_acc_threshold["value"]} vs {percent_c}')
-            if not grad_pass_acc_threshold["should_pass_back"]:
+            if not grad_pass_acc_threshold["should_pass_back"] or has_decided_skip:
                 for layer in self.inner_layers:
                     layer.optimizer.step()
             loss.backward()
             self.optimizer.step()
-            if grad_pass_acc_threshold["should_pass_back"]:
+            if not has_decided_skip and grad_pass_acc_threshold["should_pass_back"]:
                 for layer in self.inner_layers:
                     layer.optimizer.step()
             for layer in self.inner_layers:
@@ -660,10 +662,10 @@ class RecurrentFFNet(nn.Module):
 
             if percent_c < grad_pass_acc_threshold["value_contingent"]:
                 grad_pass_acc_threshold["value_contingent"] -= 0.02
-                print(f"++ updated contingent thresh: {round(grad_pass_acc_threshold['value_contingent'], 2)}")
+                # print(f"++ updated contingent thresh: {round(grad_pass_acc_threshold['value_contingent'], 2)}")
             elif grad_pass_acc_threshold["value"] != grad_pass_acc_threshold["value_contingent"] and percent_c > grad_pass_acc_threshold["value_contingent"]:
                 grad_pass_acc_threshold["value_contingent"] = grad_pass_acc_threshold["value"]
-                print(f"++ reset contingent thresh: {round(grad_pass_acc_threshold['value_contingent'], 2)}")
+                # print(f"++ reset contingent thresh: {round(grad_pass_acc_threshold['value_contingent'], 2)}")
 
             # if it was over 90% confident in correct answer on average return
             # if should_stop:
