@@ -152,7 +152,7 @@ class RecurrentFFNet(nn.Module):
             if isinstance(layer, nn.Linear):
                 nn.init.kaiming_uniform_(layer.weight, nonlinearity='relu')
         self.optimizer = torch.optim.Adam(
-            self.generative_linear.parameters(), lr=self.settings.model.ff_rmsprop.learning_rate)
+            self.generative_linear.parameters(), lr= 0.0000005)
 
         logging.info("Finished initializing network")
 
@@ -227,25 +227,24 @@ class RecurrentFFNet(nn.Module):
                         neg_badness_per_layer,
                         total_batch_count)
 
-                test_accuracy = self.processor.brute_force_predict(
-                    test_loader, self.generative_linear, self.optimizer, 1, True)
-                if test_accuracy > grad_pass_acc_threshold["value_contingent"]:
-                    grad_pass_acc_threshold["should_pass_back"] = not grad_pass_acc_threshold["should_pass_back"]
-                    grad_pass_acc_threshold["value"] = test_accuracy
-                    grad_pass_acc_threshold["value_contingent"] = test_accuracy
-                    grad_pass_acc_threshold["times_exceeded"] = 0
-                    print(f"--------------- new threshold: {test_accuracy} ----- enabled: {grad_pass_acc_threshold['should_pass_back']}")
-                else:  # TODO: try only if still contrastive
-                    # TODO: + 1 buffer
-                    grad_pass_acc_threshold["value_contingent"] = test_accuracy
-                    grad_pass_acc_threshold["value"] = test_accuracy
-                    grad_pass_acc_threshold["times_exceeded"] = 0
+                # test_accuracy = self.processor.brute_force_predict(
+                #     test_loader, self.generative_linear, self.optimizer, 1, True)
+                # if test_accuracy > grad_pass_acc_threshold["value_contingent"]:
+                #     grad_pass_acc_threshold["should_pass_back"] = not grad_pass_acc_threshold["should_pass_back"]
+                #     grad_pass_acc_threshold["value"] = test_accuracy
+                #     grad_pass_acc_threshold["value_contingent"] = test_accuracy
+                #     grad_pass_acc_threshold["times_exceeded"] = 0
+                #     print(f"--------------- new threshold: {test_accuracy} ----- enabled: {grad_pass_acc_threshold['should_pass_back']}")
+                # else:  # TODO: try only if still contrastive
+                #     # TODO: + 1 buffer
+                #     grad_pass_acc_threshold["value_contingent"] = test_accuracy
+                #     grad_pass_acc_threshold["value"] = test_accuracy
+                #     grad_pass_acc_threshold["times_exceeded"] = 0
 
-                if train_accuracy > test_accuracy + 4 and grad_pass_acc_threshold["should_pass_back"]:
-                    grad_pass_acc_threshold["should_pass_back"] = False
-                    print("-----------disabling grad flow")
-
-                print()
+                # if train_accuracy > test_accuracy + 2 and grad_pass_acc_threshold["should_pass_back"]:
+                #     grad_pass_acc_threshold["should_pass_back"] = False
+                #     print("-----------disabling grad flow")
+                # print()
 
                 total_batch_count += 1
 
@@ -565,21 +564,21 @@ class RecurrentFFNet(nn.Module):
 
             # percent_c_after_update = percent_correct(torch.softmax(
             #     reconstructed_labels, dim=1), label_data.pos_labels[iteration])
-            if percent_c != None and percent_c > grad_pass_acc_threshold["value"]:
-                grad_pass_acc_threshold["times_exceeded"] += 1
-                if grad_pass_acc_threshold["times_exceeded"] > 3:
-                    has_decided_skip = True
+            # if percent_c != None and percent_c > grad_pass_acc_threshold["value"]:
+            #     grad_pass_acc_threshold["times_exceeded"] += 1
+            #     if grad_pass_acc_threshold["times_exceeded"] > 3:
+            #         has_decided_skip = True
 
-            # print(
-            #     f'{grad_pass_acc_threshold["should_pass_back"]}: {grad_pass_acc_threshold["value"]} vs {percent_c}')
-            if not grad_pass_acc_threshold["should_pass_back"] or has_decided_skip:
-                for layer in self.inner_layers:
-                    layer.optimizer.step()
+            # if not grad_pass_acc_threshold["should_pass_back"] or has_decided_skip:
+            #     for layer in self.inner_layers:
+            #         layer.optimizer.step()
             loss.backward()
             self.optimizer.step()
-            if not has_decided_skip and grad_pass_acc_threshold["should_pass_back"]:
-                for layer in self.inner_layers:
-                    layer.optimizer.step()
+            # if not has_decided_skip and grad_pass_acc_threshold["should_pass_back"]:
+            #     for layer in self.inner_layers:
+            #         layer.optimizer.step()
+            for layer in self.inner_layers:
+                layer.optimizer.step()
             for layer in self.inner_layers:
                 layer.pos_activations.current = layer.pos_activations.current.clone().detach()
                 layer.neg_activations.current = layer.neg_activations.current.clone().detach()
@@ -664,12 +663,12 @@ class RecurrentFFNet(nn.Module):
             conf, should_stop = is_confident(torch.softmax(
                 reconstructed_labels, dim=1), label_data.pos_labels[iteration], confidence_threshold["value"])
 
-            if percent_c < grad_pass_acc_threshold["value_contingent"]:
-                grad_pass_acc_threshold["value_contingent"] -= 0.02
-                # print(f"++ updated contingent thresh: {round(grad_pass_acc_threshold['value_contingent'], 2)}")
-            elif grad_pass_acc_threshold["value"] != grad_pass_acc_threshold["value_contingent"] and percent_c > grad_pass_acc_threshold["value_contingent"]:
-                grad_pass_acc_threshold["value_contingent"] = grad_pass_acc_threshold["value"]
-                # print(f"++ reset contingent thresh: {round(grad_pass_acc_threshold['value_contingent'], 2)}")
+            # if percent_c < grad_pass_acc_threshold["value_contingent"]:
+            #     grad_pass_acc_threshold["value_contingent"] -= 0.02
+            #     # print(f"++ updated contingent thresh: {round(grad_pass_acc_threshold['value_contingent'], 2)}")
+            # elif grad_pass_acc_threshold["value"] != grad_pass_acc_threshold["value_contingent"] and percent_c > grad_pass_acc_threshold["value_contingent"]:
+            #     grad_pass_acc_threshold["value_contingent"] = grad_pass_acc_threshold["value"]
+            #     # print(f"++ reset contingent thresh: {round(grad_pass_acc_threshold['value_contingent'], 2)}")
 
             # if it was over 90% confident in correct answer on average return
             # if should_stop:
