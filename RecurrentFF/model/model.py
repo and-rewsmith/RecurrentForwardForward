@@ -217,7 +217,7 @@ class RecurrentFFNet(nn.Module):
                     self.processor.replace_negative_data_inplace(
                         input_data.pos_input, label_data, total_batch_count)
 
-                layer_metrics, pos_badness_per_layer, neg_badness_per_layer = self.__train_batch(
+                layer_metrics, pos_badness_per_layer, neg_badness_per_layer, train_accuracy = self.__train_batch(
                     epoch, batch_num, input_data, label_data, total_batch_count, confidence_threshold=confidence_threshold, grad_pass_acc_threshold=grad_pass_acc_threshold)
 
                 if self.settings.model.should_log_metrics:
@@ -240,8 +240,12 @@ class RecurrentFFNet(nn.Module):
                     grad_pass_acc_threshold["value_contingent"] = test_accuracy
                     grad_pass_acc_threshold["value"] = test_accuracy
                     grad_pass_acc_threshold["times_exceeded"] = 0
-                print()
 
+                if train_accuracy > test_accuracy + 4 and grad_pass_acc_threshold["should_pass_back"]:
+                    grad_pass_acc_threshold["should_pass_back"] = False
+                    print("-----------disabling grad flow")
+
+                print()
 
                 total_batch_count += 1
 
@@ -710,7 +714,7 @@ class RecurrentFFNet(nn.Module):
                 *
                 neg_badness_per_layer)]
 
-        return layer_metrics, pos_badness_per_layer_condensed, neg_badness_per_layer_condensed
+        return layer_metrics, pos_badness_per_layer_condensed, neg_badness_per_layer_condensed, correct_percent_agg
 
     def __log_epoch_metrics(
             self,
