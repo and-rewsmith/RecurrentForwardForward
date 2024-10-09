@@ -28,7 +28,8 @@ from RecurrentFF.util import (
     percent_correct,
     sample_avoiding_correct_class,
     sample_from_logits_excluding_highest,
-    standardize_layer_activations
+    standardize_layer_activations,
+    shuffle_softmax
 )
 from RecurrentFF.settings import (
     Settings,
@@ -587,6 +588,11 @@ class RecurrentFFNet(nn.Module):
 
             generative_input = generative_input.detach()
 
+            softmax_pos_labels = torch.softmax(
+                generative_input[:, self.settings.data_config.data_size:], dim=1)
+            if random.randint(1, 10) > 9:
+                softmax_pos_labels = shuffle_softmax(softmax_pos_labels)
+
             input_data_sample = (
                 input_data.pos_input[iteration],
                 # generative_input[:, 0:self.settings.data_config.data_size])
@@ -596,6 +602,7 @@ class RecurrentFFNet(nn.Module):
                 #     self.settings.device.device),
                 # torch.zeros(self.settings.data_config.train_batch_size, self.settings.data_config.num_classes).to(
                 #     self.settings.device.device),
+                # softmax_pos_labels,
                 torch.softmax(
                     generative_input[:, self.settings.data_config.data_size:], dim=1),
                 # torch.softmax(

@@ -5,6 +5,29 @@ from typing import Generator
 import torch
 from torch.nn import functional as F
 
+def shuffle_softmax(tensor):
+    """
+    Shuffles the values in the softmax dimension of the input tensor randomly.
+
+    Args:
+    tensor (torch.Tensor): A 2D tensor of shape (batch_size, softmax_dimension)
+
+    Returns:
+    torch.Tensor: A tensor with the same shape where values within each batch are shuffled randomly
+    """
+    # Get the batch size and softmax dimension from the tensor
+    batch_size, softmax_dim = tensor.shape
+    
+    # Initialize an empty tensor to hold the shuffled values
+    shuffled_tensor = torch.empty_like(tensor)
+    
+    # Iterate over each batch
+    for i in range(batch_size):
+        # Shuffle the values in the softmax dimension for this batch
+        shuffled_tensor[i] = tensor[i, torch.randperm(softmax_dim)]
+    
+    return shuffled_tensor
+
 def sample_from_logits_excluding_highest(logits):
     # Apply softmax to convert logits to probabilities
     probs = F.softmax(logits, dim=1)
