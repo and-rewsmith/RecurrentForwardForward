@@ -602,9 +602,9 @@ class RecurrentFFNet(nn.Module):
                 #     self.settings.device.device),
                 # torch.zeros(self.settings.data_config.train_batch_size, self.settings.data_config.num_classes).to(
                 #     self.settings.device.device),
-                # softmax_pos_labels,
-                torch.softmax(
-                    generative_input[:, self.settings.data_config.data_size:], dim=1),
+                softmax_pos_labels,
+                # torch.softmax(
+                #     generative_input[:, self.settings.data_config.data_size:], dim=1),
                 # torch.softmax(
                 #     generative_input[:, self.settings.data_config.data_size:], dim=1),
                 # torch.softmax(
@@ -620,8 +620,9 @@ class RecurrentFFNet(nn.Module):
                 # torch.softmax(
                 #     generative_input[:, self.settings.data_config.data_size:], dim=1),
                 # torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1),
-                swap_top_two_softmax(torch.softmax(
-                    generative_input[:, self.settings.data_config.data_size:], dim=1))
+                swap_top_two_softmax(softmax_pos_labels)
+                # swap_top_two_softmax(torch.softmax(
+                #     generative_input[:, self.settings.data_config.data_size:], dim=1))
                 # zero_correct_class_softmax(
                 #     generative_input[:, self.settings.data_config.data_size:], label_data.pos_labels[iteration]),
             )
