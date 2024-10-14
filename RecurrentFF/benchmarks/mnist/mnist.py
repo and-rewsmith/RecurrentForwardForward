@@ -13,7 +13,7 @@ DATA_SIZE = 784
 NUM_CLASSES = 10
 TRAIN_BATCH_SIZE = 500
 TEST_BATCH_SIZE = 500
-ITERATIONS = 10
+ITERATIONS = 16
 DATASET = "MNIST"
 
 # If you want to load weights fill this in.

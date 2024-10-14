@@ -153,7 +153,7 @@ class RecurrentFFNet(nn.Module):
             if isinstance(layer, nn.Linear):
                 nn.init.kaiming_uniform_(layer.weight, nonlinearity='relu')
         self.optimizer = torch.optim.Adam(
-            self.generative_linear.parameters(), lr= 0.0000005)
+            self.generative_linear.parameters(), lr=0.000000005)
 
         logging.info("Finished initializing network")
 
@@ -205,7 +205,8 @@ class RecurrentFFNet(nn.Module):
         total_batch_count = 0
         best_test_accuracy: float = 0
         confidence_threshold = {"value": 0.01}
-        grad_pass_acc_threshold = {"value": 1, "should_pass_back": False, "value_contingent": 1, "times_exceeded": 0}
+        grad_pass_acc_threshold = {
+            "value": 1, "should_pass_back": False, "value_contingent": 1, "times_exceeded": 0}
         for epoch in range(0, self.settings.model.epochs):
             logging.info("Epoch: " + str(epoch))
             self.train()
@@ -573,6 +574,8 @@ class RecurrentFFNet(nn.Module):
             # if not grad_pass_acc_threshold["should_pass_back"] or has_decided_skip:
             #     for layer in self.inner_layers:
             #         layer.optimizer.step()
+            # for layer in self.inner_layers:
+            #     layer.optimizer.step()
             loss.backward()
             self.optimizer.step()
             # if not has_decided_skip and grad_pass_acc_threshold["should_pass_back"]:
@@ -590,13 +593,13 @@ class RecurrentFFNet(nn.Module):
 
             softmax_pos_labels = torch.softmax(
                 generative_input[:, self.settings.data_config.data_size:], dim=1)
-            if random.randint(1, 10) > 9:
-                softmax_pos_labels = shuffle_softmax(softmax_pos_labels)
+            # if random.randint(1, 10) > 8:
+            #     softmax_pos_labels = shuffle_softmax(softmax_pos_labels)
 
             input_data_sample = (
                 input_data.pos_input[iteration],
-                generative_input[:, 0:self.settings.data_config.data_size])
-                # input_data.pos_input[iteration])
+                # generative_input[:, 0:self.settings.data_config.data_size])
+                input_data.pos_input[iteration])
             label_data_sample = (
                 # torch.zeros(self.settings.data_config.train_batch_size, self.settings.data_config.num_classes).to(
                 #     self.settings.device.device),
@@ -609,9 +612,9 @@ class RecurrentFFNet(nn.Module):
                 #     generative_input[:, self.settings.data_config.data_size:], dim=1),
                 # torch.softmax(
                 #     generative_input[:, self.settings.data_config.data_size:], dim=1),
-                # sample_avoiding_correct_class(
-                #     generative_input[:, self.settings.data_config.data_size:],
-                #     label_data.pos_labels[iteration]),
+                sample_avoiding_correct_class(
+                    generative_input[:, self.settings.data_config.data_size:],
+                    label_data.pos_labels[iteration]),
                 # label_data.pos_labels[iteration],
                 # sample_from_logits(
                 #     torch.softmax(
@@ -620,7 +623,7 @@ class RecurrentFFNet(nn.Module):
                 # torch.softmax(
                 #     generative_input[:, self.settings.data_config.data_size:], dim=1),
                 # torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1),
-                swap_top_two_softmax(softmax_pos_labels)
+                # swap_top_two_softmax(softmax_pos_labels)
                 # swap_top_two_softmax(torch.softmax(
                 #     generative_input[:, self.settings.data_config.data_size:], dim=1))
                 # zero_correct_class_softmax(
