@@ -152,8 +152,8 @@ class RecurrentFFNet(nn.Module):
         for layer in self.generative_linear:
             if isinstance(layer, nn.Linear):
                 nn.init.kaiming_uniform_(layer.weight, nonlinearity='relu')
-        self.optimizer = torch.optim.Adam(
-            self.generative_linear.parameters(), lr=0.00005)
+        self.optimizer = torch.optim.SGD(
+            self.generative_linear.parameters(), lr=0.0005)
 
         logging.info("Finished initializing network")
 
@@ -576,13 +576,15 @@ class RecurrentFFNet(nn.Module):
             #         layer.optimizer.step()
             # for layer in self.inner_layers:
             #     layer.optimizer.step()
+            for layer in self.inner_layers:
+                layer.optimizer.step()
             loss.backward()
             self.optimizer.step()
             # if not has_decided_skip and grad_pass_acc_threshold["should_pass_back"]:
             #     for layer in self.inner_layers:
             #         layer.optimizer.step()
-            for layer in self.inner_layers:
-                layer.optimizer.step()
+            # for layer in self.inner_layers:
+            #     layer.optimizer.step()
             for layer in self.inner_layers:
                 layer.pos_activations.current = layer.pos_activations.current.clone().detach()
                 layer.neg_activations.current = layer.neg_activations.current.clone().detach()
