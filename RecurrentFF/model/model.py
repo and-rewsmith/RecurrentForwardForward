@@ -152,8 +152,8 @@ class RecurrentFFNet(nn.Module):
         for layer in self.generative_linear:
             if isinstance(layer, nn.Linear):
                 nn.init.kaiming_uniform_(layer.weight, nonlinearity='relu')
-        self.optimizer = torch.optim.AdamW(
-            self.generative_linear.parameters(), lr=0.00005)
+        self.optimizer = torch.optim.SGD(
+            self.generative_linear.parameters(), lr=0.0005)
 
         logging.info("Finished initializing network")
 
