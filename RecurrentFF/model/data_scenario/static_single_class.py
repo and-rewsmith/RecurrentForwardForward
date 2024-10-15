@@ -398,7 +398,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                 iteration = min(iteration, iterations - 1)
 
                 generative_output = generative_linear(
-                    torch.cat([layer.pos_activations.current for layer in self.inner_layers], dim=1))
+                    torch.cat([layer.pos_activations.current for layer in self.inner_layers] + [layer.neg_activations.current for layer in self.inner_layers], dim=1))
                 assert generative_output.shape[0] == data.shape[1] and generative_output.shape[
                     1] == self.settings.data_config.data_size + self.settings.data_config.num_classes
                 reconstructed_data, reconstructed_labels = generative_output.split(
@@ -419,8 +419,8 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
 
                 input_data_sample = (
                     data[iteration],
-                    # generative_output[:, 0:self.settings.data_config.data_size])
-                    data[iteration])
+                    generative_output[:, 0:self.settings.data_config.data_size])
+                    # data[iteration])
                 label_data_sample = (
                     # torch.nn.functional.one_hot(torch.multinomial(reconstructed_labels_softmax, num_samples=1).squeeze(
                     #     1), num_classes=10).to(dtype=torch.float32, device=self.settings.device.device),
@@ -459,7 +459,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                     generative_output[:, self.settings.data_config.data_size:], dim=1)
                 self.optimizer.zero_grad()
                 post_opt_logits = generative_linear(
-                    torch.cat([layer.pos_activations.current for layer in self.inner_layers], dim=1))[:, self.settings.data_config.data_size:]
+                    torch.cat([layer.pos_activations.current for layer in self.inner_layers] + [layer.neg_activations.current for layer in self.inner_layers], dim=1))[:, self.settings.data_config.data_size:]
                 post_op_log_softmax_predicted_classes = torch.log_softmax(
                     post_opt_logits, dim=1)
                 criterion = torch.nn.KLDivLoss()
