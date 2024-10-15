@@ -24,6 +24,8 @@ class LayerMetrics:
         self.lateral_weights_norms = [0 for _ in range(0, num_layers)]
         self.lateral_grads_norms = [0 for _ in range(0, num_layers)]
         self.losses_per_layer: List[float] = [0 for _ in range(0, num_layers)]
+        self.contrastive_losses_per_layer: List[float] = [0 for _ in range(0, num_layers)]
+        self.smooth_losses_per_layer: List[float] = [0 for _ in range(0, num_layers)]
 
         self.num_data_points = 0
 
@@ -35,7 +37,9 @@ class LayerMetrics:
             self,
             layer_num: int,
             layer: HiddenLayer,
-            loss: float) -> None:
+            loss: float,
+            contrastive_loss: float,
+            smooth_loss: float) -> None:
         assert layer.pos_activations is not None
         assert layer.neg_activations is not None
 
@@ -59,6 +63,8 @@ class LayerMetrics:
         self.lateral_weights_norms[layer_num] += lateral_weights_norm
         # self.lateral_grads_norms[layer_num] += lateral_grads_norm
         self.losses_per_layer[layer_num] += loss
+        self.contrastive_losses_per_layer[layer_num] += contrastive_loss
+        self.smooth_losses_per_layer[layer_num] += smooth_loss
 
         for group in layer.optimizer.param_groups:
             for param in group['params']:
@@ -106,7 +112,7 @@ class LayerMetrics:
         self.num_data_points += 1
 
     def average_layer_loss(self) -> float:
-        return sum(self.losses_per_layer) / self.num_data_points
+        return sum(self.losses_per_layer) / self.num_data_points, sum(self.contrastive_losses_per_layer) / self.num_data_points, sum(self.smooth_losses_per_layer) / self.num_data_points
 
     def log_metrics(self, total_batch_count: int) -> None:
         pass
@@ -236,20 +242,20 @@ class InnerLayers(nn.Module):
             logging.debug("Training layer " + str(i))
             loss = None
             if i == 0 and len(self.layers) == 1:
-                loss = layer.train_layer(input_data, label_data, should_damp, retain_graph)
+                loss, contrastive_loss, smooth_loss = layer.train_layer(input_data, label_data, should_damp, retain_graph)
             elif i == 0:
-                loss = layer.train_layer(input_data, None, should_damp, retain_graph)
+                loss, contrastive_loss, smooth_loss = layer.train_layer(input_data, None, should_damp, retain_graph)
             elif i == len(self.layers) - 1:
-                loss = layer.train_layer(None, label_data, should_damp, retain_graph)
+                loss, contrastive_loss, smooth_loss = layer.train_layer(None, label_data, should_damp, retain_graph)
             else:
-                loss = layer.train_layer(None, None, should_damp, retain_graph)
+                loss, contrastive_loss, smooth_loss = layer.train_layer(None, None, should_damp, retain_graph)
 
             layer_num = i + 1
             logging.debug("Loss for layer " +
                           str(layer_num) + ": " + str(loss))
 
             if layer_metrics is not None:
-                layer_metrics.ingest_layer_metrics(i, layer, loss)
+                layer_metrics.ingest_layer_metrics(i, layer, loss, contrastive_loss=contrastive_loss, smooth_loss=smooth_loss)
 
         if layer_metrics is not None:
             layer_metrics.increment_samples_seen()
@@ -312,6 +318,13 @@ class InnerLayers(nn.Module):
 
         for layer in self.layers:
             layer.advance_stored_activations()
+
+        # hack needed as we detach at beginning of train fn so we miss last iter
+        for layer in self.layers:
+            layer.pos_activations.current = layer.pos_activations.current.clone().detach()
+            layer.neg_activations.current = layer.neg_activations.current.clone().detach()
+            layer.pos_activations.previous = layer.pos_activations.previous.clone().detach()
+            layer.neg_activations.previous = layer.neg_activations.previous.clone().detach()
 
     def reset_activations(self, isTraining: bool) -> None:
         for layer in self.layers:

@@ -589,6 +589,21 @@ class HiddenLayer(nn.Module):
 
         wandb.log({"reset_parameters": total_reset})
 
+    def generate_lpl_loss_predictive(self, current_activations_with_grad: torch.Tensor, prev_act: torch.Tensor) -> Tensor:
+        def generate_loss(current_act: Tensor, previous_act: Tensor) -> Tensor:
+            loss = (current_act - previous_act) ** 2
+            loss = torch.sum(loss, dim=1)
+            loss = torch.sum(loss, dim=0)
+            loss = loss / \
+                (2 * current_act.shape[0] * current_act.shape[1])
+            return loss
+
+        assert current_activations_with_grad.requires_grad == True
+        assert self.pos_activations.previous.requires_grad == False
+        pos_loss = generate_loss(
+            current_activations_with_grad, prev_act)
+        return pos_loss
+
     # @profile(stdout=False, filename='baseline.prof',
     #          skip=Settings.new().model.skip_profiling)
     def train_layer(self,  # type: ignore[override]
@@ -625,6 +640,9 @@ class HiddenLayer(nn.Module):
             neg_activations = self.forward(
                 ForwardMode.NegativeData, None, None, should_damp)
 
+        smooth_loss_pos = self.generate_lpl_loss_predictive(pos_activations, self.pos_activations.previous)
+        smooth_loss_neg = self.generate_lpl_loss_predictive(neg_activations, self.neg_activations.previous)
+
         pos_badness = layer_activations_to_badness(pos_activations)
         neg_badness = layer_activations_to_badness(neg_activations)
         # pos_badness = torch.clamp(pos_badness, min=0.5)
@@ -633,10 +651,12 @@ class HiddenLayer(nn.Module):
         # Loss function equivelent to:
         # plot3d log(1 + exp(-n + 1)) + log(1 + exp(p - 1)) for n=0 to 3, p=0
         # to 3
-        layer_loss: Tensor = 1 * F.softplus(torch.cat([
+        contrastive_loss: Tensor = 1 * F.softplus(torch.cat([
             (-1 * neg_badness) + self.settings.model.loss_threshold,
             pos_badness - self.settings.model.loss_threshold
         ])).mean()
+        smooth_loss = smooth_loss_pos + smooth_loss_neg
+        layer_loss = 1 * (smooth_loss) + contrastive_loss
         layer_loss.backward(retain_graph=retain_graph)
         # layer_loss.backward()
 
@@ -650,7 +670,7 @@ class HiddenLayer(nn.Module):
         # self.optimizer.step()
 
         # self.reset_parameters_with_small_gradients()
-        return cast(float, layer_loss.item())
+        return cast(float, layer_loss.item()), contrastive_loss.item(), smooth_loss.item()
 
     # TODO: needs to be more DRY
     def forward(self, mode: ForwardMode, data: torch.Tensor, labels: torch.Tensor, should_damp: bool) -> torch.Tensor:

@@ -342,6 +342,13 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
             is_test_set: bool = False,
             write_activations: bool = False,
     ) -> float:
+        # hack needed as we detach at beginning of train fn so we miss last iter
+        for layer in self.inner_layers:
+            layer.pos_activations.current = layer.pos_activations.current.clone().detach()
+            layer.neg_activations.current = layer.neg_activations.current.clone().detach()
+            layer.pos_activations.previous = layer.pos_activations.previous.clone().detach()
+            layer.neg_activations.previous = layer.neg_activations.previous.clone().detach()
+
         if write_activations:
             assert self.settings.data_config.test_batch_size == 1 \
                 and is_test_set, "Cannot write activations for batch size > 1"
@@ -395,7 +402,14 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                 data.shape[1], self.settings.data_config.num_classes).to(self.settings.device.device)
             for iteration in range(0, iterations // 3 * 2):
                 # for iteration in range(0, 1):
-                iteration = min(iteration, iterations - 1)
+                # iteration = min(iteration, iterations - 1)
+
+                # print(iteration)
+                # for layer in self.inner_layers:
+                #     print(layer.pos_activations.current.requires_grad)
+                #     print(layer.neg_activations.current.requires_grad)
+                #     print(layer.pos_activations.previous.requires_grad)
+                #     print(layer.neg_activations.previous.requires_grad)
 
                 generative_output = generative_linear(
                     torch.cat([layer.pos_activations.current for layer in self.inner_layers] + [layer.neg_activations.current for layer in self.inner_layers], dim=1))
@@ -419,8 +433,8 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
 
                 input_data_sample = (
                     data[iteration],
-                    generative_output[:, 0:self.settings.data_config.data_size])
-                    # data[iteration])
+                    # generative_output[:, 0:self.settings.data_config.data_size])
+                    data[iteration])
                 label_data_sample = (
                     # torch.nn.functional.one_hot(torch.multinomial(reconstructed_labels_softmax, num_samples=1).squeeze(
                     #     1), num_classes=10).to(dtype=torch.float32, device=self.settings.device.device),

@@ -600,8 +600,8 @@ class RecurrentFFNet(nn.Module):
 
             input_data_sample = (
                 input_data.pos_input[iteration],
-                generative_input[:, 0:self.settings.data_config.data_size])
-                # input_data.pos_input[iteration])
+                # generative_input[:, 0:self.settings.data_config.data_size])
+                input_data.pos_input[iteration])
             label_data_sample = (
                 # torch.zeros(self.settings.data_config.train_batch_size, self.settings.data_config.num_classes).to(
                 #     self.settings.device.device),
@@ -762,10 +762,12 @@ class RecurrentFFNet(nn.Module):
             pass
 
         layer_metrics.log_metrics(total_batch_count)
-        average_layer_loss = layer_metrics.average_layer_loss()
+        average_layer_loss, average_contrastive_loss, average_smooth_loss = layer_metrics.average_layer_loss()
 
         if len(self.inner_layers) >= 3:
             wandb.log({"loss": average_layer_loss,
+                       "contrastive_loss": average_contrastive_loss,
+                       "smooth_loss": average_smooth_loss,
                        "first_layer_pos_badness": first_layer_pos_badness,
                        "second_layer_pos_badness": second_layer_pos_badness,
                        "third_layer_pos_badness": third_layer_pos_badness,
@@ -777,6 +779,8 @@ class RecurrentFFNet(nn.Module):
         elif len(self.inner_layers) == 2:
             wandb.log({
                 "loss": average_layer_loss,
+                "contrastive_loss": average_contrastive_loss,
+                "smooth_loss": average_smooth_loss,
                 "first_layer_pos_badness": first_layer_pos_badness,
                 "second_layer_pos_badness": second_layer_pos_badness,
                 "first_layer_neg_badness": first_layer_neg_badness,
@@ -787,6 +791,8 @@ class RecurrentFFNet(nn.Module):
         elif len(self.inner_layers) == 1:
             wandb.log({
                 "loss": average_layer_loss,
+                "contrastive_loss": average_contrastive_loss,
+                "smooth_loss": average_smooth_loss,
                 "first_layer_pos_badness": first_layer_pos_badness,
                 "first_layer_neg_badness": first_layer_neg_badness,
                 "batch": total_batch_count},
