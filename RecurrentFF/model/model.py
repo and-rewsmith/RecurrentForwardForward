@@ -152,8 +152,8 @@ class RecurrentFFNet(nn.Module):
         for layer in self.generative_linear:
             if isinstance(layer, nn.Linear):
                 nn.init.kaiming_uniform_(layer.weight, nonlinearity='relu')
-        self.optimizer = torch.optim.SGD(
-            self.generative_linear.parameters(), lr=0.0005)
+        self.optimizer = torch.optim.AdamW(
+            self.generative_linear.parameters(), lr=0.00005, weight_decay=0.01)
 
         logging.info("Finished initializing network")
 
@@ -539,7 +539,7 @@ class RecurrentFFNet(nn.Module):
             self.optimizer.zero_grad()
             generative_input = self.generative_linear(
                 torch.cat(
-                    [layer.neg_activations.current for layer in self.inner_layers], dim=1)
+                    [layer.pos_activations.current for layer in self.inner_layers], dim=1)
             )
             assert generative_input.shape[0] == input_data.pos_input[iteration].shape[0] and generative_input.shape[
                 1] == input_data.pos_input[iteration].shape[1] + self.settings.data_config.num_classes
@@ -595,7 +595,7 @@ class RecurrentFFNet(nn.Module):
 
             softmax_pos_labels = torch.softmax(
                 generative_input[:, self.settings.data_config.data_size:], dim=1)
-            if random.randint(1, 10) >= 8:
+            if random.randint(1, 10) >= 5:
                 softmax_pos_labels = shuffle_softmax(softmax_pos_labels)
 
             input_data_sample = (
@@ -609,8 +609,10 @@ class RecurrentFFNet(nn.Module):
                 #     self.settings.device.device),
                 # softmax_pos_labels,
                 # label_data.pos_labels[iteration],
-                torch.nn.functional.one_hot(torch.argmax(
-                    generative_input[:, self.settings.data_config.data_size:], dim=1), num_classes=10).to(dtype=torch.float32, device=self.settings.device.device),
+                torch.nn.functional.one_hot(torch.multinomial(softmax_pos_labels, num_samples=1).squeeze(
+                    1), num_classes=10).to(dtype=torch.float32, device=self.settings.device.device),
+                # torch.nn.functional.one_hot(torch.argmax(
+                #     softmax_pos_labels, dim=1), num_classes=10).to(dtype=torch.float32, device=self.settings.device.device),
                 # torch.softmax(
                 #     generative_input[:, self.settings.data_config.data_size:], dim=1),
                 # torch.softmax(
@@ -618,7 +620,7 @@ class RecurrentFFNet(nn.Module):
                 # torch.softmax(
                 #     generative_input[:, self.settings.data_config.data_size:], dim=1),
                 sample_avoiding_correct_class(
-                    generative_input[:, self.settings.data_config.data_size:],
+                    softmax_pos_labels,
                     label_data.pos_labels[iteration]),
                 # label_data.pos_labels[iteration],
                 # sample_from_logits(

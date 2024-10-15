@@ -29,7 +29,7 @@ lateral_block_bleed = [0.15, 0.2, 0.3, 0.35, 0.45, 0.5]
 
 [model.ff_rmsprop]
 momentum = 0.0
-learning_rate =  0.000005
+learning_rate =  0.00005
 
 [model.classifier_rmsprop]
 momentum = 0
