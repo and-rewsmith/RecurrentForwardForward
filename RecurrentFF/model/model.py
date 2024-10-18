@@ -141,6 +141,7 @@ class RecurrentFFNet(nn.Module):
         size = self.settings.model.hidden_sizes[-1]
         num_layers = len(self.settings.model.hidden_sizes)
         generative_size = size * num_layers * 2
+        # generative_size = size * num_layers
         self.generative_linear = torch.nn.Sequential(
             # nn.Linear(generative_size, generative_size),
             # nn.ReLU(),
@@ -541,6 +542,10 @@ class RecurrentFFNet(nn.Module):
                 torch.cat(
                     [layer.pos_activations.current for layer in self.inner_layers] + [layer.neg_activations.current for layer in self.inner_layers], dim=1)
             )
+            # generative_input = self.generative_linear(
+            #     torch.cat(
+            #         [layer.neg_activations.current for layer in self.inner_layers], dim=1)
+            # )
             assert generative_input.shape[0] == input_data.pos_input[iteration].shape[0] and generative_input.shape[
                 1] == input_data.pos_input[iteration].shape[1] + self.settings.data_config.num_classes
             reconstructed_data, reconstructed_labels = generative_input.split(
@@ -622,7 +627,7 @@ class RecurrentFFNet(nn.Module):
                 sample_avoiding_correct_class(
                     softmax_pos_labels,
                     label_data.pos_labels[iteration]),
-                # label_data.pos_labels[iteration],
+                # label_data.neg_labels[iteration],
                 # sample_from_logits(
                 #     torch.softmax(
                 #         generative_input[:, self.settings.data_config.data_size:], dim=1)

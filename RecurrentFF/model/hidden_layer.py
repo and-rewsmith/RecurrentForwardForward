@@ -655,7 +655,7 @@ class HiddenLayer(nn.Module):
             (-1 * neg_badness) + self.settings.model.loss_threshold,
             pos_badness - self.settings.model.loss_threshold
         ])).mean()
-        smooth_loss = 0.5 * (smooth_loss_pos + smooth_loss_neg)
+        smooth_loss = 0.0 * (smooth_loss_pos + smooth_loss_neg)
         layer_loss = smooth_loss + contrastive_loss
         layer_loss.backward(retain_graph=retain_graph)
         # layer_loss.backward()
