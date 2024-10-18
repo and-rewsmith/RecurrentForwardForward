@@ -337,6 +337,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
             self,
             loader: torch.utils.data.DataLoader,
             generative_linear: torch.nn.modules.container.Sequential,
+            m: torch.nn.Linear,
             optimizer: torch.optim.Optimizer,
             limit_batches: Optional[int] = None,
             is_test_set: bool = False,
@@ -413,6 +414,11 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
 
                 generative_output = generative_linear(
                     torch.cat([layer.pos_activations.current for layer in self.inner_layers] + [layer.neg_activations.current for layer in self.inner_layers], dim=1))
+                generative_gating = m(
+                    torch.cat([layer.pos_activations.current for layer in self.inner_layers] + [layer.neg_activations.current for layer in self.inner_layers], dim=1))
+                generative_gating = torch.sigmoid(generative_gating)
+                generative_output = generative_output * generative_gating
+
                 assert generative_output.shape[0] == data.shape[1] and generative_output.shape[
                     1] == self.settings.data_config.data_size + self.settings.data_config.num_classes
                 reconstructed_data, reconstructed_labels = generative_output.split(
@@ -473,15 +479,21 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                     generative_output[:, self.settings.data_config.data_size:], dim=1)
                 self.optimizer.zero_grad()
                 post_opt_logits = generative_linear(
-                    torch.cat([layer.pos_activations.current for layer in self.inner_layers] + [layer.neg_activations.current for layer in self.inner_layers], dim=1))[:, self.settings.data_config.data_size:]
+                    torch.cat([layer.pos_activations.current for layer in self.inner_layers] + [layer.neg_activations.current for layer in self.inner_layers], dim=1))
                 # post_opt_logits = generative_linear(
                 #     torch.cat([layer.neg_activations.current for layer in self.inner_layers], dim=1))[:, self.settings.data_config.data_size:]
+                generative_gating = m(
+                    torch.cat([layer.pos_activations.current for layer in self.inner_layers] + [layer.neg_activations.current for layer in self.inner_layers], dim=1))
+                generative_gating = torch.sigmoid(generative_gating)
+                post_opt_logits = post_opt_logits * generative_gating
+                post_opt_logits = post_opt_logits[:,
+                                                  self.settings.data_config.data_size:]
                 post_op_log_softmax_predicted_classes = torch.log_softmax(
                     post_opt_logits, dim=1)
                 criterion = torch.nn.KLDivLoss()
                 loss = criterion(
                     post_op_log_softmax_predicted_classes, pre_opt_softmax_predicted_classes)
-                loss.backward()
+                # loss.backward()
 
                 # from torchviz import make_dot
                 # from itertools import chain

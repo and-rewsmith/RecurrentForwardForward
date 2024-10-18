@@ -153,6 +153,10 @@ class RecurrentFFNet(nn.Module):
         for layer in self.generative_linear:
             if isinstance(layer, nn.Linear):
                 nn.init.kaiming_uniform_(layer.weight, nonlinearity='relu')
+        self.m = nn.Linear(generative_size, settings.data_config.data_size +
+                           settings.data_config.num_classes)
+        nn.init.kaiming_uniform_(self.m.weight, nonlinearity='sigmoid')
+
         self.optimizer = torch.optim.SGD(
             self.generative_linear.parameters(), lr=0.0005)
 
@@ -258,9 +262,9 @@ class RecurrentFFNet(nn.Module):
             #
             # TODO: Fix this hacky data loader bridge format
             test_accuracy = self.processor.brute_force_predict(
-                test_loader, self.generative_linear, self.optimizer, 1, True)
+                test_loader, self.generative_linear, self.m, self.optimizer, 1, True)
             train_accuracy = self.processor.brute_force_predict(
-                TrainTestBridgeFormatLoader(train_loader), self.generative_linear, self.optimizer, 1, False)  # type: ignore[arg-type]
+                TrainTestBridgeFormatLoader(train_loader), self.generative_linear, self.m, self.optimizer, 1, False)  # type: ignore[arg-type]
 
             if test_accuracy > best_test_accuracy:
                 best_test_accuracy = test_accuracy
@@ -542,6 +546,12 @@ class RecurrentFFNet(nn.Module):
                 torch.cat(
                     [layer.pos_activations.current for layer in self.inner_layers] + [layer.neg_activations.current for layer in self.inner_layers], dim=1)
             )
+            generative_gating = self.m(
+                torch.cat(
+                    [layer.pos_activations.current for layer in self.inner_layers] + [layer.neg_activations.current for layer in self.inner_layers], dim=1)
+            )
+            generative_gating = torch.sigmoid(generative_gating)
+            generative_input = generative_input * generative_gating
             # generative_input = self.generative_linear(
             #     torch.cat(
             #         [layer.neg_activations.current for layer in self.inner_layers], dim=1)
