@@ -320,11 +320,21 @@ class InnerLayers(nn.Module):
             layer.advance_stored_activations()
 
         # hack needed as we detach at beginning of train fn so we miss last iter
+        # so at end of model train fn, grad is active
+        # predict does preinit steps calling forward
+        # after forward is train which expects requires grad to be true / false
+        # but this won't be true / false because we didn't perform this logic in next iter of train loop (fn ended)
+        # hack is to do it here so, in testing, preinit steps will at least do it once before calling the train_layer
+        # 
+        # second level of hack is this try for energy predict
         for layer in self.layers:
-            layer.pos_activations.current = layer.pos_activations.current.clone().detach()
-            layer.neg_activations.current = layer.neg_activations.current.clone().detach()
-            layer.pos_activations.previous = layer.pos_activations.previous.clone().detach()
-            layer.neg_activations.previous = layer.neg_activations.previous.clone().detach()
+            try:
+                layer.pos_activations.current = layer.pos_activations.current.clone().detach()
+                layer.neg_activations.current = layer.neg_activations.current.clone().detach()
+                layer.pos_activations.previous = layer.pos_activations.previous.clone().detach()
+                layer.neg_activations.previous = layer.neg_activations.previous.clone().detach()
+            except:
+                pass
 
     def reset_activations(self, isTraining: bool) -> None:
         for layer in self.layers:

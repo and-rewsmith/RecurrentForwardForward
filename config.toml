@@ -1,11 +1,11 @@
 [device]
-device = "cuda:1"
+device = "cuda:0"
 
 [model]
 hidden_sizes = [1000, 1000, 1000, 1000, 1000, 1000]
 epochs = 30000
 prelabel_timesteps = 2
-loss_threshold = 1.5
+loss_threshold = 5
 damping_factor = 0.7
 epsilon = 0.00000001
 skip_profiling = 1

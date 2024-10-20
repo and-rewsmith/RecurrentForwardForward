@@ -666,3 +666,167 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                 target_latents.track_collapsed_latents(latents_collapsed)
 
         return target_latents.retrieve()
+
+    def brute_force_predict_energy(
+                self,
+                loader: torch.utils.data.DataLoader,
+                limit_batches: Optional[int] = None,
+                is_test_set: bool = False,
+                write_activations: bool = False) -> float:
+            """
+            This function predicts the class labels for the provided test data using
+            the trained RecurrentFFNet model. It does so by enumerating all possible
+            class labels and choosing the one that produces the lowest 'badness'
+            score. We cannot use this function for datasets with changing classes.
+
+            Args:
+                test_data (object): A tuple containing the test data, one-hot labels,
+                and the actual labels. The data is assumed to be PyTorch tensors.
+
+            Returns:
+                float: The prediction accuracy as a percentage.
+
+            Procedure:
+                The function first moves the test data and labels to the appropriate
+                device. It then calculates the 'badness' metric for each possible
+                class label, using a two-step process:
+
+                    1. Resetting the network's activations and forwarding the data
+                    through the network with the current label.
+                    2. For each iteration within a specified threshold, forwarding
+                    the data again, but this time retaining the
+                    activations, which are used to calculate the 'badness' for each
+                    layer.
+
+                The 'badness' values across iterations and layers are then averaged
+                to produce a single 'badness' score for each class label. The class
+                with the lowest 'badness' score is chosen as the prediction for
+                each test sample.
+
+                Finally, the function calculates the overall accuracy of the model's
+                predictions by comparing them to the actual labels and returns this
+                accuracy.
+            """
+            if write_activations:
+                assert self.settings.data_config.test_batch_size == 1 \
+                    and is_test_set, "Cannot write activations for batch size > 1"
+                activity_tracker = StaticSingleClassActivityTracker()
+
+            forward_mode = ForwardMode.PredictData if is_test_set else ForwardMode.PositiveData
+
+            # tuple: (correct, total)
+            accuracy_contexts = []
+
+            for batch, test_data in enumerate(loader):
+                if limit_batches is not None and batch == limit_batches:
+                    break
+
+                with torch.no_grad():
+                    data, labels = test_data
+                    data = data.to(self.settings.device.device)
+                    labels = labels.to(self.settings.device.device)
+
+                    if write_activations:
+                        activity_tracker.reinitialize(data, labels)
+
+                    # since this is static singleclass we can use the first frame
+                    # for the label
+                    labels = labels[0]
+
+                    iterations = data.shape[0]
+
+                    all_labels_badness = []
+
+                    # evaluate badness for each possible label
+                    for label in range(self.settings.data_config.num_classes):
+                        self.inner_layers.reset_activations(not is_test_set)
+
+                        upper_clamped_tensor = self.get_preinit_upper_clamped_tensor(
+                            (data.shape[1], self.settings.data_config.num_classes))
+
+                        for _preinit_step in range(
+                                0, self.settings.model.prelabel_timesteps):
+                            self.inner_layers.advance_layers_forward(
+                                forward_mode, data[0], upper_clamped_tensor, False)
+                            if write_activations:
+                                activity_tracker.track_partial_activations(
+                                    self.inner_layers)
+
+                        one_hot_labels = torch.zeros(
+                            data.shape[1],
+                            self.settings.data_config.num_classes,
+                            device=self.settings.device.device)
+                        one_hot_labels[:, label] = 1.0
+
+                        lower_iteration_threshold = iterations // 2 - \
+                            iterations // 10
+                        upper_iteration_threshold = iterations // 2 + \
+                            iterations // 10
+                        badnesses = []
+                        for iteration in range(0, iterations):
+                            self.inner_layers.advance_layers_forward(
+                                forward_mode, data[iteration], one_hot_labels, True)
+                            if write_activations:
+                                activity_tracker.track_partial_activations(
+                                    self.inner_layers)
+
+                            if iteration >= lower_iteration_threshold and iteration <= upper_iteration_threshold:
+                                layer_badnesses = []
+                                for layer in self.inner_layers:
+                                    activations = cast(Activations, layer.pos_activations).current \
+                                        if forward_mode == ForwardMode.PositiveData \
+                                        else cast(Activations, layer.predict_activations).current
+
+                                    layer_badnesses.append(
+                                        layer_activations_to_badness(
+                                            activations))
+
+                                badnesses.append(torch.stack(
+                                    layer_badnesses, dim=1))
+
+                        if write_activations:
+                            activity_tracker.cut_activations()
+
+                        # tensor of shape (batch_size, iterations, num_layers)
+                        badnesses_stacked = torch.stack(badnesses, dim=1)
+                        badnesses_mean_over_iterations = badnesses_stacked.mean(
+                            dim=1)
+                        badness_mean_over_layers = badnesses_mean_over_iterations.mean(
+                            dim=1)
+
+                        logging.debug("Badness for prediction" + " " +
+                                    str(label) + ": " + str(badness_mean_over_layers))
+                        all_labels_badness.append(badness_mean_over_layers)
+
+                    all_labels_badness_stacked = torch.stack(
+                        all_labels_badness, dim=1)
+
+                    # select the label with the maximum badness
+                    predicted_labels = torch.argmin(
+                        all_labels_badness_stacked, dim=1)
+                    if write_activations:
+                        anti_predictions = torch.argmax(
+                            all_labels_badness_stacked, dim=1)
+                        activity_tracker.filter_and_persist(
+                            predicted_labels, anti_predictions, labels)
+
+                    logging.debug("Predicted labels: " + str(predicted_labels))
+                    logging.debug("Actual labels: " + str(labels))
+
+                    total = data.size(1)
+                    correct = (predicted_labels == labels).sum().item()
+
+                    accuracy_contexts.append((correct, total))
+
+            total_correct = sum(correct for correct, _total in accuracy_contexts)
+            total_submissions = sum(
+                total for _correct, total in accuracy_contexts)
+            accuracy: float = total_correct / total_submissions * \
+                100
+
+            if is_test_set:
+                logging.info(f'Test accuracy: {accuracy}%')
+            else:
+                logging.info(f'Train accuracy: {accuracy}%')
+
+            return accuracy
