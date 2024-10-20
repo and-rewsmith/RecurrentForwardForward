@@ -152,10 +152,10 @@ class RecurrentFFNet(nn.Module):
         )
         for layer in self.generative_linear:
             if isinstance(layer, nn.Linear):
-                nn.init.kaiming_uniform_(layer.weight, nonlinearity='relu')
+                nn.init.xavier_normal(layer.weight)
         self.m = nn.Linear(generative_size, settings.data_config.data_size +
-                           settings.data_config.num_classes)
-        nn.init.kaiming_uniform_(self.m.weight, nonlinearity='sigmoid')
+                           settings.data_config.num_classes, bias=False)
+        nn.init.xavier_normal(self.m.weight)
 
         self.optimizer = torch.optim.SGD(
             self.generative_linear.parameters(), lr=0.0005)
@@ -542,16 +542,22 @@ class RecurrentFFNet(nn.Module):
             #     activations = layer.pos_activations.current
             #     generative_input += layer.generative_linear(activations)
             self.optimizer.zero_grad()
+
+            # nm_weight = self.generative_linear[0].weight * self.m.weight
+            # nm_contribution = torch.matmul(
+            #     torch.cat(
+            #         [layer.pos_activations.current for layer in self.inner_layers] + [layer.neg_activations.current for layer in self.inner_layers], dim=1),
+            #     nm_weight.t()
+            # )
+            # generative_input = self.generative_linear(
+            #     torch.cat(
+            #         [layer.pos_activations.current for layer in self.inner_layers] + [layer.neg_activations.current for layer in self.inner_layers], dim=1)
+            # ) + nm_contribution
             generative_input = self.generative_linear(
                 torch.cat(
                     [layer.pos_activations.current for layer in self.inner_layers] + [layer.neg_activations.current for layer in self.inner_layers], dim=1)
             )
-            generative_gating = self.m(
-                torch.cat(
-                    [layer.pos_activations.current for layer in self.inner_layers] + [layer.neg_activations.current for layer in self.inner_layers], dim=1)
-            )
-            generative_gating = torch.sigmoid(generative_gating)
-            generative_input = generative_input * generative_gating
+
             # generative_input = self.generative_linear(
             #     torch.cat(
             #         [layer.neg_activations.current for layer in self.inner_layers], dim=1)

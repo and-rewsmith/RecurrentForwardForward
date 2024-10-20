@@ -412,12 +412,17 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                 #     print(layer.pos_activations.previous.requires_grad)
                 #     print(layer.neg_activations.previous.requires_grad)
 
+                # nm_weight = generative_linear[0].weight * m.weight
+                # nm_contribution = torch.matmul(
+                #     torch.cat(
+                #         [layer.pos_activations.current for layer in self.inner_layers] + [layer.neg_activations.current for layer in self.inner_layers], dim=1),
+                #     nm_weight.t()
+                # )
+                # generative_output = generative_linear(
+                #     torch.cat([layer.pos_activations.current for layer in self.inner_layers] + [layer.neg_activations.current for layer in self.inner_layers], dim=1)) + nm_contribution
+
                 generative_output = generative_linear(
                     torch.cat([layer.pos_activations.current for layer in self.inner_layers] + [layer.neg_activations.current for layer in self.inner_layers], dim=1))
-                generative_gating = m(
-                    torch.cat([layer.pos_activations.current for layer in self.inner_layers] + [layer.neg_activations.current for layer in self.inner_layers], dim=1))
-                generative_gating = torch.sigmoid(generative_gating)
-                generative_output = generative_output * generative_gating
 
                 assert generative_output.shape[0] == data.shape[1] and generative_output.shape[
                     1] == self.settings.data_config.data_size + self.settings.data_config.num_classes
@@ -478,14 +483,20 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                 pre_opt_softmax_predicted_classes = torch.softmax(
                     generative_output[:, self.settings.data_config.data_size:], dim=1)
                 self.optimizer.zero_grad()
+
+                # nm_weight = generative_linear[0].weight * m.weight
+                # nm_contribution = torch.matmul(
+                #     torch.cat(
+                #         [layer.pos_activations.current for layer in self.inner_layers] + [layer.neg_activations.current for layer in self.inner_layers], dim=1),
+                #     nm_weight.t()
+                # )
+                # post_opt_logits = generative_linear(
+                #     torch.cat([layer.pos_activations.current for layer in self.inner_layers] + [layer.neg_activations.current for layer in self.inner_layers], dim=1)) + nm_contribution
+
                 post_opt_logits = generative_linear(
                     torch.cat([layer.pos_activations.current for layer in self.inner_layers] + [layer.neg_activations.current for layer in self.inner_layers], dim=1))
                 # post_opt_logits = generative_linear(
                 #     torch.cat([layer.neg_activations.current for layer in self.inner_layers], dim=1))[:, self.settings.data_config.data_size:]
-                generative_gating = m(
-                    torch.cat([layer.pos_activations.current for layer in self.inner_layers] + [layer.neg_activations.current for layer in self.inner_layers], dim=1))
-                generative_gating = torch.sigmoid(generative_gating)
-                post_opt_logits = post_opt_logits * generative_gating
                 post_opt_logits = post_opt_logits[:,
                                                   self.settings.data_config.data_size:]
                 post_op_log_softmax_predicted_classes = torch.log_softmax(

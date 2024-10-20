@@ -591,7 +591,7 @@ class HiddenLayer(nn.Module):
 
     def generate_lpl_loss_predictive(self, current_activations_with_grad: torch.Tensor, prev_act: torch.Tensor) -> Tensor:
         def generate_loss(current_act: Tensor, previous_act: Tensor) -> Tensor:
-            loss = (current_act - previous_act) ** 2
+            loss = torch.abs((current_act - previous_act))
             loss = torch.sum(loss, dim=1)
             loss = torch.sum(loss, dim=0)
             loss = loss / \
@@ -640,8 +640,10 @@ class HiddenLayer(nn.Module):
             neg_activations = self.forward(
                 ForwardMode.NegativeData, None, None, should_damp)
 
-        smooth_loss_pos = self.generate_lpl_loss_predictive(pos_activations, self.pos_activations.previous)
-        smooth_loss_neg = self.generate_lpl_loss_predictive(neg_activations, self.neg_activations.previous)
+        smooth_loss_pos = self.generate_lpl_loss_predictive(
+            pos_activations, self.pos_activations.previous)
+        smooth_loss_neg = self.generate_lpl_loss_predictive(
+            neg_activations, self.neg_activations.previous)
 
         pos_badness = layer_activations_to_badness(pos_activations)
         neg_badness = layer_activations_to_badness(neg_activations)
