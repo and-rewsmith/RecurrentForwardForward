@@ -659,6 +659,7 @@ class HiddenLayer(nn.Module):
         ])).mean()
         smooth_loss = 0.0 * (smooth_loss_pos + smooth_loss_neg)
         layer_loss = smooth_loss + contrastive_loss
+        layer_loss = torch.clamp(layer_loss, max=20)
         layer_loss.backward(retain_graph=retain_graph)
         # layer_loss.backward()
 
