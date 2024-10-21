@@ -600,10 +600,10 @@ class RecurrentFFNet(nn.Module):
             #         layer.optimizer.step()
             # for layer in self.inner_layers:
             #     layer.optimizer.step()
-            for layer in self.inner_layers:
-                layer.optimizer.step()
             loss.backward()
             self.optimizer.step()
+            for layer in self.inner_layers:
+                layer.optimizer.step()
             # if not has_decided_skip and grad_pass_acc_threshold["should_pass_back"]:
             #     for layer in self.inner_layers:
             #         layer.optimizer.step()
@@ -632,9 +632,9 @@ class RecurrentFFNet(nn.Module):
                 # torch.zeros(self.settings.data_config.train_batch_size, self.settings.data_config.num_classes).to(
                 #     self.settings.device.device),
                 # softmax_pos_labels,
-                label_data.pos_labels[iteration],
-                # torch.nn.functional.one_hot(torch.multinomial(softmax_pos_labels, num_samples=1).squeeze(
-                #     1), num_classes=10).to(dtype=torch.float32, device=self.settings.device.device),
+                # label_data.pos_labels[iteration],
+                torch.nn.functional.one_hot(torch.multinomial(softmax_pos_labels, num_samples=1).squeeze(
+                    1), num_classes=10).to(dtype=torch.float32, device=self.settings.device.device),
                 # torch.nn.functional.one_hot(torch.argmax(
                 #     softmax_pos_labels, dim=1), num_classes=10).to(dtype=torch.float32, device=self.settings.device.device),
                 # torch.softmax(
@@ -643,10 +643,10 @@ class RecurrentFFNet(nn.Module):
                 #     generative_input[:, self.settings.data_config.data_size:], dim=1),
                 # torch.softmax(
                 #     generative_input[:, self.settings.data_config.data_size:], dim=1),
-                # sample_avoiding_correct_class(
-                #     softmax_pos_labels,
-                #     label_data.pos_labels[iteration]),
-                label_data.neg_labels[iteration],
+                sample_avoiding_correct_class(
+                    softmax_pos_labels,
+                    label_data.pos_labels[iteration]),
+                # label_data.neg_labels[iteration],
                 # sample_from_logits(
                 #     torch.softmax(
                 #         generative_input[:, self.settings.data_config.data_size:], dim=1)
