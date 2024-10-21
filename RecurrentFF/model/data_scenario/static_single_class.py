@@ -447,10 +447,10 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                     # generative_output[:, 0:self.settings.data_config.data_size])
                     data[iteration])
                 label_data_sample = (
-                    torch.nn.functional.one_hot(torch.multinomial(reconstructed_labels_softmax, num_samples=1).squeeze(
-                        1), num_classes=10).to(dtype=torch.float32, device=self.settings.device.device),
-                    # torch.nn.functional.one_hot(torch.argmax(
-                    #     generative_output[:, self.settings.data_config.data_size:], dim=1), num_classes=10).to(dtype=torch.float32, device=self.settings.device.device),
+                    # torch.nn.functional.one_hot(torch.multinomial(reconstructed_labels_softmax, num_samples=1).squeeze(
+                    #     1), num_classes=10).to(dtype=torch.float32, device=self.settings.device.device),
+                    torch.nn.functional.one_hot(torch.argmax(
+                        generative_output[:, self.settings.data_config.data_size:], dim=1), num_classes=10).to(dtype=torch.float32, device=self.settings.device.device),
                     # torch.softmax(
                     #     generative_output[:, self.settings.data_config.data_size:], dim=1),
                     #     generative_output[:, self.settings.data_config.data_size:], dim=1)
