@@ -194,52 +194,105 @@ class MaskedLinear(nn.Linear):
     def __init__(self, in_features: int, out_features: int, block_size: int, bleed_factor: float = 0.0, bias: bool = False):
         super(MaskedLinear, self).__init__(in_features, out_features, bias)
 
-        assert block_size * \
-            2 < in_features, 'Block size must be less than half of the input features'
-        assert block_size * \
-            2 < out_features, 'Block size must be less than half of the output features'
+        assert block_size * 2 < in_features, 'Block size must be less than half of the input features'
+        assert block_size * 2 < out_features, 'Block size must be less than half of the output features'
 
+        # Block sizes for masking
         if in_features == out_features:
             self.block_size_i = block_size
             self.block_size_j = block_size
         elif in_features > out_features:
-            self.block_size_i = math.ceil(
-                in_features / (out_features // block_size))
+            self.block_size_i = math.ceil(in_features / (out_features // block_size))
             self.block_size_j = block_size
         else:
             self.block_size_i = block_size
-            self.block_size_j = math.ceil(
-                out_features / (in_features // block_size))
+            self.block_size_j = math.ceil(out_features / (in_features // block_size))
 
         self.block_size = block_size
         self.bleed_factor = bleed_factor  # New parameter to control bleeding
         self.register_buffer('mask', self.create_mask())
 
+        # Learnable parameters for synapse modulation
+        self.lambda_param = nn.Parameter(torch.tensor(0.9))  # Learnable lambda (decay)
+        self.alpha = nn.Parameter(torch.tensor(0.01))        # Learnable alpha (update rate)
+
+        # Synapse modulation matrix M (starting as matrix of zeros as per the new rules)
+        self.register_buffer('M_t', torch.zeros(out_features, in_features))
+
     def create_mask(self):
         mask = torch.zeros(self.weight.size())
 
-        # Compute how much additional overlap is allowed based on the bleed factor
+        # Compute bleed sizes for block overlap
         bleed_size_i = int(self.block_size_i * self.bleed_factor)
         bleed_size_j = int(self.block_size_j * self.bleed_factor)
 
         i = 0
         for j in range(0, self.out_features, self.block_size_j):
-            # Set the mask for the block and the bleed regions
-            mask[j:j+self.block_size_j+bleed_size_j,
-                 i:i+self.block_size_i+bleed_size_i] = 1
+            # Set the mask for the block and bleed regions
+            mask[j:j + self.block_size_j + bleed_size_j,
+                 i:i + self.block_size_i + bleed_size_i] = 1
             i = i + self.block_size_i
 
-        # Clip the mask to the matrix size (in case of overflow due to bleeding)
+        # Clip the mask to the matrix size
         return mask[:self.out_features, :self.in_features]
 
-    def forward(self, input: torch.Tensor) -> torch.Tensor:
-        return F.linear(input, self.weight * self.mask, self.bias)
+    def forward(self, input_: torch.Tensor) -> torch.Tensor:
+        # Input should be of shape (batch_size, in_features)
+        batch_size, in_features = input_.shape
+        assert in_features == self.in_features, f'Expected input features {self.in_features}, but got {in_features}'
+
+        # Apply mask to weights
+        masked_weight = self.weight * self.mask
+
+        # Compute the first term: (M_t-1 * W) @ input
+        modulated_weight = self.M_t * masked_weight
+        modulated_output = F.linear(input_, modulated_weight, self.bias)
+
+        # Compute the second term: W @ x_t
+        direct_output = F.linear(input_, masked_weight, self.bias)
+
+        # print("outputs")
+        # print(modulated_output[0])
+        # print(direct_output[0])
+        # input()
+
+        # Final output (without nonlinearity)
+        return modulated_output + direct_output
+
+    def update_M_t(self, h_t: torch.Tensor, input_: torch.Tensor):
+        # Input should be of shape (batch_size, in_features)
+        # Hidden state should be of shape (batch_size, out_features)
+        batch_size, in_features = input_.shape
+        batch_size_h, out_features = h_t.shape
+        assert batch_size == batch_size_h, f'Batch sizes do not match: {batch_size} and {batch_size_h}'
+        assert in_features == self.in_features, f'Expected input features {self.in_features}, but got {in_features}'
+        assert out_features == self.out_features, f'Expected output features {self.out_features}, but got {out_features}'
+
+        # Clamp lambda_param to be between -1 and 1
+        lambda_param = torch.clamp(self.lambda_param, -1.0, 1.0)
+
+        # Compute batch-wise outer products
+        # Each outer product is of shape (out_features, in_features) for each batch element
+        outer_products = torch.einsum('bi,bj->bij', h_t, input_)  # Shape: (batch_size, out_features, in_features)
+
+        # Aggregate across the batch (e.g., sum or mean)
+        outer_product_batch = outer_products.mean(dim=0)  # Shape: (out_features, in_features)
+
+        # Update M_t: M_t = lambda * M_t-1 + alpha * (mean of outer products over batch)
+        self.M_t.data = lambda_param * self.M_t.data + self.alpha * outer_product_batch
+
+        # print("M")
+        # print(self.M_t.data[0])
+        # input()
+
+    def reset_M_t(self):
+        # Reset M_t to zero at the start of each input sequence
+        self.M_t.data.zero_()
 
     def visualize_connectivity(self):
         plt.figure(figsize=(10, 10))
         plt.imshow(self.weight.data * self.mask, cmap='viridis')
-        plt.title(
-            f'Connectivity Pattern (Block Size: {self.block_size}, Bleed Factor: {self.bleed_factor})')
+        plt.title(f'Connectivity Pattern (Block Size: {self.block_size}, Bleed Factor: {self.bleed_factor})')
         plt.colorbar()
         plt.show()
 
@@ -333,7 +386,6 @@ class HiddenLayer(nn.Module):
         self.pos_activations: Optional[Activations] = None
         self.neg_activations: Optional[Activations] = None
         self.predict_activations: Optional[Activations] = None
-        self.reset_activations(True)
 
         self.forward_dropout = nn.Dropout(p=self.settings.model.dropout)
         self.backward_dropout = nn.Dropout(p=self.settings.model.dropout)
@@ -376,6 +428,8 @@ class HiddenLayer(nn.Module):
         self.forward_act: Tensor
         self.backward_act: Tensor
         self.lateral_act: Tensor
+
+        self.reset_activations(True)
 
     def init_residual_connection(self, residual_connection: ResidualConnection) -> None:
         self.residual_connections.append(residual_connection)
@@ -527,6 +581,10 @@ class HiddenLayer(nn.Module):
 
             self.pos_activations = None
             self.neg_activations = None
+        
+        for linear in [self.forward_linear, self.backward_linear, self.lateral_linear]:
+            if type(linear) == MaskedLinear:
+                linear.reset_M_t()
 
     def advance_stored_activations(self) -> None:
         if self.pos_activations is not None:
@@ -770,6 +828,13 @@ class HiddenLayer(nn.Module):
                 self.backward_linear.forward(next_layer_stdized)
             self.lateral_act = self.lateral_linear.forward(prev_act_stdized)
 
+            summation_act = self.forward_act + self.backward_act + self.lateral_act
+            new_activation = F.leaky_relu(summation_act)
+
+            self.forward_linear.update_M_t(new_activation, prev_layer_stdized)
+            self.backward_linear.update_M_t(new_activation, next_layer_stdized)
+            self.lateral_linear.update_M_t(new_activation, prev_act_stdized)
+
         # Single layer scenario. Hidden layer connected to input layer and
         # output layer.
         elif data is not None and labels is not None:
@@ -790,6 +855,13 @@ class HiddenLayer(nn.Module):
             self.forward_act = self.forward_linear.forward(data)
             self.backward_act = -1 * self.backward_linear.forward(labels)
             self.lateral_act = self.lateral_linear.forward(prev_act_stdized)
+
+            summation_act = self.forward_act + self.backward_act + self.lateral_act
+            new_activation = F.leaky_relu(summation_act)
+
+            self.forward_linear.update_M_t(new_activation, data)
+            self.backward_linear.update_M_t(new_activation, labels)
+            self.lateral_linear.update_M_t(new_activation, prev_act_stdized)
 
         # Input layer scenario. Connected to input layer and hidden layer.
         elif data is not None:
@@ -820,6 +892,14 @@ class HiddenLayer(nn.Module):
                 self.backward_linear.forward(next_layer_stdized)
             self.lateral_act = self.lateral_linear.forward(prev_act_stdized)
 
+            summation_act = self.forward_act + self.backward_act + self.lateral_act
+            new_activation = F.leaky_relu(summation_act)
+
+            self.forward_linear.update_M_t(new_activation, data)
+            self.backward_linear.update_M_t(new_activation, next_layer_stdized)
+            self.lateral_linear.update_M_t(new_activation, prev_act_stdized)
+
+
         # Output layer scenario. Connected to hidden layer and output layer.
         elif labels is not None:
             prev_layer_prev_timestep_activations = None
@@ -848,17 +928,24 @@ class HiddenLayer(nn.Module):
             self.backward_act = -1 * self.backward_linear.forward(labels)
             self.lateral_act = self.lateral_linear.forward(prev_act_stdized)
 
+            summation_act = self.forward_act + self.backward_act + self.lateral_act
+            new_activation = F.leaky_relu(summation_act)
+
+            self.forward_linear.update_M_t(new_activation, prev_layer_stdized)
+            # self.backward_linear.update_M_t(new_activation, labels)
+            self.lateral_linear.update_M_t(new_activation, prev_act_stdized)
+
         # self.forward_act = self.forward_dropout(self.forward_act)
         # self.backward_act = self.backward_dropout(self.backward_act)
         # self.lateral_act = self.lateral_dropout(self.lateral_act)
 
-        summation_act = self.forward_act + self.backward_act + self.lateral_act
+        # summation_act = self.forward_act + self.backward_act + self.lateral_act
         # summation_act = self.forward_act + self.backward_act
 
         # for residual_connection in self.residual_connections:
         #     summation_act = summation_act + residual_connection.forward(mode)
 
-        new_activation = F.leaky_relu(summation_act)
+        # new_activation = F.leaky_relu(summation_act)
 
         if should_damp:
             old_activation = new_activation

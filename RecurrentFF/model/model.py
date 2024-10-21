@@ -276,7 +276,6 @@ class RecurrentFFNet(nn.Module):
                 self.__log_epoch_metrics(
                     train_accuracy,
                     test_accuracy,
-                    energy_test_accuracy,
                     epoch,
                     total_batch_count
                 )
@@ -617,6 +616,9 @@ class RecurrentFFNet(nn.Module):
 
             generative_input = generative_input.detach()
 
+            print("pre softmax")
+            print(generative_input[:, self.settings.data_config.data_size:][0])
+            input()
             softmax_pos_labels = torch.softmax(
                 generative_input[:, self.settings.data_config.data_size:], dim=1)
             # if random.randint(1, 10) >= 5:
