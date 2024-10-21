@@ -600,10 +600,10 @@ class RecurrentFFNet(nn.Module):
             #         layer.optimizer.step()
             # for layer in self.inner_layers:
             #     layer.optimizer.step()
-            loss.backward()
-            self.optimizer.step()
             for layer in self.inner_layers:
                 layer.optimizer.step()
+            loss.backward()
+            self.optimizer.step()
             # if not has_decided_skip and grad_pass_acc_threshold["should_pass_back"]:
             #     for layer in self.inner_layers:
             #         layer.optimizer.step()
