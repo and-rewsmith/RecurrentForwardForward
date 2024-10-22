@@ -270,10 +270,10 @@ class RecurrentFFNet(nn.Module):
                 test_loader, self.generative_linear, self.m, self.optimizer, 1, True)
             train_accuracy = self.processor.brute_force_predict(
                 TrainTestBridgeFormatLoader(train_loader), self.generative_linear, self.m, self.optimizer, 1, False)  # type: ignore[arg-type]
+            energy_test_accuracy = self.processor.brute_force_predict_energy(
+                test_loader, self.optimizer, 1, False)  # type: ignore[arg-type]
             energy_train_accuracy = self.processor.brute_force_predict_energy(
                 TrainTestBridgeFormatLoader(train_loader), self.optimizer, 1, False)  # type: ignore[arg-type]
-            energy_test_accuracy = self.processor.brute_force_predict_energy(
-                TrainTestBridgeFormatLoader(test_loader), self.optimizer, 1, False)  # type: ignore[arg-type]
 
             if energy_test_accuracy > best_test_accuracy:
                 best_test_accuracy = energy_test_accuracy
