@@ -13,7 +13,7 @@ from RecurrentFF.settings import Settings, DataConfig
 TEST_BATCH_SIZE = TRAIN_BATCH_SIZE
 NUM_BATCHES = 1000
 
-WEIGHTS_PATH = "/home/localuser/Documents/projects/RecurrentForwardForward/CIFAR10_2024-10-08_15-13-57_B6VJTI.pth"
+WEIGHTS_PATH = "/home/localuser/Documents/projects/RecurrentForwardForward/CIFAR10_2024-10-21_13-29-44_KZ83TD.pth"
 
 if __name__ == "__main__":
     settings = Settings.new()
@@ -56,7 +56,7 @@ if __name__ == "__main__":
     model.load_state_dict(torch.load(
         WEIGHTS_PATH, map_location=settings.device.device))
     model.predict(DataScenario.StaticSingleClass,
-                  test_loader, 1, write_activations=False)
+                  test_loader, 5, write_activations=False)
 
     # _train_loader, test_loader_tmp = MNIST_loaders(
     #     settings.data_config.train_batch_size, 1000)

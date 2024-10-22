@@ -170,10 +170,15 @@ class RecurrentFFNet(nn.Module):
             write_activations: bool = False) -> None:
         self.eval()
         if data_scenario == DataScenario.StaticSingleClass:
-            self.processor.brute_force_predict(
+            # self.processor.brute_force_predict(
+            #     data_loader,
+            #     self.generative_linear,
+            #     self.optimizer,
+            #     num_batches,
+            #     is_test_set=True,
+            #     write_activations=write_activations)
+            self.processor.brute_force_predict_energy(
                 data_loader,
-                self.generative_linear,
-                self.optimizer,
                 num_batches,
                 is_test_set=True,
                 write_activations=write_activations)
@@ -270,8 +275,8 @@ class RecurrentFFNet(nn.Module):
             energy_test_accuracy = self.processor.brute_force_predict_energy(
                 TrainTestBridgeFormatLoader(test_loader), self.optimizer, 1, False)  # type: ignore[arg-type]
 
-            if test_accuracy > best_test_accuracy:
-                best_test_accuracy = test_accuracy
+            if energy_test_accuracy > best_test_accuracy:
+                best_test_accuracy = energy_test_accuracy
                 torch.save(self.state_dict(), self.weights_file_name)
 
             if self.settings.model.should_log_metrics:
