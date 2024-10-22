@@ -265,8 +265,10 @@ class RecurrentFFNet(nn.Module):
                 test_loader, self.generative_linear, self.m, self.optimizer, 1, True)
             train_accuracy = self.processor.brute_force_predict(
                 TrainTestBridgeFormatLoader(train_loader), self.generative_linear, self.m, self.optimizer, 1, False)  # type: ignore[arg-type]
-            energy_test_accuracy = self.processor.brute_force_predict_energy(
+            energy_train_accuracy = self.processor.brute_force_predict_energy(
                 TrainTestBridgeFormatLoader(train_loader), self.optimizer, 1, False)  # type: ignore[arg-type]
+            energy_test_accuracy = self.processor.brute_force_predict_energy(
+                TrainTestBridgeFormatLoader(test_loader), self.optimizer, 1, False)  # type: ignore[arg-type]
 
             if test_accuracy > best_test_accuracy:
                 best_test_accuracy = test_accuracy
@@ -276,6 +278,7 @@ class RecurrentFFNet(nn.Module):
                 self.__log_epoch_metrics(
                     train_accuracy,
                     test_accuracy,
+                    energy_train_accuracy,
                     energy_test_accuracy,
                     epoch,
                     total_batch_count
@@ -761,11 +764,13 @@ class RecurrentFFNet(nn.Module):
             self,
             train_accuracy: float,
             test_accuracy: float,
+            energy_train_accuracy: float,
             energy_test_accuracy: float,
             epoch: int,
             total_batch_count: int) -> None:
         wandb.log({"train_acc": train_accuracy,
                    "test_acc": test_accuracy,
+                   "energy_train_acc": energy_train_accuracy,
                    "energy_test_acc": energy_test_accuracy,
                    "epoch": epoch}, step=total_batch_count)
 
