@@ -830,7 +830,7 @@ class HiddenLayer(nn.Module):
         for residual_connection in self.residual_connections:
             summation_act = summation_act + residual_connection.forward(mode)
 
-        new_activation = F.sigmoid(summation_act)
+        new_activation = F.tanh(summation_act)
 
         if should_damp:
             old_activation = new_activation
