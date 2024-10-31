@@ -243,58 +243,6 @@ class MaskedLinear(nn.Linear):
         plt.colorbar()
         plt.show()
 
-class DelayedMaskedLinear(nn.Module):
-    def __init__(self, input_size: int, output_size: int, hidden_size: int, block_size: int, bleed_factor: float = 0.0, bias: bool = False, device: str = "cpu"):
-        super(DelayedMaskedLinear, self).__init__()
-        self.input_size = input_size
-        self.output_size = output_size
-        self.hidden_size = hidden_size
-
-        # Initialize delay parameters
-        self.delay_gate_input = nn.Linear(input_size, input_size)
-        self.delay_gate_buffer = nn.Linear(input_size, input_size)
-        self.sigmoid = nn.Sigmoid()
-
-        # Masked linear layer parameters
-        self.masked_linear = MaskedLinear(input_size, output_size, block_size, bleed_factor, bias)
-
-        # Buffer initialization method
-        self.buffer_pos = None
-        self.buffer_neg = None
-
-        self.device = device
-
-    def init_buffer(self, batch_size: int):
-        self.buffer_pos = torch.zeros(batch_size, self.input_size).to(self.device)
-        self.buffer_neg = torch.zeros(batch_size, self.input_size).to(self.device)
-
-    def forward(self, x: torch.Tensor, forward_mode: ForwardMode) -> torch.Tensor:
-        self.buffer = self.buffer_pos if forward_mode == ForwardMode.PositiveData else self.buffer_neg
-
-        self.buffer = self.buffer.detach()
-        current_input = x
-
-        # Calculate delayed contributions
-        decay_weights = self.sigmoid(self.delay_gate_input(current_input))
-        immediate_contribution = current_input * decay_weights
-        delayed_contribution = (1 - decay_weights) * current_input
-
-        # Update buffer with delayed portion
-        self.buffer = self.buffer + delayed_contribution
-
-        # Release buffer based on delay gate
-        buffer_decay_weights = self.sigmoid(self.delay_gate_buffer(self.buffer))
-        buffer_release = self.buffer * buffer_decay_weights
-        self.buffer = self.buffer * (1 - buffer_decay_weights)
-
-        # Combine immediate and delayed contributions
-        combined_input = immediate_contribution + buffer_release
-
-        # Apply masked linear transformation
-        output = self.masked_linear(combined_input)
-
-        return output
-
 
 #  class MaskedLinear(nn.Linear):
 #     def __init__(self, in_features: int, out_features: int, block_size: int, bleed_factor: float = 0.0, bias: bool = False):
@@ -385,6 +333,7 @@ class HiddenLayer(nn.Module):
         self.pos_activations: Optional[Activations] = None
         self.neg_activations: Optional[Activations] = None
         self.predict_activations: Optional[Activations] = None
+        self.reset_activations(True)
 
         self.forward_dropout = nn.Dropout(p=self.settings.model.dropout)
         self.backward_dropout = nn.Dropout(p=self.settings.model.dropout)
@@ -403,28 +352,23 @@ class HiddenLayer(nn.Module):
                 nn.init.kaiming_uniform_(layer.weight, nonlinearity='relu')
 
         connection_profile = self.settings.model.connection_profile
-
-        # def __init__(self, input_size: int, output_size: int, hidden_size: int, block_size: int, bleed_factor: float = 0.0, bias: bool = False):
-
-        self.forward_linear = DelayedMaskedLinear(
-            prev_size, size, size, block_size=connection_profile.forward_block_sizes[layer_num], bleed_factor=connection_profile.forward_block_bleed[layer_num], device=settings.device.device)
-        self.forward_linear.init_buffer(train_batch_size)
+        self.forward_linear = MaskedLinear(
+            prev_size, size, bleed_factor=connection_profile.forward_block_bleed[layer_num], block_size=connection_profile.forward_block_sizes[layer_num])
         nn.init.kaiming_uniform_(
-            self.forward_linear.masked_linear.weight, nonlinearity='relu')
+            self.forward_linear.weight, nonlinearity='relu')
 
         if next_size == self.settings.data_config.num_classes:
             self.backward_linear = nn.Linear(next_size, size, bias=False)
             amplified_initialization(self.backward_linear, 3.0)
         else:
-            self.backward_linear = DelayedMaskedLinear(next_size, size, size, block_size=connection_profile.backward_block_sizes[layer_num], bleed_factor=connection_profile.backward_block_bleed[layer_num], device=settings.device.device)
-            self.backward_linear.init_buffer(train_batch_size)
-            nn.init.uniform_(self.backward_linear.masked_linear.weight, -0.05, 0.05)
+            self.backward_linear = MaskedLinear(
+                next_size, size, bleed_factor=connection_profile.backward_block_bleed[layer_num], block_size=connection_profile.backward_block_sizes[layer_num])
+            nn.init.uniform_(self.backward_linear.weight, -0.05, 0.05)
 
         # Initialize the lateral weights to be the identity matrix
-        self.lateral_linear = DelayedMaskedLinear(
-            size, size, size, block_size=connection_profile.lateral_block_sizes[layer_num], bleed_factor=connection_profile.lateral_block_bleed[layer_num], device=settings.device.device)
-        self.lateral_linear.init_buffer(train_batch_size)
-        nn.init.orthogonal_(self.lateral_linear.masked_linear.weight, gain=math.sqrt(2))
+        self.lateral_linear = MaskedLinear(
+            size, size, block_size=connection_profile.lateral_block_sizes[layer_num], bleed_factor=connection_profile.lateral_block_bleed[layer_num])
+        nn.init.orthogonal_(self.lateral_linear.weight, gain=math.sqrt(2))
 
         self.previous_layer: Self = None  # type: ignore[assignment]
         self.next_layer: Self = None  # type: ignore[assignment]
@@ -432,8 +376,6 @@ class HiddenLayer(nn.Module):
         self.forward_act: Tensor
         self.backward_act: Tensor
         self.lateral_act: Tensor
-
-        self.reset_activations(True)
 
     def init_residual_connection(self, residual_connection: ResidualConnection) -> None:
         self.residual_connections.append(residual_connection)
@@ -585,13 +527,6 @@ class HiddenLayer(nn.Module):
 
             self.pos_activations = None
             self.neg_activations = None
-
-        if type(self.forward_linear) == DelayedMaskedLinear:
-            self.forward_linear.init_buffer(activations_dim[0])
-        if type(self.backward_linear) == DelayedMaskedLinear:
-            self.backward_linear.init_buffer(activations_dim[0])
-        if type(self.lateral_linear) == DelayedMaskedLinear:
-            self.lateral_linear.init_buffer(activations_dim[0])
 
     def advance_stored_activations(self) -> None:
         if self.pos_activations is not None:
@@ -831,10 +766,10 @@ class HiddenLayer(nn.Module):
                 prev_act, self.settings.model.epsilon)
             # prev_act_stdized = prev_act
 
-            self.forward_act = self.forward_linear.forward(prev_layer_stdized, forward_mode=mode)
+            self.forward_act = self.forward_linear.forward(prev_layer_stdized)
             self.backward_act = -1 * \
-                self.backward_linear.forward(next_layer_stdized, forward_mode=mode)
-            self.lateral_act = self.lateral_linear.forward(prev_act_stdized, forward_mode=mode)
+                self.backward_linear.forward(next_layer_stdized)
+            self.lateral_act = self.lateral_linear.forward(prev_act_stdized)
 
         # Single layer scenario. Hidden layer connected to input layer and
         # output layer.
@@ -853,9 +788,9 @@ class HiddenLayer(nn.Module):
                 prev_act, self.settings.model.epsilon)
             # prev_act_stdized = prev_act
 
-            self.forward_act = self.forward_linear.forward(data, forward_mode=mode)
-            self.backward_act = -1 * self.backward_linear.forward(labels, forward_mode=mode)
-            self.lateral_act = self.lateral_linear.forward(prev_act_stdized, forward_mode=mode)
+            self.forward_act = self.forward_linear.forward(data)
+            self.backward_act = -1 * self.backward_linear.forward(labels)
+            self.lateral_act = self.lateral_linear.forward(prev_act_stdized)
 
         # Input layer scenario. Connected to input layer and hidden layer.
         elif data is not None:
@@ -881,10 +816,10 @@ class HiddenLayer(nn.Module):
                 prev_act, self.settings.model.epsilon)
             # prev_act_stdized = prev_act
 
-            self.forward_act = self.forward_linear.forward(data, forward_mode=mode)
+            self.forward_act = self.forward_linear.forward(data)
             self.backward_act = -1 * \
-                self.backward_linear.forward(next_layer_stdized, forward_mode=mode)
-            self.lateral_act = self.lateral_linear.forward(prev_act_stdized, forward_mode=mode)
+                self.backward_linear.forward(next_layer_stdized)
+            self.lateral_act = self.lateral_linear.forward(prev_act_stdized)
 
         # Output layer scenario. Connected to hidden layer and output layer.
         elif labels is not None:
@@ -910,9 +845,9 @@ class HiddenLayer(nn.Module):
                 prev_act, self.settings.model.epsilon)
             # prev_act_stdized = prev_act
 
-            self.forward_act = self.forward_linear.forward(prev_layer_stdized, forward_mode=mode)
+            self.forward_act = self.forward_linear.forward(prev_layer_stdized)
             self.backward_act = -1 * self.backward_linear.forward(labels)
-            self.lateral_act = self.lateral_linear.forward(prev_act_stdized, forward_mode=mode)
+            self.lateral_act = self.lateral_linear.forward(prev_act_stdized)
 
         # self.forward_act = self.forward_dropout(self.forward_act)
         # self.backward_act = self.backward_dropout(self.backward_act)

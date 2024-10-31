@@ -478,11 +478,11 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                 self.inner_layers.advance_layers_train(
                     input_data_sample, label_data_sample, True, None)
 
-                # pre_op_grad = self.inner_layers.layers[0].forward_linear.weight.grad[0][2].item(
-                # )
-                # pre_opt_softmax_predicted_classes = torch.softmax(
-                #     generative_output[:, self.settings.data_config.data_size:], dim=1)
-                # self.optimizer.zero_grad()
+                pre_op_grad = self.inner_layers.layers[0].forward_linear.weight.grad[0][2].item(
+                )
+                pre_opt_softmax_predicted_classes = torch.softmax(
+                    generative_output[:, self.settings.data_config.data_size:], dim=1)
+                self.optimizer.zero_grad()
 
                 # nm_weight = generative_linear[0].weight * m.weight
                 # nm_contribution = torch.matmul(
@@ -493,17 +493,17 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                 # post_opt_logits = generative_linear(
                 #     torch.cat([layer.pos_activations.current for layer in self.inner_layers] + [layer.neg_activations.current for layer in self.inner_layers], dim=1)) + nm_contribution
 
-                # post_opt_logits = generative_linear(
-                #     torch.cat([layer.pos_activations.current for layer in self.inner_layers] + [layer.neg_activations.current for layer in self.inner_layers], dim=1))
+                post_opt_logits = generative_linear(
+                    torch.cat([layer.pos_activations.current for layer in self.inner_layers] + [layer.neg_activations.current for layer in self.inner_layers], dim=1))
                 # post_opt_logits = generative_linear(
                 #     torch.cat([layer.neg_activations.current for layer in self.inner_layers], dim=1))[:, self.settings.data_config.data_size:]
-                # post_opt_logits = post_opt_logits[:,
-                #                                   self.settings.data_config.data_size:]
-                # post_op_log_softmax_predicted_classes = torch.log_softmax(
-                #     post_opt_logits, dim=1)
-                # criterion = torch.nn.KLDivLoss()
-                # loss = criterion(
-                #     post_op_log_softmax_predicted_classes, pre_opt_softmax_predicted_classes)
+                post_opt_logits = post_opt_logits[:,
+                                                  self.settings.data_config.data_size:]
+                post_op_log_softmax_predicted_classes = torch.log_softmax(
+                    post_opt_logits, dim=1)
+                criterion = torch.nn.KLDivLoss()
+                loss = criterion(
+                    post_op_log_softmax_predicted_classes, pre_opt_softmax_predicted_classes)
                 # loss.backward()
 
                 # from torchviz import make_dot
@@ -525,7 +525,8 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                 # dot.render("computation_graph", format="png", cleanup=True)
                 # input("resume")
 
-                # post_op_grad = self.inner_layers.layers[0].forward_linear.weight.grad[0][2].item()
+                post_op_grad = self.inner_layers.layers[0].forward_linear.weight.grad[0][2].item(
+                )
                 # assert pre_op_grad != post_op_grad
 
                 # optimizer.step()
