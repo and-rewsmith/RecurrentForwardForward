@@ -30,6 +30,7 @@ class WeightInitialization(Enum):
     Backward = 2
     Lateral = 3
 
+
 class MaskedLinear(nn.Linear):
     def __init__(self, in_features: int, out_features: int, block_size: int, bleed_factor: float = 0.0, bias: bool = False):
         super(MaskedLinear, self).__init__(in_features, out_features, bias)
@@ -100,7 +101,8 @@ class ResidualConnection(nn.Module):
 
         self.weight_initialization = initialization
         self.source = source
-        self.weights = MaskedLinear(source.size, target_size, block_size=block_size, bleed_factor=bleed_factor)
+        self.weights = MaskedLinear(
+            source.size, target_size, block_size=block_size, bleed_factor=bleed_factor)
         self.dropout = nn.Dropout(p=dropout_percentage)
 
         if initialization == WeightInitialization.Forward:
@@ -135,7 +137,7 @@ class ResidualConnection(nn.Module):
 
         out: torch.Tensor = self.dropout(
             F.linear(source_activations_stdized, self.weights.weight, self.weights.bias))
-        
+
         out = self.weights(source_activations_stdized)
 
         if self.weight_initialization == WeightInitialization.Backward:
@@ -245,7 +247,6 @@ def amplified_initialization(layer: nn.Linear, amplification_factor: float = 3.0
     amplified_std = std * amplification_factor
     # Initialize weights with amplified standard deviation
     nn.init.normal_(layer.weight, mean=0, std=amplified_std)
-
 
 
 class HiddenLayer(nn.Module):
@@ -618,19 +619,17 @@ class HiddenLayer(nn.Module):
 
         pos_badness = layer_activations_to_badness(pos_activations)
         neg_badness = layer_activations_to_badness(neg_activations)
+        delta = 4 * (pos_badness - neg_badness)
         # pos_badness = torch.clamp(pos_badness, min=0.5)
         # neg_badness = torch.clamp(neg_badness, max=3)
 
         # Loss function equivelent to:
         # plot3d log(1 + exp(-n + 1)) + log(1 + exp(p - 1)) for n=0 to 3, p=0
         # to 3
-        contrastive_loss: Tensor = 1 * F.softplus(torch.cat([
-            (-1 * neg_badness) + self.settings.model.loss_threshold,
-            pos_badness - self.settings.model.loss_threshold
-        ])).mean()
+        contrastive_loss: Tensor = 1 * F.softplus(delta).mean()
         smooth_loss = 0.0 * (smooth_loss_pos + smooth_loss_neg)
         layer_loss = smooth_loss + contrastive_loss
-        layer_loss = torch.clamp(layer_loss, max=20)
+        # layer_loss = torch.clamp(layer_loss, max=20)
         layer_loss.backward(retain_graph=retain_graph)
         # layer_loss.backward()
 
@@ -827,10 +826,10 @@ class HiddenLayer(nn.Module):
         summation_act = self.forward_act + self.backward_act + self.lateral_act
         # summation_act = self.forward_act + self.backward_act
 
-        for residual_connection in self.residual_connections:
-            summation_act = summation_act + residual_connection.forward(mode)
+        # for residual_connection in self.residual_connections:
+        #     summation_act = summation_act + residual_connection.forward(mode)
 
-        new_activation = F.tanh(summation_act)
+        new_activation = F.leaky_relu(summation_act)
 
         if should_damp:
             old_activation = new_activation
