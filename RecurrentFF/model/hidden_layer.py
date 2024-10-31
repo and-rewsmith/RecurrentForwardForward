@@ -30,6 +30,59 @@ class WeightInitialization(Enum):
     Backward = 2
     Lateral = 3
 
+class MaskedLinear(nn.Linear):
+    def __init__(self, in_features: int, out_features: int, block_size: int, bleed_factor: float = 0.0, bias: bool = False):
+        super(MaskedLinear, self).__init__(in_features, out_features, bias)
+
+        assert block_size * \
+            2 < in_features, 'Block size must be less than half of the input features'
+        assert block_size * \
+            2 < out_features, 'Block size must be less than half of the output features'
+
+        if in_features == out_features:
+            self.block_size_i = block_size
+            self.block_size_j = block_size
+        elif in_features > out_features:
+            self.block_size_i = math.ceil(
+                in_features / (out_features // block_size))
+            self.block_size_j = block_size
+        else:
+            self.block_size_i = block_size
+            self.block_size_j = math.ceil(
+                out_features / (in_features // block_size))
+
+        self.block_size = block_size
+        self.bleed_factor = bleed_factor  # New parameter to control bleeding
+        self.register_buffer('mask', self.create_mask())
+
+    def create_mask(self):
+        mask = torch.zeros(self.weight.size())
+
+        # Compute how much additional overlap is allowed based on the bleed factor
+        bleed_size_i = int(self.block_size_i * self.bleed_factor)
+        bleed_size_j = int(self.block_size_j * self.bleed_factor)
+
+        i = 0
+        for j in range(0, self.out_features, self.block_size_j):
+            # Set the mask for the block and the bleed regions
+            mask[j:j+self.block_size_j+bleed_size_j,
+                 i:i+self.block_size_i+bleed_size_i] = 1
+            i = i + self.block_size_i
+
+        # Clip the mask to the matrix size (in case of overflow due to bleeding)
+        return mask[:self.out_features, :self.in_features]
+
+    def forward(self, input: torch.Tensor) -> torch.Tensor:
+        return F.linear(input, self.weight * self.mask, self.bias)
+
+    def visualize_connectivity(self):
+        plt.figure(figsize=(10, 10))
+        plt.imshow(self.weight.data * self.mask, cmap='viridis')
+        plt.title(
+            f'Connectivity Pattern (Block Size: {self.block_size}, Bleed Factor: {self.bleed_factor})')
+        plt.colorbar()
+        plt.show()
+
 
 class ResidualConnection(nn.Module):
     """
@@ -40,12 +93,14 @@ class ResidualConnection(nn.Module):
                  source: 'HiddenLayer',
                  target_size: int,
                  dropout_percentage: float,
-                 initialization: WeightInitialization):
+                 initialization: WeightInitialization,
+                 block_size: int,
+                 bleed_factor: float) -> None:
         super(ResidualConnection, self).__init__()
 
         self.weight_initialization = initialization
         self.source = source
-        self.weights = nn.Linear(source.size, target_size)
+        self.weights = MaskedLinear(source.size, target_size, block_size=block_size, bleed_factor=bleed_factor)
         self.dropout = nn.Dropout(p=dropout_percentage)
 
         if initialization == WeightInitialization.Forward:
@@ -80,6 +135,8 @@ class ResidualConnection(nn.Module):
 
         out: torch.Tensor = self.dropout(
             F.linear(source_activations_stdized, self.weights.weight, self.weights.bias))
+        
+        out = self.weights(source_activations_stdized)
 
         if self.weight_initialization == WeightInitialization.Backward:
             out = -1 * out
@@ -189,92 +246,6 @@ def amplified_initialization(layer: nn.Linear, amplification_factor: float = 3.0
     # Initialize weights with amplified standard deviation
     nn.init.normal_(layer.weight, mean=0, std=amplified_std)
 
-
-class MaskedLinear(nn.Linear):
-    def __init__(self, in_features: int, out_features: int, block_size: int, bleed_factor: float = 0.0, bias: bool = False):
-        super(MaskedLinear, self).__init__(in_features, out_features, bias)
-
-        assert block_size * \
-            2 < in_features, 'Block size must be less than half of the input features'
-        assert block_size * \
-            2 < out_features, 'Block size must be less than half of the output features'
-
-        if in_features == out_features:
-            self.block_size_i = block_size
-            self.block_size_j = block_size
-        elif in_features > out_features:
-            self.block_size_i = math.ceil(
-                in_features / (out_features // block_size))
-            self.block_size_j = block_size
-        else:
-            self.block_size_i = block_size
-            self.block_size_j = math.ceil(
-                out_features / (in_features // block_size))
-
-        self.block_size = block_size
-        self.bleed_factor = bleed_factor  # New parameter to control bleeding
-        self.register_buffer('mask', self.create_mask())
-
-    def create_mask(self):
-        mask = torch.zeros(self.weight.size())
-
-        # Compute how much additional overlap is allowed based on the bleed factor
-        bleed_size_i = int(self.block_size_i * self.bleed_factor)
-        bleed_size_j = int(self.block_size_j * self.bleed_factor)
-
-        i = 0
-        for j in range(0, self.out_features, self.block_size_j):
-            # Set the mask for the block and the bleed regions
-            mask[j:j+self.block_size_j+bleed_size_j,
-                 i:i+self.block_size_i+bleed_size_i] = 1
-            i = i + self.block_size_i
-
-        # Clip the mask to the matrix size (in case of overflow due to bleeding)
-        return mask[:self.out_features, :self.in_features]
-
-    def forward(self, input: torch.Tensor) -> torch.Tensor:
-        return F.linear(input, self.weight * self.mask, self.bias)
-
-    def visualize_connectivity(self):
-        plt.figure(figsize=(10, 10))
-        plt.imshow(self.weight.data * self.mask, cmap='viridis')
-        plt.title(
-            f'Connectivity Pattern (Block Size: {self.block_size}, Bleed Factor: {self.bleed_factor})')
-        plt.colorbar()
-        plt.show()
-
-
-#  class MaskedLinear(nn.Linear):
-#     def __init__(self, in_features: int, out_features: int, block_size: int, bleed_factor: float = 0.0, bias: bool = False):
-#         super(MaskedLinear, self).__init__(in_features, out_features, bias)
-#         self.block_size = block_size
-#         self.bleed_factor = bleed_factor  # New parameter to control bleeding
-#         self.register_buffer('mask', self.create_mask())
-
-#     def create_mask(self):
-#         mask = torch.zeros(self.weight.size())
-
-#         # Compute how much additional overlap is allowed based on the bleed factor
-#         bleed_size = int(self.block_size * self.bleed_factor)
-
-#         for i in range(0, self.out_features, self.block_size):
-#             j = i  # Keep the block diagonal structure
-#             # Set the mask for the block and the bleed regions
-#             mask[i:i+self.block_size+bleed_size, j:j+self.block_size+bleed_size] = 1
-
-#         # Clip the mask to the matrix size (in case of overflow due to bleeding)
-#         return mask[:self.out_features, :self.in_features]
-
-#     def forward(self, input: torch.Tensor) -> torch.Tensor:
-#         return F.linear(input, self.weight * self.mask, self.bias)
-#         # return F.linear(input, self.weight, self.bias)
-
-#     def visualize_connectivity(self):
-#         plt.figure(figsize=(10, 10))
-#         plt.imshow(self.weight.data * self.mask, cmap='viridis')
-#         plt.title(f'Connectivity Pattern (Block Size: {self.block_size}, Bleed Factor: {self.bleed_factor})')
-#         plt.colorbar()
-#         plt.show()
 
 
 class HiddenLayer(nn.Module):
@@ -856,8 +827,8 @@ class HiddenLayer(nn.Module):
         summation_act = self.forward_act + self.backward_act + self.lateral_act
         # summation_act = self.forward_act + self.backward_act
 
-        # for residual_connection in self.residual_connections:
-        #     summation_act = summation_act + residual_connection.forward(mode)
+        for residual_connection in self.residual_connections:
+            summation_act = summation_act + residual_connection.forward(mode)
 
         new_activation = F.leaky_relu(summation_act)
 

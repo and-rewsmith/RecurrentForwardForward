@@ -106,17 +106,21 @@ class RecurrentFFNet(nn.Module):
         for i in range(0, len(inner_layers)):
             for j in range(0, len(inner_layers)):
                 # TODO: Perform testing for residual connections and determine best scheme. Examples:
-                # if i != j and abs(i - j) != 1:
+                if i != j and abs(i - j) == 2:
                 # if abs(i-j) == 4:
-                if False:
+                # if False:
                     source = inner_layers[i]
                     target = inner_layers[j]
                     if i < j:
                         weight_init = WeightInitialization.Forward
+                        block_size = settings.model.connection_profile.forward_block_sizes[i]
+                        bleed_factor = settings.model.connection_profile.forward_bleed_factors[i]
                     else:
                         weight_init = WeightInitialization.Backward
+                        block_size = settings.model.connection_profile.backward_block_sizes[i]
+                        bleed_factor = settings.model.connection_profile.backward_bleed_factors[i]
                     residual_connection = ResidualConnection(
-                        source, target.size, settings.model.dropout, weight_init)
+                        source, target.size, settings.model.dropout, weight_init, block_size, bleed_factor)
                     inner_layers[i].init_residual_connection(
                         residual_connection)
 
