@@ -259,14 +259,18 @@ class DelayedMaskedLinear(nn.Module):
         self.masked_linear = MaskedLinear(input_size, output_size, block_size, bleed_factor, bias)
 
         # Buffer initialization method
-        self.buffer = None
+        self.buffer_pos = None
+        self.buffer_neg = None
 
         self.device = device
 
     def init_buffer(self, batch_size: int):
-        self.buffer = torch.zeros(batch_size, self.input_size).to(self.device)
+        self.buffer_pos = torch.zeros(batch_size, self.input_size).to(self.device)
+        self.buffer_neg = torch.zeros(batch_size, self.input_size).to(self.device)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, forward_mode: ForwardMode) -> torch.Tensor:
+        self.buffer = self.buffer_pos if forward_mode == ForwardMode.PositiveData else self.buffer_neg
+
         self.buffer = self.buffer.detach()
         current_input = x
 
@@ -827,10 +831,10 @@ class HiddenLayer(nn.Module):
                 prev_act, self.settings.model.epsilon)
             # prev_act_stdized = prev_act
 
-            self.forward_act = self.forward_linear.forward(prev_layer_stdized)
+            self.forward_act = self.forward_linear.forward(prev_layer_stdized, forward_mode=mode)
             self.backward_act = -1 * \
-                self.backward_linear.forward(next_layer_stdized)
-            self.lateral_act = self.lateral_linear.forward(prev_act_stdized)
+                self.backward_linear.forward(next_layer_stdized, forward_mode=mode)
+            self.lateral_act = self.lateral_linear.forward(prev_act_stdized, forward_mode=mode)
 
         # Single layer scenario. Hidden layer connected to input layer and
         # output layer.
@@ -849,9 +853,9 @@ class HiddenLayer(nn.Module):
                 prev_act, self.settings.model.epsilon)
             # prev_act_stdized = prev_act
 
-            self.forward_act = self.forward_linear.forward(data)
-            self.backward_act = -1 * self.backward_linear.forward(labels)
-            self.lateral_act = self.lateral_linear.forward(prev_act_stdized)
+            self.forward_act = self.forward_linear.forward(data, forward_mode=mode)
+            self.backward_act = -1 * self.backward_linear.forward(labels, forward_mode=mode)
+            self.lateral_act = self.lateral_linear.forward(prev_act_stdized, forward_mode=mode)
 
         # Input layer scenario. Connected to input layer and hidden layer.
         elif data is not None:
@@ -877,10 +881,10 @@ class HiddenLayer(nn.Module):
                 prev_act, self.settings.model.epsilon)
             # prev_act_stdized = prev_act
 
-            self.forward_act = self.forward_linear.forward(data)
+            self.forward_act = self.forward_linear.forward(data, forward_mode=mode)
             self.backward_act = -1 * \
-                self.backward_linear.forward(next_layer_stdized)
-            self.lateral_act = self.lateral_linear.forward(prev_act_stdized)
+                self.backward_linear.forward(next_layer_stdized, forward_mode=mode)
+            self.lateral_act = self.lateral_linear.forward(prev_act_stdized, forward_mode=mode)
 
         # Output layer scenario. Connected to hidden layer and output layer.
         elif labels is not None:
@@ -906,9 +910,9 @@ class HiddenLayer(nn.Module):
                 prev_act, self.settings.model.epsilon)
             # prev_act_stdized = prev_act
 
-            self.forward_act = self.forward_linear.forward(prev_layer_stdized)
+            self.forward_act = self.forward_linear.forward(prev_layer_stdized, forward_mode=mode)
             self.backward_act = -1 * self.backward_linear.forward(labels)
-            self.lateral_act = self.lateral_linear.forward(prev_act_stdized)
+            self.lateral_act = self.lateral_linear.forward(prev_act_stdized, forward_mode=mode)
 
         # self.forward_act = self.forward_dropout(self.forward_act)
         # self.backward_act = self.backward_dropout(self.backward_act)
