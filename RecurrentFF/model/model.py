@@ -673,6 +673,7 @@ class RecurrentFFNet(nn.Module):
                 # zero_correct_class_softmax(
                 #     generative_input[:, self.settings.data_config.data_size:], label_data.pos_labels[iteration]),
             )
+
             # if (batch_num + epoch_num) % 2 == 0:
             #     label_data_sample = (
             #         torch.softmax(generative_input[:, self.settings.data_config.data_size:], dim=1),

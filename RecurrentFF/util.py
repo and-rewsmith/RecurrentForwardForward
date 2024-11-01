@@ -53,9 +53,22 @@ def sample_from_logits_excluding_highest(logits):
         uniform_probs = mask.float() / (mask.sum(dim=1, keepdim=True) - 1)
         normalized_probs[zero_rows] = uniform_probs[zero_rows]
 
-    # Sample from the modified probability distribution
-    sampled_indices = torch.multinomial(
-        normalized_probs, num_samples=1).squeeze()
+    # Replace NaNs with zero and set any Infs or negative values to zero
+    safe_probs = torch.nan_to_num(
+        normalized_probs, nan=0.0, posinf=0.0, neginf=0.0)
+
+    # Ensure all values are non-negative
+    safe_probs = torch.clamp(safe_probs, min=0.0)
+
+    # Re-normalize the probabilities to ensure they sum to 1
+    if safe_probs.sum() > 0:
+        safe_probs /= safe_probs.sum()
+    else:
+        # If all values are zero, create a uniform distribution as a fallback
+        safe_probs = torch.ones_like(safe_probs) / safe_probs.numel()
+
+    # Sample from the modified and safe probability distribution
+    sampled_indices = torch.multinomial(safe_probs, num_samples=1).squeeze()
 
     # Create a one-hot vector from the sampled indices
     one_hot = F.one_hot(sampled_indices, num_classes=logits.size(1)).float()

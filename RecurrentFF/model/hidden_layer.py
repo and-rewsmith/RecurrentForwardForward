@@ -619,14 +619,18 @@ class HiddenLayer(nn.Module):
 
         pos_badness = layer_activations_to_badness(pos_activations)
         neg_badness = layer_activations_to_badness(neg_activations)
-        delta = 4 * (pos_badness - neg_badness)
+        # delta = 4 * (pos_badness - neg_badness)
         # pos_badness = torch.clamp(pos_badness, min=0.5)
         # neg_badness = torch.clamp(neg_badness, max=3)
 
         # Loss function equivelent to:
         # plot3d log(1 + exp(-n + 1)) + log(1 + exp(p - 1)) for n=0 to 3, p=0
         # to 3
-        contrastive_loss: Tensor = 1 * F.softplus(delta).mean()
+        # contrastive_loss: Tensor = 1 * F.softplus(delta).mean()
+        contrastive_loss: Tensor = 1 * F.softplus(torch.cat([
+            (-1 * neg_badness) + self.settings.model.loss_threshold,
+            pos_badness - self.settings.model.loss_threshold
+        ])).mean()
         smooth_loss = 0.0 * (smooth_loss_pos + smooth_loss_neg)
         layer_loss = smooth_loss + contrastive_loss
         # layer_loss = torch.clamp(layer_loss, max=20)
