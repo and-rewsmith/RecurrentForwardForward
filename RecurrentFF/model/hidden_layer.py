@@ -631,6 +631,7 @@ class HiddenLayer(nn.Module):
             (-1 * neg_badness) + self.settings.model.loss_threshold,
             pos_badness - self.settings.model.loss_threshold
         ])).mean()
+        # contrastive_loss: Tensor = 1 * (pos_badness - neg_badness).mean()
         smooth_loss = 0.0 * (smooth_loss_pos + smooth_loss_neg)
         layer_loss = smooth_loss + contrastive_loss
         # layer_loss = torch.clamp(layer_loss, max=20)
