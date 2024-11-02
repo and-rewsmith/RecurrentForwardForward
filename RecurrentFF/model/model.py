@@ -168,7 +168,7 @@ class RecurrentFFNet(nn.Module):
         nn.init.xavier_normal(self.m.weight)
 
         self.optimizer = torch.optim.SGD(
-            self.generative_linear.parameters(), lr=0.0005)
+            self.generative_linear.parameters(), lr=0.00005)
 
         logging.info("Finished initializing network")
 
@@ -280,14 +280,17 @@ class RecurrentFFNet(nn.Module):
                 test_loader, self.generative_linear, self.m, self.optimizer, 1, True)
             train_accuracy = self.processor.brute_force_predict(
                 TrainTestBridgeFormatLoader(train_loader), self.generative_linear, self.m, self.optimizer, 1, False)  # type: ignore[arg-type]
-            energy_test_accuracy = self.processor.brute_force_predict_energy(
-                test_loader, self.optimizer, 1, False)  # type: ignore[arg-type]
-            energy_train_accuracy = self.processor.brute_force_predict_energy(
-                TrainTestBridgeFormatLoader(train_loader), self.optimizer, 1, False)  # type: ignore[arg-type]
+            # energy_test_accuracy = self.processor.brute_force_predict_energy(
+            #     test_loader, self.optimizer, 1, False)  # type: ignore[arg-type]
+            # energy_train_accuracy = self.processor.brute_force_predict_energy(
+            #     TrainTestBridgeFormatLoader(train_loader), self.optimizer, 1, False)  # type: ignore[arg-type]
 
-            if energy_test_accuracy > best_test_accuracy:
-                best_test_accuracy = energy_test_accuracy
-                torch.save(self.state_dict(), self.weights_file_name)
+            # if energy_test_accuracy > best_test_accuracy:
+            #     best_test_accuracy = energy_test_accuracy
+            #     torch.save(self.state_dict(), self.weights_file_name)
+            energy_train_accuracy = 0
+            energy_test_accuracy = 0
+
 
             if self.settings.model.should_log_metrics:
                 self.__log_epoch_metrics(
@@ -601,6 +604,7 @@ class RecurrentFFNet(nn.Module):
             #     label_loss = label_criterion(reconstructed_labels, torch.argmax(generative_input[:, self.settings.data_config.data_size:], dim=1))
             # loss = data_loss + label_loss
             loss = label_loss
+            loss = torch.clamp(loss, max=10)
             wandb.log({"generative loss": loss.item()}, step=total_batch_count)
             wandb.log({"data loss": data_loss.item()}, step=total_batch_count)
             wandb.log({"label loss": label_loss.item()},
@@ -701,8 +705,11 @@ class RecurrentFFNet(nn.Module):
 
             if batch_num % 10 == 0 and iteration == iterations - 1:
                 with torch.no_grad():
+                    # Create directory for artifacts
                     import os
-                    os.mkdir(f"runtime_artifacts/epoch_{epoch_num}_batch_{batch_num}")
+                    artifact_dir = f"runtime_artifacts/epoch_{epoch_num}_batch_{batch_num}"
+                    os.makedirs(artifact_dir, exist_ok=True)
+                    
                     import numpy as np
                     import matplotlib.pyplot as plt
                     mean = torch.tensor([0.4914, 0.4822, 0.4465]).to(self.settings.device.device)
@@ -710,34 +717,36 @@ class RecurrentFFNet(nn.Module):
                     
                     # Original image visualization
                     flat = input_data.pos_input[0][0]  # Keep as tensor
-                    patch_size = 8
+                    patch_size = 4
                     n_patches = 32 // patch_size
                     patches = flat.reshape(-1, 3, patch_size, patch_size)
                     img = torch.zeros(32, 32, 3).to(self.settings.device.device)
                     for i in range(n_patches):
                         for j in range(n_patches):
                             patch = patches[i * n_patches + j]
-                            patch = patch.permute(1, 2, 0)  # Use permute instead of transpose
+                            patch = patch.permute(1, 2, 0)
                             patch = (patch * std) + mean
                             img[i*patch_size:(i+1)*patch_size, j*patch_size:(j+1)*patch_size] = patch
                     
                     plt.figure(figsize=(5, 5))
                     plt.imshow(torch.clip(img.cpu(), 0, 1))
-                    plt.savefig(f"runtime_artifacts/epoch_{epoch_num}_batch_{batch_num}/original.png")
+                    plt.savefig(f"{artifact_dir}/original.png")
                     plt.close()
 
                     # 2: Reconstruct from actual first layer activations
                     masked_linear = self.inner_layers.layers[0].forward_linear
                     activations = self.inner_layers.layers[0].pos_activations.current[0]  # [250]
                     
-                    # If using leaky ReLU with negative_slope=0.01:
-                    # "Undo" leaky ReLU by dividing negative values by 0.01
+                    # "Undo" leaky ReLU
                     negative_mask = activations < 0
                     activations_adjusted = activations.clone()
                     activations_adjusted[negative_mask] = activations_adjusted[negative_mask] / 0.01
-                    
-                    # Reconstruct using transposed weights
-                    reconstruction = torch.matmul(activations_adjusted, masked_linear.weight)  # [3072]
+
+                    # Get masked weights and transpose them for reconstruction
+                    masked_weights = (masked_linear.weight * masked_linear.mask).t()  # Shape [3072, 1024]
+                    # Make activations a column vector for correct multiplication
+                    activations_adjusted = activations_adjusted.unsqueeze(1)  # Shape [1024, 1] from [1024]
+                    reconstruction = torch.matmul(masked_weights, activations_adjusted).squeeze()  # Shape [3072]
                     
                     # Reshape and visualize reconstruction
                     patches = reconstruction.reshape(-1, 3, patch_size, patch_size)
@@ -751,7 +760,7 @@ class RecurrentFFNet(nn.Module):
                     
                     plt.figure(figsize=(5, 5))
                     plt.imshow(torch.clip(reconstructed_img.cpu(), 0, 1))
-                    plt.savefig(f"runtime_artifacts/epoch_{epoch_num}_batch_{batch_num}/reconstruction.png")
+                    plt.savefig(f"{artifact_dir}/reconstruction.png")
                     plt.close()
 
             lower_iteration_threshold = iterations // 2 - \

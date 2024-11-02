@@ -19,7 +19,7 @@ DATASET = "CIFAR10"
 # If you want to load weights fill this in.
 WEIGHTS_PATH = ""
 
-PATCH_SIZE = 8
+PATCH_SIZE = 4
 
 
 class CustomTrainDataset(Dataset):
