@@ -62,8 +62,10 @@ if __name__ == "__main__":
     # torch.autograd.set_detect_anomaly(True)
     torch.manual_seed(1234)
 
+    from torchvision.transforms import Compose, ToTensor, Normalize, Lambda
     transform = Compose([
         ToTensor(),
+        Normalize((0.1307,), (0.3081,)),
     ])
 
     # ===========================TRAIN===========================

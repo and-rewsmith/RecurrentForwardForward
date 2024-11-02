@@ -703,65 +703,118 @@ class RecurrentFFNet(nn.Module):
             self.inner_layers.layers[0].neg_activations.previous = self.inner_layers.layers[0].backwards_act.clone().detach()
             self.inner_layers.layers[0].neg_activations.current = self.inner_layers.layers[0].backwards_act.clone().detach()
 
+
             if batch_num % 10 == 0 and iteration == iterations - 1:
-                with torch.no_grad():
-                    # Create directory for artifacts
-                    import os
-                    artifact_dir = f"runtime_artifacts/epoch_{epoch_num}_batch_{batch_num}"
-                    os.makedirs(artifact_dir, exist_ok=True)
-                    
-                    import numpy as np
-                    import matplotlib.pyplot as plt
-                    mean = torch.tensor([0.4914, 0.4822, 0.4465]).to(self.settings.device.device)
-                    std = torch.tensor([0.2023, 0.1994, 0.2010]).to(self.settings.device.device)
-                    
-                    # Original image visualization
-                    flat = input_data.pos_input[0][0]  # Keep as tensor
-                    patch_size = 4
-                    n_patches = 32 // patch_size
-                    patches = flat.reshape(-1, 3, patch_size, patch_size)
-                    img = torch.zeros(32, 32, 3).to(self.settings.device.device)
-                    for i in range(n_patches):
-                        for j in range(n_patches):
-                            patch = patches[i * n_patches + j]
-                            patch = patch.permute(1, 2, 0)
-                            patch = (patch * std) + mean
-                            img[i*patch_size:(i+1)*patch_size, j*patch_size:(j+1)*patch_size] = patch
-                    
-                    plt.figure(figsize=(5, 5))
-                    plt.imshow(torch.clip(img.cpu(), 0, 1))
-                    plt.savefig(f"{artifact_dir}/original.png")
-                    plt.close()
+               with torch.no_grad():
+                   # Create directory for artifacts
+                   import os
+                   artifact_dir = f"runtime_artifacts/epoch_{epoch_num}_batch_{batch_num}"
+                   os.makedirs(artifact_dir, exist_ok=True)
+                   
+                   import numpy as np
+                   import matplotlib.pyplot as plt
+                   
+                   # Original image visualization
+                   flat = input_data.pos_input[0][0]  # Keep as tensor [784]
+                   img = flat.reshape(64, 64)  # MNIST is 28x28
+                   
+                   plt.figure(figsize=(5, 5))
+                   plt.imshow(img.cpu(), cmap='gray')
+                   plt.savefig(f"{artifact_dir}/original.png")
+                   plt.close()
 
-                    # 2: Reconstruct from actual first layer activations
-                    masked_linear = self.inner_layers.layers[0].forward_linear
-                    activations = self.inner_layers.layers[0].pos_activations.current[0]  # [250]
-                    
-                    # "Undo" leaky ReLU
-                    negative_mask = activations < 0
-                    activations_adjusted = activations.clone()
-                    activations_adjusted[negative_mask] = activations_adjusted[negative_mask] / 0.01
+                   # 2: Reconstruct from actual first layer activations
+                   masked_linear = self.inner_layers.layers[0].forward_linear
+                   activations = self.inner_layers.layers[0].pos_activations.current[0]
+                   
+                   # "Undo" leaky ReLU
+                   negative_mask = activations < 0
+                   activations_adjusted = activations.clone()
+                   activations_adjusted[negative_mask] = activations_adjusted[negative_mask] / 0.01
 
-                    # Get masked weights and transpose them for reconstruction
-                    masked_weights = (masked_linear.weight * masked_linear.mask).t()  # Shape [3072, 1024]
-                    # Make activations a column vector for correct multiplication
-                    activations_adjusted = activations_adjusted.unsqueeze(1)  # Shape [1024, 1] from [1024]
-                    reconstruction = torch.matmul(masked_weights, activations_adjusted).squeeze()  # Shape [3072]
+                   # Get masked weights and transpose them for reconstruction
+                   masked_weights = (masked_linear.weight * masked_linear.mask).t()  # Shape [784, 1024]
+                   # Make activations a column vector for correct multiplication
+                   activations_adjusted = activations_adjusted.unsqueeze(1)
+                   reconstruction = torch.matmul(masked_weights, activations_adjusted).squeeze()  # Shape [784]
+                   
+                   # Reshape and visualize reconstruction
+                   reconstructed_img = reconstruction.reshape(64, 64)
+                   
+                   recon_loss = torch.nn.functional.mse_loss(reconstructed_img, img)
+                   wandb.log({
+                       "reconstruction_loss": recon_loss.item()
+                   })
+                   
+                   plt.figure(figsize=(5, 5))
+                   plt.imshow(reconstructed_img.cpu(), cmap='gray')
+                   plt.savefig(f"{artifact_dir}/reconstruction.png")
+                   plt.close()
+
+            # if batch_num % 10 == 0 and iteration == iterations - 1:
+            #     with torch.no_grad():
+            #         # Create directory for artifacts
+            #         import os
+            #         artifact_dir = f"runtime_artifacts/epoch_{epoch_num}_batch_{batch_num}"
+            #         os.makedirs(artifact_dir, exist_ok=True)
                     
-                    # Reshape and visualize reconstruction
-                    patches = reconstruction.reshape(-1, 3, patch_size, patch_size)
-                    reconstructed_img = torch.zeros(32, 32, 3).to(self.settings.device.device)
-                    for i in range(n_patches):
-                        for j in range(n_patches):
-                            patch = patches[i * n_patches + j]
-                            patch = patch.permute(1, 2, 0)
-                            patch = (patch * std) + mean
-                            reconstructed_img[i*patch_size:(i+1)*patch_size, j*patch_size:(j+1)*patch_size] = patch
+            #         import numpy as np
+            #         import matplotlib.pyplot as plt
+            #         mean = torch.tensor([0.4914, 0.4822, 0.4465]).to(self.settings.device.device)
+            #         std = torch.tensor([0.2023, 0.1994, 0.2010]).to(self.settings.device.device)
                     
-                    plt.figure(figsize=(5, 5))
-                    plt.imshow(torch.clip(reconstructed_img.cpu(), 0, 1))
-                    plt.savefig(f"{artifact_dir}/reconstruction.png")
-                    plt.close()
+            #         # Original image visualization
+            #         flat = input_data.pos_input[0][0]  # Keep as tensor
+            #         patch_size = 4
+            #         n_patches = 32 // patch_size
+            #         patches = flat.reshape(-1, 3, patch_size, patch_size)
+            #         img = torch.zeros(32, 32, 3).to(self.settings.device.device)
+            #         for i in range(n_patches):
+            #             for j in range(n_patches):
+            #                 patch = patches[i * n_patches + j]
+            #                 patch = patch.permute(1, 2, 0)
+            #                 patch = (patch * std) + mean
+            #                 img[i*patch_size:(i+1)*patch_size, j*patch_size:(j+1)*patch_size] = patch
+                    
+            #         plt.figure(figsize=(5, 5))
+            #         plt.imshow(torch.clip(img.cpu(), 0, 1))
+            #         plt.savefig(f"{artifact_dir}/original.png")
+            #         plt.close()
+
+            #         # 2: Reconstruct from actual first layer activations
+            #         masked_linear = self.inner_layers.layers[0].forward_linear
+            #         activations = self.inner_layers.layers[0].pos_activations.current[0]  # [250]
+                    
+            #         # "Undo" leaky ReLU
+            #         negative_mask = activations < 0
+            #         activations_adjusted = activations.clone()
+            #         activations_adjusted[negative_mask] = activations_adjusted[negative_mask] / 0.01
+
+            #         # Get masked weights and transpose them for reconstruction
+            #         masked_weights = (masked_linear.weight * masked_linear.mask).t()  # Shape [3072, 1024]
+            #         # Make activations a column vector for correct multiplication
+            #         activations_adjusted = activations_adjusted.unsqueeze(1)  # Shape [1024, 1] from [1024]
+            #         reconstruction = torch.matmul(masked_weights, activations_adjusted).squeeze()  # Shape [3072]
+                    
+            #         # Reshape and visualize reconstruction
+            #         patches = reconstruction.reshape(-1, 3, patch_size, patch_size)
+            #         reconstructed_img = torch.zeros(32, 32, 3).to(self.settings.device.device)
+            #         for i in range(n_patches):
+            #             for j in range(n_patches):
+            #                 patch = patches[i * n_patches + j]
+            #                 patch = patch.permute(1, 2, 0)
+            #                 patch = (patch * std) + mean
+            #                 reconstructed_img[i*patch_size:(i+1)*patch_size, j*patch_size:(j+1)*patch_size] = patch
+
+            #         recon_loss = torch.nn.functional.mse_loss(reconstructed_img, img)
+            #         wandb.log({
+            #             "reconstruction_loss": recon_loss.item()
+            #         })
+                    
+            #         plt.figure(figsize=(5, 5))
+            #         plt.imshow(torch.clip(reconstructed_img.cpu(), 0, 1))
+            #         plt.savefig(f"{artifact_dir}/reconstruction.png")
+            #         plt.close()
 
             lower_iteration_threshold = iterations // 2 - \
                 iterations // 10
