@@ -477,6 +477,8 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                 )
                 self.inner_layers.advance_layers_train(
                     input_data_sample, label_data_sample, True, None)
+                self.inner_layers.layers[0].neg_activations.previous = self.inner_layers.layers[0].backwards_act.clone().detach()
+                self.inner_layers.layers[0].neg_activations.current = self.inner_layers.layers[0].backwards_act.clone().detach()
 
                 pre_op_grad = self.inner_layers.layers[0].forward_linear.weight.grad[0][2].item(
                 )

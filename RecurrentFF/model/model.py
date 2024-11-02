@@ -1,3 +1,5 @@
+import os
+import shutil
 from datetime import datetime
 import logging
 import random
@@ -68,6 +70,9 @@ class RecurrentFFNet(nn.Module):
     def __init__(self, settings: Settings):
         logging.info("Initializing network")
         super(RecurrentFFNet, self).__init__()
+
+        shutil.rmtree("./runtime_artifacts")
+        os.mkdir("./runtime_artifacts")
 
         self.settings = settings
 
@@ -640,12 +645,12 @@ class RecurrentFFNet(nn.Module):
                 # generative_input[:, 0:self.settings.data_config.data_size])
                 input_data.pos_input[iteration])
             label_data_sample = (
-                # torch.zeros(self.settings.data_config.train_batch_size, self.settings.data_config.num_classes).to(
-                #     self.settings.device.device),
-                # torch.zeros(self.settings.data_config.train_batch_size, self.settings.data_config.num_classes).to(
-                #     self.settings.device.device),
+                torch.zeros(self.settings.data_config.train_batch_size, self.settings.data_config.num_classes).to(
+                    self.settings.device.device),
+                torch.zeros(self.settings.data_config.train_batch_size, self.settings.data_config.num_classes).to(
+                    self.settings.device.device),
                 # softmax_pos_labels,
-                label_data.pos_labels[iteration],
+                # label_data.pos_labels[iteration],
                 # torch.nn.functional.one_hot(torch.multinomial(softmax_pos_labels, num_samples=1).squeeze(
                 #     1), num_classes=10).to(dtype=torch.float32, device=self.settings.device.device),
                 # torch.nn.functional.one_hot(torch.argmax(
@@ -659,7 +664,7 @@ class RecurrentFFNet(nn.Module):
                 # sample_avoiding_correct_class(
                 #     softmax_pos_labels,
                 #     label_data.pos_labels[iteration]),
-                label_data.neg_labels[iteration],
+                # label_data.neg_labels[iteration],
                 # sample_from_logits(
                 #     torch.softmax(
                 #         generative_input[:, self.settings.data_config.data_size:], dim=1)
@@ -691,6 +696,63 @@ class RecurrentFFNet(nn.Module):
 
             self.inner_layers.advance_layers_train(
                 input_data_sample, label_data_sample, True, layer_metrics)
+            self.inner_layers.layers[0].neg_activations.previous = self.inner_layers.layers[0].backwards_act.clone().detach()
+            self.inner_layers.layers[0].neg_activations.current = self.inner_layers.layers[0].backwards_act.clone().detach()
+
+            if batch_num % 10 == 0 and iteration == iterations - 1:
+                with torch.no_grad():
+                    import os
+                    os.mkdir(f"runtime_artifacts/epoch_{epoch_num}_batch_{batch_num}")
+                    import numpy as np
+                    import matplotlib.pyplot as plt
+                    mean = torch.tensor([0.4914, 0.4822, 0.4465]).to(self.settings.device.device)
+                    std = torch.tensor([0.2023, 0.1994, 0.2010]).to(self.settings.device.device)
+                    
+                    # Original image visualization
+                    flat = input_data.pos_input[0][0]  # Keep as tensor
+                    patch_size = 8
+                    n_patches = 32 // patch_size
+                    patches = flat.reshape(-1, 3, patch_size, patch_size)
+                    img = torch.zeros(32, 32, 3).to(self.settings.device.device)
+                    for i in range(n_patches):
+                        for j in range(n_patches):
+                            patch = patches[i * n_patches + j]
+                            patch = patch.permute(1, 2, 0)  # Use permute instead of transpose
+                            patch = (patch * std) + mean
+                            img[i*patch_size:(i+1)*patch_size, j*patch_size:(j+1)*patch_size] = patch
+                    
+                    plt.figure(figsize=(5, 5))
+                    plt.imshow(torch.clip(img.cpu(), 0, 1))
+                    plt.savefig(f"runtime_artifacts/epoch_{epoch_num}_batch_{batch_num}/original.png")
+                    plt.close()
+
+                    # 2: Reconstruct from actual first layer activations
+                    masked_linear = self.inner_layers.layers[0].forward_linear
+                    activations = self.inner_layers.layers[0].pos_activations.current[0]  # [250]
+                    
+                    # If using leaky ReLU with negative_slope=0.01:
+                    # "Undo" leaky ReLU by dividing negative values by 0.01
+                    negative_mask = activations < 0
+                    activations_adjusted = activations.clone()
+                    activations_adjusted[negative_mask] = activations_adjusted[negative_mask] / 0.01
+                    
+                    # Reconstruct using transposed weights
+                    reconstruction = torch.matmul(activations_adjusted, masked_linear.weight)  # [3072]
+                    
+                    # Reshape and visualize reconstruction
+                    patches = reconstruction.reshape(-1, 3, patch_size, patch_size)
+                    reconstructed_img = torch.zeros(32, 32, 3).to(self.settings.device.device)
+                    for i in range(n_patches):
+                        for j in range(n_patches):
+                            patch = patches[i * n_patches + j]
+                            patch = patch.permute(1, 2, 0)
+                            patch = (patch * std) + mean
+                            reconstructed_img[i*patch_size:(i+1)*patch_size, j*patch_size:(j+1)*patch_size] = patch
+                    
+                    plt.figure(figsize=(5, 5))
+                    plt.imshow(torch.clip(reconstructed_img.cpu(), 0, 1))
+                    plt.savefig(f"runtime_artifacts/epoch_{epoch_num}_batch_{batch_num}/reconstruction.png")
+                    plt.close()
 
             lower_iteration_threshold = iterations // 2 - \
                 iterations // 10
