@@ -71,8 +71,8 @@ class RecurrentFFNet(nn.Module):
         logging.info("Initializing network")
         super(RecurrentFFNet, self).__init__()
 
-        shutil.rmtree("./runtime_artifacts2")
-        os.mkdir("./runtime_artifacts2")
+        shutil.rmtree("./runtime_artifacts")
+        os.mkdir("./runtime_artifacts")
 
         self.settings = settings
 
@@ -649,12 +649,12 @@ class RecurrentFFNet(nn.Module):
                 # generative_input[:, 0:self.settings.data_config.data_size])
                 input_data.pos_input[iteration])
             label_data_sample = (
-                torch.zeros(self.settings.data_config.train_batch_size, self.settings.data_config.num_classes).to(
-                    self.settings.device.device),
-                torch.zeros(self.settings.data_config.train_batch_size, self.settings.data_config.num_classes).to(
-                    self.settings.device.device),
+                # torch.zeros(self.settings.data_config.train_batch_size, self.settings.data_config.num_classes).to(
+                #     self.settings.device.device),
+                # torch.zeros(self.settings.data_config.train_batch_size, self.settings.data_config.num_classes).to(
+                #     self.settings.device.device),
                 # softmax_pos_labels,
-                # label_data.pos_labels[iteration],
+                label_data.pos_labels[iteration],
                 # torch.nn.functional.one_hot(torch.multinomial(softmax_pos_labels, num_samples=1).squeeze(
                 #     1), num_classes=10).to(dtype=torch.float32, device=self.settings.device.device),
                 # torch.nn.functional.one_hot(torch.argmax(
@@ -668,7 +668,7 @@ class RecurrentFFNet(nn.Module):
                 # sample_avoiding_correct_class(
                 #     softmax_pos_labels,
                 #     label_data.pos_labels[iteration]),
-                # label_data.neg_labels[iteration],
+                label_data.neg_labels[iteration],
                 # sample_from_logits(
                 #     torch.softmax(
                 #         generative_input[:, self.settings.data_config.data_size:], dim=1)
@@ -708,7 +708,7 @@ class RecurrentFFNet(nn.Module):
                with torch.no_grad():
                    # Create directory for artifacts
                    import os
-                   artifact_dir = f"runtime_artifacts2/epoch_{epoch_num}_batch_{batch_num}"
+                   artifact_dir = f"runtime_artifacts/epoch_{epoch_num}_batch_{batch_num}"
                    os.makedirs(artifact_dir, exist_ok=True)
                    
                    import numpy as np
