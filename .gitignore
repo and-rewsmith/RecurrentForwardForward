@@ -18,3 +18,4 @@ cifar-data/
 *.parquet
 .mypy_cache/
 runtime_artifacts/
+runtime_artifacts2/
