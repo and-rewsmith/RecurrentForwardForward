@@ -648,12 +648,12 @@ class RecurrentFFNet(nn.Module):
                 # generative_input[:, 0:self.settings.data_config.data_size])
                 input_data.pos_input[iteration])
             label_data_sample = (
-                torch.zeros(self.settings.data_config.train_batch_size, self.settings.data_config.num_classes).to(
-                    self.settings.device.device),
-                torch.zeros(self.settings.data_config.train_batch_size, self.settings.data_config.num_classes).to(
-                    self.settings.device.device),
+                # torch.zeros(self.settings.data_config.train_batch_size, self.settings.data_config.num_classes).to(
+                #     self.settings.device.device),
+                # torch.zeros(self.settings.data_config.train_batch_size, self.settings.data_config.num_classes).to(
+                #     self.settings.device.device),
                 # softmax_pos_labels,
-                # label_data.pos_labels[iteration],
+                label_data.pos_labels[iteration],
                 # torch.nn.functional.one_hot(torch.multinomial(softmax_pos_labels, num_samples=1).squeeze(
                 #     1), num_classes=10).to(dtype=torch.float32, device=self.settings.device.device),
                 # torch.nn.functional.one_hot(torch.argmax(
@@ -667,7 +667,7 @@ class RecurrentFFNet(nn.Module):
                 # sample_avoiding_correct_class(
                 #     softmax_pos_labels,
                 #     label_data.pos_labels[iteration]),
-                # label_data.neg_labels[iteration],
+                label_data.neg_labels[iteration],
                 # sample_from_logits(
                 #     torch.softmax(
                 #         generative_input[:, self.settings.data_config.data_size:], dim=1)
@@ -699,59 +699,102 @@ class RecurrentFFNet(nn.Module):
 
             self.inner_layers.advance_layers_train(
                 input_data_sample, label_data_sample, True, layer_metrics)
-            self.inner_layers.layers[4].neg_activations.previous = self.inner_layers.layers[4].backwards_act.clone(
-            ).detach()
-            self.inner_layers.layers[4].neg_activations.current = self.inner_layers.layers[4].backwards_act.clone(
-            ).detach()
+            # last_layer_idx = len(self.inner_layers) - 1
+            # self.inner_layers.layers[last_layer_idx].neg_activations.previous = self.inner_layers.layers[last_layer_idx].backwards_act.clone(
+            # ).detach()
+            # self.inner_layers.layers[last_layer_idx].neg_activations.current = self.inner_layers.layers[last_layer_idx].backwards_act.clone(
+            # ).detach()
 
-            if batch_num % 10 == 0 and iteration == iterations // 2:
+            if batch_num % 10 == 0 and iteration == iterations - 2:
                 with torch.no_grad():
                     # Create directory for artifacts
                     import os
                     artifact_dir = f"runtime_artifacts2/epoch_{epoch_num}_batch_{batch_num}"
                     os.makedirs(artifact_dir, exist_ok=True)
-
                     import numpy as np
                     import matplotlib.pyplot as plt
 
-                    # Original image visualization
-                    flat = input_data.pos_input[0][0]
-                    img = flat.reshape(64, 64)
+                    # Create a figure with 2 rows: top for temporal sequence, bottom for reconstruction
+                    fig, axes = plt.subplots(2, 3, figsize=(15, 10))
 
-                    plt.figure(figsize=(5, 5))
-                    plt.imshow(img.cpu(), cmap='gray')
-                    plt.savefig(f"{artifact_dir}/original.png")
-                    plt.close()
+                    # Plot temporal sequence (t-1, t, t+1)
+                    time_labels = ['t-1', 't', 't+1']
+                    current_time_idx = iteration  # Use current iteration as the time index
 
-                    # 2: Reconstruct from actual first layer activations
-                    masked_linear = self.inner_layers.layers[0].forward_linear
-                    activations = self.inner_layers.layers[0].pos_activations.current[0]
+                    for i, time_offset in enumerate([-1, 0, 1]):
+                        time_idx = max(
+                            0, min(current_time_idx + time_offset, input_data.pos_input.shape[1] - 1))
+                        flat = input_data.pos_input[time_idx][0]
+                        img = flat.reshape(64, 64)
+                        axes[0, i].imshow(img.cpu(), cmap='gray')
+                        axes[0, i].set_title(f'Original at {time_labels[i]}')
+                        axes[0, i].axis('off')
 
-                    # "Undo" leaky ReLU
-                    negative_mask = activations < 0
-                    activations_adjusted = activations.clone()
-                    activations_adjusted[negative_mask] = activations_adjusted[negative_mask] / 0.01
+                        # Store the t=current image for reconstruction comparison
+                        if time_offset == 0:
+                            current_img = img
 
-                    # Get masked weights and transpose them for reconstruction
-                    masked_weights = (masked_linear.weight *
-                                      masked_linear.mask).t()
-                    # Make activations a column vector for correct multiplication
-                    activations_adjusted = activations_adjusted.unsqueeze(1)
-                    reconstruction = torch.matmul(
-                        masked_weights, activations_adjusted).squeeze()
+                    activations = self.inner_layers.layers[0].backwards_act[0]
+                    # Reconstruct through each layer
+                    for layer_idx in reversed(range(1)):
+                        # # Undo leaky ReLU
+                        # negative_mask = activations < 0
+                        # activations = activations.clone()
+                        # activations[negative_mask] = activations[negative_mask] / 0.01
 
-                    # Reshape and visualize reconstruction
-                    reconstructed_img = reconstruction.reshape(64, 64)
+                        # Get masked weights and transpose them for reconstruction
+                        masked_weights = (self.inner_layers.layers[layer_idx].forward_linear.weight *
+                                          self.inner_layers.layers[layer_idx].forward_linear.mask).t()
 
+                        # Project to lower layer or input space
+                        activations = torch.matmul(
+                            masked_weights, activations.unsqueeze(1)).squeeze()
+
+                    # Final activations are the reconstruction
+                    reconstructed_img = activations.reshape(64, 64)
+
+                    # Normalize reconstruction to match original image scale
+                    recon_min = reconstructed_img.min()
+                    recon_max = reconstructed_img.max()
+                    orig_min = current_img.min()
+                    orig_max = current_img.max()
+                    normalized_reconstruction = (reconstructed_img - recon_min) / (
+                        recon_max - recon_min) * (orig_max - orig_min) + orig_min
+
+                    # Calculate reconstruction loss using normalized reconstruction
                     recon_loss = torch.nn.functional.mse_loss(
-                        reconstructed_img, img)
+                        normalized_reconstruction, current_img)
                     wandb.log({
                         "reconstruction_loss": recon_loss.item()
                     })
 
-                    plt.figure(figsize=(5, 5))
-                    plt.imshow(reconstructed_img.cpu(), cmap='gray')
-                    plt.savefig(f"{artifact_dir}/reconstruction.png")
+                    # Plot original
+                    axes[1, 0].imshow(current_img.cpu(), cmap='gray')
+                    axes[1, 0].set_title(
+                        f'Original (t)\nRange: [{current_img.min():.3f}, {current_img.max():.3f}]')
+                    axes[1, 0].axis('off')
+
+                    # Plot normalized reconstruction
+                    axes[1, 1].imshow(
+                        normalized_reconstruction.cpu(), cmap='gray')
+                    axes[1, 1].set_title(
+                        f'Reconstruction\nRaw range: [{recon_min:.3f}, {recon_max:.3f}]')
+                    axes[1, 1].axis('off')
+
+                    # Calculate and plot log-scaled difference
+                    difference = torch.abs(
+                        current_img - normalized_reconstruction).cpu()
+                    epsilon = 1e-10
+                    log_difference = torch.log10(difference + epsilon)
+
+                    diff_plot = axes[1, 2].imshow(difference, cmap='gray_r')
+                    axes[1, 2].set_title(
+                        'Error (Normalized)\nBlack = High Error')
+                    axes[1, 2].axis('off')
+                    fig.colorbar(diff_plot, ax=axes[1, 2])
+
+                    plt.tight_layout()
+                    plt.savefig(f"{artifact_dir}/visualization.png")
                     plt.close()
 
             # if batch_num % 10 == 0 and iteration == iterations - 1:

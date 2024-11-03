@@ -822,7 +822,7 @@ class HiddenLayer(nn.Module):
 
             self.forward_act = self.forward_linear.forward(prev_layer_stdized)
             self.backward_act = -1 * self.backward_linear.forward(labels)
-            self.lateral_act = self.lateral_linear.forward(prev_act_stdized)
+            # self.lateral_act = self.lateral_linear.forward(prev_act_stdized)
 
         # self.forward_act = self.forward_dropout(self.forward_act)
         # self.backward_act = self.backward_dropout(self.backward_act)
