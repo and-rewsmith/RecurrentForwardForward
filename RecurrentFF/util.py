@@ -68,10 +68,15 @@ def sample_from_logits_excluding_highest(logits):
         safe_probs = torch.ones_like(safe_probs) / safe_probs.numel()
 
     # Sample from the modified and safe probability distribution
-    sampled_indices = torch.multinomial(safe_probs, num_samples=1).squeeze()
-
-    # Create a one-hot vector from the sampled indices
-    one_hot = F.one_hot(sampled_indices, num_classes=logits.size(1)).float()
+    try:
+        sampled_indices = torch.multinomial(
+            safe_probs, num_samples=1).squeeze()
+        # Create a one-hot vector from the sampled indices
+        one_hot = F.one_hot(
+            sampled_indices, num_classes=logits.size(1)).float()
+    except RuntimeError as e:
+        print(f"-----error! {str(e)}")
+        one_hot = torch.zeros_like(safe_probs)
 
     return one_hot
 

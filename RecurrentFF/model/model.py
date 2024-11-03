@@ -71,8 +71,8 @@ class RecurrentFFNet(nn.Module):
         logging.info("Initializing network")
         super(RecurrentFFNet, self).__init__()
 
-        shutil.rmtree("./runtime_artifacts")
-        os.mkdir("./runtime_artifacts")
+        shutil.rmtree("./runtime_artifacts2")
+        os.mkdir("./runtime_artifacts2")
 
         self.settings = settings
 
@@ -290,7 +290,6 @@ class RecurrentFFNet(nn.Module):
                 torch.save(self.state_dict(), self.weights_file_name)
             # energy_train_accuracy = 0
             # energy_test_accuracy = 0
-
 
             if self.settings.model.should_log_metrics:
                 self.__log_epoch_metrics(
@@ -649,12 +648,12 @@ class RecurrentFFNet(nn.Module):
                 # generative_input[:, 0:self.settings.data_config.data_size])
                 input_data.pos_input[iteration])
             label_data_sample = (
-                # torch.zeros(self.settings.data_config.train_batch_size, self.settings.data_config.num_classes).to(
-                #     self.settings.device.device),
-                # torch.zeros(self.settings.data_config.train_batch_size, self.settings.data_config.num_classes).to(
-                #     self.settings.device.device),
+                torch.zeros(self.settings.data_config.train_batch_size, self.settings.data_config.num_classes).to(
+                    self.settings.device.device),
+                torch.zeros(self.settings.data_config.train_batch_size, self.settings.data_config.num_classes).to(
+                    self.settings.device.device),
                 # softmax_pos_labels,
-                label_data.pos_labels[iteration],
+                # label_data.pos_labels[iteration],
                 # torch.nn.functional.one_hot(torch.multinomial(softmax_pos_labels, num_samples=1).squeeze(
                 #     1), num_classes=10).to(dtype=torch.float32, device=self.settings.device.device),
                 # torch.nn.functional.one_hot(torch.argmax(
@@ -668,7 +667,7 @@ class RecurrentFFNet(nn.Module):
                 # sample_avoiding_correct_class(
                 #     softmax_pos_labels,
                 #     label_data.pos_labels[iteration]),
-                label_data.neg_labels[iteration],
+                # label_data.neg_labels[iteration],
                 # sample_from_logits(
                 #     torch.softmax(
                 #         generative_input[:, self.settings.data_config.data_size:], dim=1)
@@ -700,69 +699,73 @@ class RecurrentFFNet(nn.Module):
 
             self.inner_layers.advance_layers_train(
                 input_data_sample, label_data_sample, True, layer_metrics)
-            self.inner_layers.layers[0].neg_activations.previous = self.inner_layers.layers[0].backwards_act.clone().detach()
-            self.inner_layers.layers[0].neg_activations.current = self.inner_layers.layers[0].backwards_act.clone().detach()
+            self.inner_layers.layers[4].neg_activations.previous = self.inner_layers.layers[4].backwards_act.clone(
+            ).detach()
+            self.inner_layers.layers[4].neg_activations.current = self.inner_layers.layers[4].backwards_act.clone(
+            ).detach()
 
+            if batch_num % 10 == 0 and iteration == iterations // 2:
+                with torch.no_grad():
+                    # Create directory for artifacts
+                    import os
+                    artifact_dir = f"runtime_artifacts2/epoch_{epoch_num}_batch_{batch_num}"
+                    os.makedirs(artifact_dir, exist_ok=True)
 
-            if batch_num % 10 == 0 and iteration == iterations - 1:
-               with torch.no_grad():
-                   # Create directory for artifacts
-                   import os
-                   artifact_dir = f"runtime_artifacts/epoch_{epoch_num}_batch_{batch_num}"
-                   os.makedirs(artifact_dir, exist_ok=True)
-                   
-                   import numpy as np
-                   import matplotlib.pyplot as plt
-                   
-                   # Original image visualization
-                   flat = input_data.pos_input[0][0]  # Keep as tensor [784]
-                   img = flat.reshape(64, 64)  # MNIST is 28x28
-                   
-                   plt.figure(figsize=(5, 5))
-                   plt.imshow(img.cpu(), cmap='gray')
-                   plt.savefig(f"{artifact_dir}/original.png")
-                   plt.close()
+                    import numpy as np
+                    import matplotlib.pyplot as plt
 
-                   # 2: Reconstruct from actual first layer activations
-                   masked_linear = self.inner_layers.layers[0].forward_linear
-                   activations = self.inner_layers.layers[0].pos_activations.current[0]
-                   
-                   # "Undo" leaky ReLU
-                   negative_mask = activations < 0
-                   activations_adjusted = activations.clone()
-                   activations_adjusted[negative_mask] = activations_adjusted[negative_mask] / 0.01
+                    # Original image visualization
+                    flat = input_data.pos_input[0][0]
+                    img = flat.reshape(64, 64)
 
-                   # Get masked weights and transpose them for reconstruction
-                   masked_weights = (masked_linear.weight * masked_linear.mask).t()  # Shape [784, 1024]
-                   # Make activations a column vector for correct multiplication
-                   activations_adjusted = activations_adjusted.unsqueeze(1)
-                   reconstruction = torch.matmul(masked_weights, activations_adjusted).squeeze()  # Shape [784]
-                   
-                   # Reshape and visualize reconstruction
-                   reconstructed_img = reconstruction.reshape(64, 64)
-                   
-                   recon_loss = torch.nn.functional.mse_loss(reconstructed_img, img)
-                   wandb.log({
-                       "reconstruction_loss": recon_loss.item()
-                   })
-                   
-                   plt.figure(figsize=(5, 5))
-                   plt.imshow(reconstructed_img.cpu(), cmap='gray')
-                   plt.savefig(f"{artifact_dir}/reconstruction.png")
-                   plt.close()
+                    plt.figure(figsize=(5, 5))
+                    plt.imshow(img.cpu(), cmap='gray')
+                    plt.savefig(f"{artifact_dir}/original.png")
+                    plt.close()
+
+                    # 2: Reconstruct from actual first layer activations
+                    masked_linear = self.inner_layers.layers[0].forward_linear
+                    activations = self.inner_layers.layers[0].pos_activations.current[0]
+
+                    # "Undo" leaky ReLU
+                    negative_mask = activations < 0
+                    activations_adjusted = activations.clone()
+                    activations_adjusted[negative_mask] = activations_adjusted[negative_mask] / 0.01
+
+                    # Get masked weights and transpose them for reconstruction
+                    masked_weights = (masked_linear.weight *
+                                      masked_linear.mask).t()
+                    # Make activations a column vector for correct multiplication
+                    activations_adjusted = activations_adjusted.unsqueeze(1)
+                    reconstruction = torch.matmul(
+                        masked_weights, activations_adjusted).squeeze()
+
+                    # Reshape and visualize reconstruction
+                    reconstructed_img = reconstruction.reshape(64, 64)
+
+                    recon_loss = torch.nn.functional.mse_loss(
+                        reconstructed_img, img)
+                    wandb.log({
+                        "reconstruction_loss": recon_loss.item()
+                    })
+
+                    plt.figure(figsize=(5, 5))
+                    plt.imshow(reconstructed_img.cpu(), cmap='gray')
+                    plt.savefig(f"{artifact_dir}/reconstruction.png")
+                    plt.close()
 
             # if batch_num % 10 == 0 and iteration == iterations - 1:
             #     with torch.no_grad():
             #         # Create directory for artifacts
             #         import os
-            #         artifact_dir = f"runtime_artifacts/epoch_{epoch_num}_batch_{batch_num}"
+            #         artifact_dir = f"runtime_artifacts2/epoch_{epoch_num}_batch_{batch_num}"
             #         os.makedirs(artifact_dir, exist_ok=True)
-                    
+
             #         import numpy as np
             #         import matplotlib.pyplot as plt
             #         mean = torch.tensor([0.4914, 0.4822, 0.4465]).to(self.settings.device.device)
             #         std = torch.tensor([0.2023, 0.1994, 0.2010]).to(self.settings.device.device)
-                    
+
             #         # Original image visualization
             #         flat = input_data.pos_input[0][0]  # Keep as tensor
             #         patch_size = 4
@@ -775,7 +778,7 @@ class RecurrentFFNet(nn.Module):
             #                 patch = patch.permute(1, 2, 0)
             #                 patch = (patch * std) + mean
             #                 img[i*patch_size:(i+1)*patch_size, j*patch_size:(j+1)*patch_size] = patch
-                    
+
             #         plt.figure(figsize=(5, 5))
             #         plt.imshow(torch.clip(img.cpu(), 0, 1))
             #         plt.savefig(f"{artifact_dir}/original.png")
@@ -784,7 +787,7 @@ class RecurrentFFNet(nn.Module):
             #         # 2: Reconstruct from actual first layer activations
             #         masked_linear = self.inner_layers.layers[0].forward_linear
             #         activations = self.inner_layers.layers[0].pos_activations.current[0]  # [250]
-                    
+
             #         # "Undo" leaky ReLU
             #         negative_mask = activations < 0
             #         activations_adjusted = activations.clone()
@@ -795,7 +798,7 @@ class RecurrentFFNet(nn.Module):
             #         # Make activations a column vector for correct multiplication
             #         activations_adjusted = activations_adjusted.unsqueeze(1)  # Shape [1024, 1] from [1024]
             #         reconstruction = torch.matmul(masked_weights, activations_adjusted).squeeze()  # Shape [3072]
-                    
+
             #         # Reshape and visualize reconstruction
             #         patches = reconstruction.reshape(-1, 3, patch_size, patch_size)
             #         reconstructed_img = torch.zeros(32, 32, 3).to(self.settings.device.device)
@@ -810,7 +813,7 @@ class RecurrentFFNet(nn.Module):
             #         wandb.log({
             #             "reconstruction_loss": recon_loss.item()
             #         })
-                    
+
             #         plt.figure(figsize=(5, 5))
             #         plt.imshow(torch.clip(reconstructed_img.cpu(), 0, 1))
             #         plt.savefig(f"{artifact_dir}/reconstruction.png")
