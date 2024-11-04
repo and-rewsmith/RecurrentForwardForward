@@ -141,7 +141,7 @@ class ResidualConnection(nn.Module):
         out = self.weights(source_activations_stdized)
 
         if self.weight_initialization == WeightInitialization.Backward:
-            out = -1 * out
+            out = out
 
         return out
 
@@ -321,13 +321,16 @@ class HiddenLayer(nn.Module):
         )
         for layer in self.generative_linear:
             if isinstance(layer, nn.Linear):
-                nn.init.kaiming_uniform_(layer.weight, nonlinearity='relu')
+                nn.init.kaiming_uniform_(
+                    layer.weight, nonlinearity='leaky_relu')
 
         connection_profile = self.settings.model.connection_profile
         self.forward_linear = MaskedLinear(
             prev_size, size, bleed_factor=connection_profile.forward_block_bleed[layer_num], block_size=connection_profile.forward_block_sizes[layer_num])
-        nn.init.kaiming_uniform_(
-            self.forward_linear.weight, nonlinearity='relu')
+        # nn.init.kaiming_uniform_(
+        #     self.forward_linear.weight, nonlinearity='leaky_relu')
+        # nn.init.uniform_(self.forward_linear.weight, -0.1, 0.1)
+        nn.init.orthogonal(self.forward_linear.weight, gain=math.sqrt(2))
 
         if next_size == self.settings.data_config.num_classes:
             self.backward_linear = nn.Linear(next_size, size, bias=False)
@@ -335,12 +338,13 @@ class HiddenLayer(nn.Module):
         else:
             self.backward_linear = MaskedLinear(
                 next_size, size, bleed_factor=connection_profile.backward_block_bleed[layer_num], block_size=connection_profile.backward_block_sizes[layer_num])
-            nn.init.uniform_(self.backward_linear.weight, -0.05, 0.05)
+            # nn.init.uniform_(self.backward_linear.weight, -0.1, 0.1)
+            nn.init.orthogonal(self.forward_linear.weight, gain=2*math.sqrt(2))
 
         # Initialize the lateral weights to be the identity matrix
         self.lateral_linear = MaskedLinear(
             size, size, block_size=connection_profile.lateral_block_sizes[layer_num], bleed_factor=connection_profile.lateral_block_bleed[layer_num])
-        nn.init.orthogonal_(self.lateral_linear.weight, gain=math.sqrt(2))
+        nn.init.orthogonal_(self.lateral_linear.weight, gain=2*math.sqrt(2))
 
         self.previous_layer: Self = None  # type: ignore[assignment]
         self.next_layer: Self = None  # type: ignore[assignment]

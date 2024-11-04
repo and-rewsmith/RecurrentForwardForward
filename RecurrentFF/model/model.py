@@ -708,6 +708,13 @@ class RecurrentFFNet(nn.Module):
                 self.inner_layers.layers[last_layer_idx-1].neg_activations.current = self.inner_layers.layers[last_layer_idx-1].backwards_act.clone(
                 ).detach()
 
+                # # reverse relu on pos activations and assign to neg activations
+                # for layer in self.inner_layers:
+                #     negative_mask = layer.pos_activations.current < 0
+                #     layer.neg_activations.current = layer.pos_activations.current.clone().detach()
+                #     layer.neg_activations.current[negative_mask] = layer.neg_activations.current[negative_mask] / 0.01
+                #     break
+
             if batch_num % 10 == 0 and iteration == iterations - 2:
                 with torch.no_grad():
                     # Create directory for artifacts
@@ -751,7 +758,7 @@ class RecurrentFFNet(nn.Module):
                                           self.inner_layers.layers[layer_idx].forward_linear.mask).t()
 
                         # Project to lower layer or input space
-                        activations = torch.matmul(
+                        activations = -1 * torch.matmul(
                             masked_weights, activations.unsqueeze(1)).squeeze()
 
                     # Final activations are the reconstruction
@@ -772,11 +779,14 @@ class RecurrentFFNet(nn.Module):
                         "reconstruction_loss": recon_loss.item()
                     })
 
-                    # Plot original
-                    axes[1, 0].imshow(current_img.cpu(), cmap='gray')
+                    activation_values = activations.cpu().numpy().flatten()
+                    axes[1, 0].hist(activation_values, bins=50, density=True)
                     axes[1, 0].set_title(
-                        f'Original (t)\nRange: [{current_img.min():.3f}, {current_img.max():.3f}]')
-                    axes[1, 0].axis('off')
+                        f'Activation Distribution\nRange: [{activation_values.min():.3f}, {activation_values.max():.3f}]')
+                    axes[1, 0].set_xlabel('Activation Value')
+                    axes[1, 0].set_ylabel('Density')
+                    axes[1, 0].axvline(
+                        x=0, color='r', linestyle='--', alpha=0.5)
 
                     # Plot normalized reconstruction
                     axes[1, 1].imshow(
