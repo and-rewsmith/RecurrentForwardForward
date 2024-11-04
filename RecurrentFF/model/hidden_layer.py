@@ -634,7 +634,7 @@ class HiddenLayer(nn.Module):
         # contrastive_loss: Tensor = 1 * (pos_badness - neg_badness).mean()
         smooth_loss = 0.0 * (smooth_loss_pos + smooth_loss_neg)
         layer_loss = smooth_loss + contrastive_loss
-        # layer_loss = torch.clamp(layer_loss, max=20)
+        layer_loss = torch.clamp(layer_loss, max=20)
         layer_loss.backward(retain_graph=retain_graph)
         # layer_loss.backward()
 
@@ -742,8 +742,8 @@ class HiddenLayer(nn.Module):
             # prev_act_stdized = prev_act
 
             self.forward_act = self.forward_linear.forward(prev_layer_stdized)
-            self.backward_act = -1 * \
-                self.backward_linear.forward(next_layer_stdized)
+            self.backward_act = self.backward_linear.forward(
+                next_layer_stdized)
             self.lateral_act = self.lateral_linear.forward(prev_act_stdized)
 
         # Single layer scenario. Hidden layer connected to input layer and
@@ -764,7 +764,7 @@ class HiddenLayer(nn.Module):
             # prev_act_stdized = prev_act
 
             self.forward_act = self.forward_linear.forward(data)
-            self.backward_act = -1 * self.backward_linear.forward(labels)
+            self.backward_act = self.backward_linear.forward(labels)
             self.lateral_act = self.lateral_linear.forward(prev_act_stdized)
 
         # Input layer scenario. Connected to input layer and hidden layer.
@@ -792,8 +792,8 @@ class HiddenLayer(nn.Module):
             # prev_act_stdized = prev_act
 
             self.forward_act = self.forward_linear.forward(data)
-            self.backward_act = -1 * \
-                self.backward_linear.forward(next_layer_stdized)
+            self.backward_act = self.backward_linear.forward(
+                next_layer_stdized)
             self.lateral_act = self.lateral_linear.forward(prev_act_stdized)
 
         # Output layer scenario. Connected to hidden layer and output layer.
@@ -821,7 +821,7 @@ class HiddenLayer(nn.Module):
             # prev_act_stdized = prev_act
 
             self.forward_act = self.forward_linear.forward(prev_layer_stdized)
-            self.backward_act = -1 * self.backward_linear.forward(labels)
+            self.backward_act = self.backward_linear.forward(labels)
             # self.lateral_act = self.lateral_linear.forward(prev_act_stdized)
 
         # self.forward_act = self.forward_dropout(self.forward_act)
