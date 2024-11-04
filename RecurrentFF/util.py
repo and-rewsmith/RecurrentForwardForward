@@ -211,13 +211,13 @@ def set_logging() -> None:
 
 
 def standardize_layer_activations(layer_activations: torch.Tensor, epsilon: float = 0.000000000001) -> torch.Tensor:
-    # squared_activations = layer_activations ** 2
-    # mean_squared = torch.mean(squared_activations, dim=1, keepdim=True)
-    # l2_norm = torch.sqrt(mean_squared + epsilon)
+    squared_activations = layer_activations ** 2
+    mean_squared = torch.mean(squared_activations, dim=1, keepdim=True)
+    l2_norm = torch.sqrt(mean_squared + epsilon)
 
-    # normalized_activations = layer_activations / l2_norm
-    # return normalized_activations
-    return layer_activations
+    normalized_activations = layer_activations / l2_norm
+    return normalized_activations
+    # return layer_activations
 
 
 class TrainTestBridgeFormatLoader:

@@ -2,9 +2,9 @@
 device = "cuda:1"
 
 [model]
-hidden_sizes = [1000, 1000, 1000, 1000, 1000]
+hidden_sizes = [1024, 1024, 1024]
 epochs = 30000
-prelabel_timesteps = 5
+prelabel_timesteps = 3
 loss_threshold = 1.5
 damping_factor = 0.7
 epsilon = 0.00000001
@@ -20,12 +20,12 @@ lr_gamma = 0.90
 dropout = 0.0
 
 [model.connection_profile]
-forward_block_sizes = [20, 50, 100, 200, 300, 300, 300, 300, 300]
-backward_block_sizes = [20, 50, 100, 200, 300, 300, 300, 300, 300, 300]
-lateral_block_sizes = [20, 50, 100, 200, 300, 300, 300, 300, 300]
-forward_block_bleed = [0.1, 0.15, 0.2, 0.25, 0.3, 0.35]
-backward_block_bleed = [0.1, 0.15, 0.2, 0.3, 0.4, 0.5]
-lateral_block_bleed = [0.15, 0.2, 0.3, 0.35, 0.45, 0.5]
+forward_block_sizes = [4, 250, 500, 200, 300, 300, 300, 300, 300]
+backward_block_sizes = [4, 250, 500, 200, 300, 300, 300, 300, 300, 300]
+lateral_block_sizes = [4, 250, 500, 200, 300, 300, 300, 300, 300]
+forward_block_bleed = [0.1, 0.15, 0.5, 0.25, 0.3, 0.35]
+backward_block_bleed = [0.1, 0.15, 0.5, 0.3, 0.4, 0.5]
+lateral_block_bleed = [0.15, 0.2, 0.5, 0.35, 0.45, 0.5]
 
 [model.ff_rmsprop]
 momentum = 0.0
