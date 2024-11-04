@@ -590,6 +590,7 @@ class RecurrentFFNet(nn.Module):
                 reconstructed_data, input_data.pos_input[iteration])
             label_loss = label_criterion(reconstructed_labels, torch.argmax(
                 label_data.pos_labels[iteration], dim=1))
+            label_loss = torch.clamp(label_loss, 0, 20)
             # if epoch_num < 5:
             #     label_loss = label_criterion(reconstructed_labels, torch.argmax(label_data.pos_labels[iteration], dim=1))
             # else:
