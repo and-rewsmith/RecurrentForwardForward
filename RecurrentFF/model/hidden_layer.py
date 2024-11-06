@@ -627,14 +627,13 @@ class HiddenLayer(nn.Module):
         # Loss function equivelent to:
         # plot3d log(1 + exp(-n + 1)) + log(1 + exp(p - 1)) for n=0 to 3, p=0
         # to 3
-        contrastive_loss: Tensor = 1 * F.softplus(delta).mean()
-        # contrastive_loss: Tensor = 1 * F.softplus(torch.cat([
-        #     (-1 * neg_badness) + self.settings.model.loss_threshold,
-        #     pos_badness - self.settings.model.loss_threshold
-        # ])).mean()
-        # contrastive_loss: Tensor = 1 * (pos_badness - neg_badness).mean()
+        contrastive_loss_0: Tensor = 1 * F.softplus(delta).mean()
+        contrastive_loss_1: Tensor = 1 * F.softplus(torch.cat([
+            (-1 * neg_badness) + self.settings.model.loss_threshold,
+            pos_badness - self.settings.model.loss_threshold
+        ])).mean()
         smooth_loss = 0.0 * (smooth_loss_pos + smooth_loss_neg)
-        layer_loss = smooth_loss + contrastive_loss
+        layer_loss = smooth_loss + contrastive_loss_0 + contrastive_loss_1
         # layer_loss = torch.clamp(layer_loss, max=20)
         layer_loss.backward(retain_graph=retain_graph)
         # layer_loss.backward()
@@ -649,7 +648,7 @@ class HiddenLayer(nn.Module):
         # self.optimizer.step()
 
         # self.reset_parameters_with_small_gradients()
-        return cast(float, layer_loss.item()), contrastive_loss.item(), smooth_loss.item()
+        return cast(float, layer_loss.item()), contrastive_loss_0.item() + contrastive_loss_1.item(), smooth_loss.item()
 
     # TODO: needs to be more DRY
     def forward(self, mode: ForwardMode, data: torch.Tensor, labels: torch.Tensor, should_damp: bool) -> torch.Tensor:
