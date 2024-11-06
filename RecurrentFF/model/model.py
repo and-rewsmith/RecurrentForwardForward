@@ -272,7 +272,7 @@ class RecurrentFFNet(nn.Module):
             #
             # TODO: Fix this hacky data loader bridge format
             test_accuracy = self.processor.brute_force_predict(
-                test_loader, self.generative_linear, self.m, self.optimizer, 1, False)
+                test_loader, self.generative_linear, self.m, self.optimizer, 1, True)
             train_accuracy = self.processor.brute_force_predict(
                 TrainTestBridgeFormatLoader(train_loader), self.generative_linear, self.m, self.optimizer, 1, False)  # type: ignore[arg-type]
             energy_test_accuracy = self.processor.brute_force_predict_energy(
@@ -518,7 +518,7 @@ class RecurrentFFNet(nn.Module):
             grad_pass_acc_threshold: dict) -> Tuple[LayerMetrics, List[float], List[float]]:
         logging.info("Batch: " + str(batch_num))
 
-        # self.inner_layers.reset_activations(True)
+        self.inner_layers.reset_activations(True)
 
         preinit_upper_clamped_tensor = self.processor.get_preinit_upper_clamped_tensor(
             label_data.pos_labels[0].shape)
