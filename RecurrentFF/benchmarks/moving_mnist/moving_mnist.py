@@ -16,11 +16,11 @@ DATA_SIZE = 4096
 NUM_CLASSES = 10
 TRAIN_BATCH_SIZE = 500
 TEST_BATCH_SIZE = 500
-ITERATIONS = 20
+ITERATIONS = 50
 DATASET = "Moving-MNIST"
 
 DATA_PER_FILE = 1000
-PATCH_SIZE = 4
+PATCH_SIZE = 8
 
 
 class MovingMNISTDataset(Dataset):
@@ -125,6 +125,9 @@ class MovingMNISTDataset(Dataset):
         negative_one_hot_labels = torch.zeros(NUM_CLASSES)
         negative_one_hot_labels[y_neg] = 1.0
 
+        # print(patched_sequences.shape, positive_one_hot_labels.shape,
+        #       negative_one_hot_labels.shape)
+        # input()
         return (patched_sequences, patched_sequences), (positive_one_hot_labels, negative_one_hot_labels)
 
 
