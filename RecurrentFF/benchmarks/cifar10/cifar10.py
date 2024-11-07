@@ -87,26 +87,29 @@ def test_collate_fn(batch):
 
     return SingleStaticClassTestData(data, labels)
 
+
 def image_to_patches(img, patch_size):
     # img is a tensor of shape [C, H, W]
     # Get dimensions
     C, H, W = img.shape
-    
+
     # Ensure the image height and width are divisible by the patch size
     assert H % patch_size == 0 and W % patch_size == 0, "Image dimensions must be divisible by patch size"
-    
+
     # Calculate number of patches along each dimension
     num_patches_h = H // patch_size
     num_patches_w = W // patch_size
-    
+
     # Rearrange the image into patches and flatten each patch
-    patches = img.unfold(1, patch_size, patch_size).unfold(2, patch_size, patch_size)
+    patches = img.unfold(1, patch_size, patch_size).unfold(
+        2, patch_size, patch_size)
     # Now patches has shape [C, num_patches_h, num_patches_w, patch_size, patch_size]
     # Permute to bring patches together: [num_patches_h, num_patches_w, C, patch_size, patch_size]
     patches = patches.permute(1, 2, 0, 3, 4)
     # Reshape each patch to a flattened vector
     patches = patches.reshape(-1, C * patch_size * patch_size)
     return patches.flatten()
+
 
 def CIFAR10_loaders(train_batch_size, test_batch_size):
     transform = Compose([

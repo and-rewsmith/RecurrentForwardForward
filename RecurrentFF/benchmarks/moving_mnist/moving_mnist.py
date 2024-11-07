@@ -4,8 +4,9 @@ from typing import Tuple
 import torch
 from torch.utils.data import DataLoader, Dataset
 import wandb
-from RecurrentFF.model.data_scenario.static_single_class import SingleStaticClassTestData
+from torchvision.transforms import Compose, ToTensor, Normalize, Lambda
 
+from RecurrentFF.model.data_scenario.static_single_class import SingleStaticClassTestData
 from RecurrentFF.settings import Settings, DataConfig
 from RecurrentFF.util import TrainInputData, TrainLabelData, set_logging
 from RecurrentFF.model.model import RecurrentFFNet
@@ -19,6 +20,7 @@ ITERATIONS = 20
 DATASET = "Moving-MNIST"
 
 DATA_PER_FILE = 1000
+PATCH_SIZE = 4
 
 
 class MovingMNISTDataset(Dataset):
@@ -47,13 +49,15 @@ class MovingMNISTDataset(Dataset):
         The current chunk of data in memory. The chunk is a dictionary with "sequences" and "labels" as keys.
     """
 
-    def __init__(self, root_dir, train=True) -> None:
+    def __init__(self, root_dir, train=True, patch_size=PATCH_SIZE) -> None:
         """
         Initializes the dataset with the root directory, the training/testing mode, and the max size of the queue.
         It also initializes the data queue and loads the first chunk of data into memory.
         """
         self.root_dir = root_dir
         self.train = train
+
+        self.patch_size = patch_size
 
         # List of all .pt files in root_dir
         self.data_files = [f for f in os.listdir(
@@ -89,34 +93,27 @@ class MovingMNISTDataset(Dataset):
         return len(self.data_files) * DATA_PER_FILE
 
     def __getitem__(self, idx) -> Tuple[Tuple[torch.Tensor, torch.Tensor], Tuple[torch.Tensor, torch.Tensor]]:
-        """
-        Returns the sequence and its corresponding positive and negative labels at the given index.
-        If the index is beyond the current data chunk, it loads the next chunk into memory.
-
-        Parameters:
-        -----------
-        idx : int
-            The index of the sequence to get.
-
-        Returns:
-        --------
-        Tuple:
-            A tuple containing two sequences and their corresponding positive and negative labels.
-            Each sequence is a tensor and the labels are one-hot encoded tensors.
-        """
         if idx >= self.data_chunk_idx + len(self.data_chunk["sequences"]):
             self.file_idx += 1
-
             self.data_chunk = torch.load(os.path.join(
                 self.root_dir, self.data_files[self.file_idx]))
-
-            # Update the chunk start index
             self.data_chunk_idx += len(self.data_chunk["sequences"])
 
+        # Get the sequence and reshape it
         sequences = self.data_chunk['sequences'][idx -
                                                  self.data_chunk_idx][0:ITERATIONS]
-        sequences = sequences.view(sequences.shape[0], -1)
 
+        # Transform each frame in the sequence to patches
+        patched_sequences = []
+        for frame in sequences:
+            # Each frame should be 28x28
+            patches = mnist_to_patches(frame, self.patch_size)
+            patched_sequences.append(patches)
+
+        # Stack the patched sequences
+        patched_sequences = torch.stack(patched_sequences)
+
+        # Handle labels
         y_pos = self.data_chunk['labels'][idx - self.data_chunk_idx]
         y_neg = y_pos
         while y_neg == y_pos:
@@ -128,8 +125,44 @@ class MovingMNISTDataset(Dataset):
         negative_one_hot_labels = torch.zeros(NUM_CLASSES)
         negative_one_hot_labels[y_neg] = 1.0
 
-        return (sequences, sequences), (positive_one_hot_labels,
-                                        negative_one_hot_labels)
+        return (patched_sequences, patched_sequences), (positive_one_hot_labels, negative_one_hot_labels)
+
+
+def mnist_to_patches(img, patch_size):
+    """
+    Convert an image into patches.
+
+    Args:
+        img (torch.Tensor): Input image tensor of shape [H, W] or [1, H, W]
+        patch_size (int): Size of each square patch
+
+    Returns:
+        torch.Tensor: Flattened patches tensor
+    """
+    # Handle both single channel and no channel inputs
+    if len(img.shape) == 2:
+        # Add channel dimension if not present
+        img = img.unsqueeze(0)
+
+    # Get dimensions
+    C, H, W = img.shape
+    assert C == 1, "Image should be single channel"
+    assert H % patch_size == 0 and W % patch_size == 0, f"Image dimensions ({H}, {W}) must be divisible by patch size {patch_size}"
+
+    # Calculate number of patches along each dimension
+    num_patches_h = H // patch_size
+    num_patches_w = W // patch_size
+
+    # Rearrange the image into patches
+    patches = img.unfold(1, patch_size, patch_size).unfold(
+        2, patch_size, patch_size)
+    # Now patches has shape [1, num_patches_h, num_patches_w, patch_size, patch_size]
+
+    # Remove channel dim and reshape to [num_patches_total, patch_size*patch_size]
+    patches = patches.squeeze(0)
+    patches = patches.reshape(-1, patch_size * patch_size)
+
+    return patches.flatten()
 
 
 def train_collate_fn(batch) -> TrainInputData:
@@ -173,11 +206,16 @@ def MNIST_loaders(train_batch_size, test_batch_size) -> Tuple[DataLoader, DataLo
     #     Normalize((0.1307,), (0.3081,)),
     #     Lambda(lambda x: torch.flatten(x))])
 
+    transform = Compose([
+        Lambda(lambda x: mnist_to_patches(x, 4)),
+    ])
+
     # Cannot shuffle with the dataset implementation
     train_loader = DataLoader(
         MovingMNISTDataset(
             f'{MOVING_MNIST_DATA_DIR}/',
-            train=True),
+            train=True,
+            patch_size=PATCH_SIZE),
         batch_size=train_batch_size,
         shuffle=False,
         collate_fn=train_collate_fn,
@@ -186,7 +224,8 @@ def MNIST_loaders(train_batch_size, test_batch_size) -> Tuple[DataLoader, DataLo
     test_loader = DataLoader(
         MovingMNISTDataset(
             f'{MOVING_MNIST_DATA_DIR}/',
-            train=False),
+            train=False,
+            patch_size=PATCH_SIZE),
         batch_size=test_batch_size,
         shuffle=False,
         collate_fn=test_collate_fn,

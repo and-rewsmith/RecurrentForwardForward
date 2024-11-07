@@ -1,8 +1,8 @@
 [device]
-device = "cuda:1"
+device = "cuda:0"
 
 [model]
-hidden_sizes = [1024, 1024, 1024]
+hidden_sizes = [2048, 2048, 2048]
 epochs = 30000
 prelabel_timesteps = 3
 loss_threshold = 1.5

@@ -633,7 +633,9 @@ class HiddenLayer(nn.Module):
             pos_badness - self.settings.model.loss_threshold
         ])).mean()
         smooth_loss = 0.0 * (smooth_loss_pos + smooth_loss_neg)
-        layer_loss = smooth_loss + contrastive_loss_0 + contrastive_loss_1
+        # layer_loss = smooth_loss + contrastive_loss_0 + contrastive_loss_1
+        layer_loss = smooth_loss + contrastive_loss_0
+        contrastive_loss_total = contrastive_loss_0 + contrastive_loss_1
         # layer_loss = torch.clamp(layer_loss, max=20)
         layer_loss.backward(retain_graph=retain_graph)
         # layer_loss.backward()
@@ -648,7 +650,8 @@ class HiddenLayer(nn.Module):
         # self.optimizer.step()
 
         # self.reset_parameters_with_small_gradients()
-        return cast(float, layer_loss.item()), contrastive_loss_0.item() + contrastive_loss_1.item(), smooth_loss.item()
+        # return cast(float, layer_loss.item()), contrastive_loss_0.item() + contrastive_loss_1.item(), smooth_loss.item()
+        return cast(float, layer_loss.item()), contrastive_loss_total, smooth_loss.item()
 
     # TODO: needs to be more DRY
     def forward(self, mode: ForwardMode, data: torch.Tensor, labels: torch.Tensor, should_damp: bool) -> torch.Tensor:
