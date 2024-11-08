@@ -374,6 +374,8 @@ class HiddenLayer(nn.Module):
 
         self.should_train = False
 
+        self.reconstruction_losses = []
+
     def init_residual_connection(self, residual_connection: ResidualConnection) -> None:
         self.residual_connections.append(residual_connection)
 
@@ -934,13 +936,9 @@ class HiddenLayer(nn.Module):
 
         #     print()
 
-        if self.layer_num == 1 and inverse_loss_backwards.requires_grad:
+        if inverse_loss_backwards.requires_grad:
             total_loss = inverse_loss_backwards + inverse_loss_forwards
-            wandb.log({"reconstruction_loss": total_loss.item()}, step=self.settings.total_batch_count)
-            print(total_loss.item())
-            input()
-            # if total_loss.item() < 1.5:
-            #     self.should_train = True
+            self.reconstruction_losses.append(total_loss.item())
             if not self.should_train:
                 total_loss.backward(retain_graph=True)
                 self.inverse_optimizer.step()

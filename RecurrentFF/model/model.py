@@ -747,6 +747,19 @@ class RecurrentFFNet(nn.Module):
             # elif iteration > 3 and confidence_threshold["value"] > baseline_conf:
             #     confidence_threshold["value"] -= 0.001
 
+        rec_losses = []
+        for i, layer in enumerate(self.inner_layers):
+            mean_reconstruction_loss = sum(
+                layer.reconstruction_losses) / len(layer.reconstruction_losses)
+            if i < 4:
+                wandb.log({f"reconstruction_loss_layer_{i}": mean_reconstruction_loss}, step=total_batch_count)
+            layer.reconstruction_losses.clear()
+            rec_losses.append(mean_reconstruction_loss)
+
+        if sum(rec_losses) / len(rec_losses) < 2.1:
+            for layer in self.inner_layers:
+                layer.should_train = True
+
         # determine accuracy from class aggregations
         correct_percent_agg = (torch.argmax(class_predictions_agg, dim=1) == torch.argmax(
             label_data.pos_labels[0], dim=1)).float().mean().item() * 100
