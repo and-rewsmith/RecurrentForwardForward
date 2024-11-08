@@ -756,7 +756,7 @@ class RecurrentFFNet(nn.Module):
             layer.reconstruction_losses.clear()
             rec_losses.append(mean_reconstruction_loss)
 
-        if sum(rec_losses) / len(rec_losses) < 2.1:
+        if sum(rec_losses) / len(rec_losses) < 3.25:
             for layer in self.inner_layers:
                 layer.should_train = True
 

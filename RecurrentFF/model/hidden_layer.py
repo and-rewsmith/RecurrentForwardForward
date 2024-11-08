@@ -9,7 +9,7 @@ from torchviz import make_dot
 from torch import Tensor, nn
 from torch.nn import Module
 from torch.nn import functional as F
-from torch.optim import RMSprop, Adam, Adadelta, Optimizer
+from torch.optim import RMSprop, Adam, Adadelta, Optimizer, SGD
 from torch.optim.lr_scheduler import StepLR
 from profilehooks import profile  # type: ignore
 
@@ -343,7 +343,9 @@ class HiddenLayer(nn.Module):
             self.backward_linear = nn.Linear(next_size, size, bias=False)
             amplified_initialization(self.backward_linear, 3.0)
             self.backward_linear_inverse = nn.Linear(size, next_size, bias=False)
-            amplified_initialization(self.backward_linear_inverse, 3.0)
+            nn.init.kaiming_uniform_(
+                self.backward_linear_inverse.weight, nonlinearity='relu')
+            # amplified_initialization(self.backward_linear_inverse, 1.0)
         else:
             self.backward_linear = MaskedLinear(
                 next_size, size, bleed_factor=connection_profile.backward_block_bleed[layer_num],
@@ -367,9 +369,9 @@ class HiddenLayer(nn.Module):
         self.backward_act: Tensor
         self.lateral_act: Tensor
 
-        self.inverse_optimizer = Adam(
+        self.inverse_optimizer = SGD(
             self.parameters(),
-            lr=self.settings.model.ff_adam.learning_rate * 10)
+            lr=0.0001)
         self.inverse_criterion = nn.MSELoss()
 
         self.should_train = False
@@ -904,7 +906,8 @@ class HiddenLayer(nn.Module):
         # self.inverse_optimizer.step()
         neg_contribution_forwards = F.linear(
             neg_input_forwards,
-            self.forward_linear.weight.detach().clone())
+            self.forward_linear.weight)
+            # self.forward_linear.weight.detach().clone())
         inverse_loss_forwards = self.inverse_criterion(neg_contribution_forwards, self.forward_act.detach().clone())
         neg_contribution_forwards_redo = F.linear(
             neg_input_forwards.detach().clone(),
@@ -918,7 +921,7 @@ class HiddenLayer(nn.Module):
                                        self.backward_linear_inverse.weight)
         neg_contribution_backwards = F.linear(
             neg_input_backwards,
-            self.backward_linear.weight.detach().clone())
+            self.backward_linear.weight)
         inverse_loss_backwards = self.inverse_criterion(neg_contribution_backwards, self.backward_act.detach().clone())
         neg_contribution_backwards_redo = F.linear(
             neg_input_backwards.detach().clone(),
@@ -942,6 +945,7 @@ class HiddenLayer(nn.Module):
             total_loss.backward(retain_graph=True)
             self.inverse_optimizer.step()
             self.inverse_optimizer.zero_grad()
+
         # print(self.backward_linear.weight.requires_grad)
         # print(new_activation_neg_1.grad)
         # print(new_activation_neg_2.grad)

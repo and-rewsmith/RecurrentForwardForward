@@ -556,7 +556,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                 #     print(iteration)
                 #     break
 
-            correct_number_agg = (torch.argmin(
+            correct_number_agg = (torch.argmax(
                 class_predictions_agg, dim=1) == labels).float().sum().item()
             accuracy_contexts.append((correct_number_agg, data.size(1)))
 
