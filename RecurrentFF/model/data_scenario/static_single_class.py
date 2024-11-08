@@ -422,7 +422,10 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                 #     torch.cat([layer.pos_activations.current for layer in self.inner_layers] + [layer.neg_activations.current for layer in self.inner_layers], dim=1)) + nm_contribution
 
                 generative_output = generative_linear(
-                    torch.cat([layer.pos_activations.current for layer in self.inner_layers] + [layer.neg_activations.current for layer in self.inner_layers], dim=1))
+                    torch.cat(
+                        [layer.pos_activations.current for layer in self.inner_layers] +
+                        [layer.neg_activations.current for layer in self.inner_layers],
+                        dim=1))
 
                 assert generative_output.shape[0] == data.shape[1] and generative_output.shape[
                     1] == self.settings.data_config.data_size + self.settings.data_config.num_classes
@@ -494,7 +497,10 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                 #     torch.cat([layer.pos_activations.current for layer in self.inner_layers] + [layer.neg_activations.current for layer in self.inner_layers], dim=1)) + nm_contribution
 
                 post_opt_logits = generative_linear(
-                    torch.cat([layer.pos_activations.current for layer in self.inner_layers] + [layer.neg_activations.current for layer in self.inner_layers], dim=1))
+                    torch.cat(
+                        [layer.pos_activations.current for layer in self.inner_layers] +
+                        [layer.neg_activations.current for layer in self.inner_layers],
+                        dim=1))
                 # post_opt_logits = generative_linear(
                 #     torch.cat([layer.neg_activations.current for layer in self.inner_layers], dim=1))[:, self.settings.data_config.data_size:]
                 post_opt_logits = post_opt_logits[:,
@@ -550,7 +556,7 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                 #     print(iteration)
                 #     break
 
-            correct_number_agg = (torch.argmax(
+            correct_number_agg = (torch.argmin(
                 class_predictions_agg, dim=1) == labels).float().sum().item()
             accuracy_contexts.append((correct_number_agg, data.size(1)))
 

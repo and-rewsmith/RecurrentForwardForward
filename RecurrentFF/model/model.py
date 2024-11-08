@@ -759,6 +759,9 @@ class RecurrentFFNet(nn.Module):
         if sum(rec_losses) / len(rec_losses) < 2.1:
             for layer in self.inner_layers:
                 layer.should_train = True
+        else:
+            for layer in self.inner_layers:
+                layer.should_train = False
 
         # determine accuracy from class aggregations
         correct_percent_agg = (torch.argmax(class_predictions_agg, dim=1) == torch.argmax(
