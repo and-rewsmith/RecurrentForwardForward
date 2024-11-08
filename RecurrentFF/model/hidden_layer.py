@@ -74,7 +74,8 @@ class MaskedLinear(nn.Linear):
         return mask[:self.out_features, :self.in_features]
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
-        return F.linear(input, self.weight * self.mask, self.bias)
+        # return F.linear(input, self.weight * self.mask, self.bias)
+        return F.linear(input, self.weight, self.bias)
 
     def visualize_connectivity(self):
         plt.figure(figsize=(10, 10))
@@ -325,7 +326,8 @@ class HiddenLayer(nn.Module):
 
         connection_profile = self.settings.model.connection_profile
         self.forward_linear = MaskedLinear(
-            prev_size, size, bleed_factor=connection_profile.forward_block_bleed[layer_num], block_size=connection_profile.forward_block_sizes[layer_num])
+            prev_size, size, bleed_factor=connection_profile.forward_block_bleed[layer_num],
+            block_size=connection_profile.forward_block_sizes[layer_num])
         nn.init.kaiming_uniform_(
             self.forward_linear.weight, nonlinearity='relu')
 
@@ -334,12 +336,14 @@ class HiddenLayer(nn.Module):
             amplified_initialization(self.backward_linear, 3.0)
         else:
             self.backward_linear = MaskedLinear(
-                next_size, size, bleed_factor=connection_profile.backward_block_bleed[layer_num], block_size=connection_profile.backward_block_sizes[layer_num])
+                next_size, size, bleed_factor=connection_profile.backward_block_bleed[layer_num],
+                block_size=connection_profile.backward_block_sizes[layer_num])
             nn.init.uniform_(self.backward_linear.weight, -0.05, 0.05)
 
         # Initialize the lateral weights to be the identity matrix
         self.lateral_linear = MaskedLinear(
-            size, size, block_size=connection_profile.lateral_block_sizes[layer_num], bleed_factor=connection_profile.lateral_block_bleed[layer_num])
+            size, size, block_size=connection_profile.lateral_block_sizes[layer_num],
+            bleed_factor=connection_profile.lateral_block_bleed[layer_num])
         nn.init.orthogonal_(self.lateral_linear.weight, gain=math.sqrt(2))
 
         self.previous_layer: Self = None  # type: ignore[assignment]
@@ -561,7 +565,8 @@ class HiddenLayer(nn.Module):
 
         wandb.log({"reset_parameters": total_reset})
 
-    def generate_lpl_loss_predictive(self, current_activations_with_grad: torch.Tensor, prev_act: torch.Tensor) -> Tensor:
+    def generate_lpl_loss_predictive(
+            self, current_activations_with_grad: torch.Tensor, prev_act: torch.Tensor) -> Tensor:
         def generate_loss(current_act: Tensor, previous_act: Tensor) -> Tensor:
             loss = torch.abs((current_act - previous_act))
             loss = torch.sum(loss, dim=1)
