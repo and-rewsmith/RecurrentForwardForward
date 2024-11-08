@@ -618,24 +618,24 @@ class HiddenLayer(nn.Module):
         if input_data is not None and label_data is not None:
             (pos_input, neg_input) = input_data
             (pos_labels, neg_labels) = label_data
-            pos_activations, neg_activations_1, neg_activations_2 = self.forward(
+            pos_activations, neg_activations = self.forward(
                 ForwardMode.PositiveData, pos_input, pos_labels, should_damp)
             # neg_activations = self.forward(
             #     ForwardMode.NegativeData, neg_input, neg_labels, should_damp)
         elif input_data is not None:
             (pos_input, neg_input) = input_data
-            pos_activations, neg_activations_1, neg_activations_2 = self.forward(
+            pos_activations, neg_activations = self.forward(
                 ForwardMode.PositiveData, pos_input, None, should_damp)
             # neg_activations = self.forward(
             #     ForwardMode.NegativeData, neg_input, None, should_damp)
         elif label_data is not None:
             (pos_labels, neg_labels) = label_data
-            pos_activations, neg_activations_1, neg_activations_2 = self.forward(
+            pos_activations, neg_activations = self.forward(
                 ForwardMode.PositiveData, None, pos_labels, should_damp)
             # neg_activations = self.forward(
             #     ForwardMode.NegativeData, None, neg_labels, should_damp)
         else:
-            pos_activations, neg_activations_1, neg_activations_2 = self.forward(
+            pos_activations, neg_activations = self.forward(
                 ForwardMode.PositiveData, None, None, should_damp)
             # neg_activations = self.forward(
             #     ForwardMode.NegativeData, None, None, should_damp)
@@ -646,9 +646,7 @@ class HiddenLayer(nn.Module):
         #     neg_activations, self.neg_activations.previous)
 
         pos_badness = layer_activations_to_badness(pos_activations)
-        neg_badness_1 = layer_activations_to_badness(neg_activations_1)
-        neg_badness_2 = layer_activations_to_badness(neg_activations_2)
-        neg_badness = (neg_badness_1 + neg_badness_2) / 2
+        neg_badness = layer_activations_to_badness(neg_activations)
 
         # if abs(pos_badness.mean() - neg_badness.mean()) < 0.1:
         #     self.should_train = True
@@ -911,8 +909,8 @@ class HiddenLayer(nn.Module):
         neg_contribution_forwards_redo = F.linear(
             neg_input_forwards.detach().clone(),
             self.forward_linear.weight)
-        neg_1_summation_act = neg_contribution_forwards_redo + self.backward_act.detach().clone()
-        new_activation_neg_1 = F.leaky_relu(neg_1_summation_act)
+        # neg_1_summation_act = neg_contribution_forwards_redo + self.backward_act.detach().clone()
+        # new_activation_neg_1 = F.leaky_relu(neg_1_summation_act)
 
         # neg_input_backwards = F.linear(-self.forward_act.detach().clone(),
         #                                self.backward_linear.weight.T)
@@ -925,8 +923,9 @@ class HiddenLayer(nn.Module):
         neg_contribution_backwards_redo = F.linear(
             neg_input_backwards.detach().clone(),
             self.backward_linear.weight)
-        neg_2_summation_act = neg_contribution_backwards_redo + self.forward_act.detach().clone()
-        new_activation_neg_2 = F.leaky_relu(neg_2_summation_act)
+        # neg_2_summation_act = neg_contribution_backwards_redo + self.forward_act.detach().clone()
+        # new_activation_neg_2 = F.leaky_relu(neg_2_summation_act)
+        new_activation_neg = F.leaky_relu(neg_contribution_forwards_redo + neg_contribution_backwards_redo)
 
         # if self.layer_num == 0 and self.should_train:
         #     # print("neg_1_summation_act norm:")
@@ -939,10 +938,10 @@ class HiddenLayer(nn.Module):
         if inverse_loss_backwards.requires_grad:
             total_loss = inverse_loss_backwards + inverse_loss_forwards
             self.reconstruction_losses.append(total_loss.item())
-            if not self.should_train:
-                total_loss.backward(retain_graph=True)
-                self.inverse_optimizer.step()
-                self.inverse_optimizer.zero_grad()
+            # if not self.should_train:
+            total_loss.backward(retain_graph=True)
+            self.inverse_optimizer.step()
+            self.inverse_optimizer.zero_grad()
         # print(self.backward_linear.weight.requires_grad)
         # print(new_activation_neg_1.grad)
         # print(new_activation_neg_2.grad)
@@ -963,10 +962,8 @@ class HiddenLayer(nn.Module):
             old_activation = new_activation
             new_activation = (1 - self.damping_factor) * \
                 prev_act + self.damping_factor * old_activation
-            new_activation_neg_1 = (1 - self.damping_factor) * \
-                prev_act + self.damping_factor * new_activation_neg_1
-            new_activation_neg_2 = (1 - self.damping_factor) * \
-                prev_act + self.damping_factor * new_activation_neg_2
+            new_activation_neg = (1 - self.damping_factor) * \
+                prev_act + self.damping_factor * new_activation_neg
 
         if mode == ForwardMode.PositiveData:
             assert self.pos_activations is not None
@@ -986,4 +983,4 @@ class HiddenLayer(nn.Module):
         # print(new_activation_neg_2.shape)
         # input()
 
-        return new_activation, new_activation_neg_1, new_activation_neg_2
+        return new_activation, new_activation_neg
