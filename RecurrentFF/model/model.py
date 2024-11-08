@@ -235,7 +235,8 @@ class RecurrentFFNet(nn.Module):
                         input_data.pos_input, label_data, total_batch_count)
 
                 layer_metrics, pos_badness_per_layer, neg_badness_per_layer, train_accuracy = self.__train_batch(
-                    epoch, batch_num, input_data, label_data, total_batch_count, confidence_threshold=confidence_threshold, grad_pass_acc_threshold=grad_pass_acc_threshold)
+                    epoch, batch_num, input_data, label_data, total_batch_count,
+                    confidence_threshold=confidence_threshold, grad_pass_acc_threshold=grad_pass_acc_threshold)
 
                 if self.settings.model.should_log_metrics:
                     self.__log_batch_metrics(
@@ -271,10 +272,10 @@ class RecurrentFFNet(nn.Module):
             # batch is w.r.t. total samples
             #
             # TODO: Fix this hacky data loader bridge format
-            test_accuracy = self.processor.brute_force_predict(
-                test_loader, self.generative_linear, self.m, self.optimizer, 1, True)
-            train_accuracy = self.processor.brute_force_predict(
-                TrainTestBridgeFormatLoader(train_loader), self.generative_linear, self.m, self.optimizer, 1, False)  # type: ignore[arg-type]
+            # test_accuracy = self.processor.brute_force_predict(
+            #     test_loader, self.generative_linear, self.m, self.optimizer, 1, True)
+            # train_accuracy = self.processor.brute_force_predict(
+            #     TrainTestBridgeFormatLoader(train_loader), self.generative_linear, self.m, self.optimizer, 1, False)  # type: ignore[arg-type]
             energy_test_accuracy = self.processor.brute_force_predict_energy(
                 test_loader, 1, False)  # type: ignore[arg-type]
             energy_train_accuracy = self.processor.brute_force_predict_energy(
@@ -286,8 +287,8 @@ class RecurrentFFNet(nn.Module):
 
             if self.settings.model.should_log_metrics:
                 self.__log_epoch_metrics(
-                    train_accuracy,
-                    test_accuracy,
+                    0,
+                    0,
                     energy_train_accuracy,
                     energy_test_accuracy,
                     epoch,
@@ -531,8 +532,8 @@ class RecurrentFFNet(nn.Module):
 
             self.inner_layers.advance_layers_forward(
                 ForwardMode.PositiveData, pos_input, preinit_upper_clamped_tensor, False)
-            self.inner_layers.advance_layers_forward(
-                ForwardMode.NegativeData, neg_input, preinit_upper_clamped_tensor, False)
+            # self.inner_layers.advance_layers_forward(
+            #     ForwardMode.NegativeData, neg_input, preinit_upper_clamped_tensor, False)
 
         num_layers = len(self.settings.model.hidden_sizes)
         layer_metrics = LayerMetrics(num_layers)
@@ -571,8 +572,9 @@ class RecurrentFFNet(nn.Module):
             # ) + nm_contribution
             generative_input = self.generative_linear(
                 torch.cat(
-                    [layer.pos_activations.current for layer in self.inner_layers] + [layer.neg_activations.current for layer in self.inner_layers], dim=1)
-            )
+                    [layer.pos_activations.current for layer in self.inner_layers] +
+                    [layer.neg_activations.current for layer in self.inner_layers],
+                    dim=1))
 
             # generative_input = self.generative_linear(
             #     torch.cat(
