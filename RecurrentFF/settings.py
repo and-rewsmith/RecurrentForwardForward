@@ -1,3 +1,4 @@
+from typing import Optional
 from typing_extensions import Self
 import toml
 
@@ -6,6 +7,7 @@ from pydantic import BaseModel
 from RecurrentFF.benchmarks.arguments import get_arguments
 
 CONFIG_FILE = "./config.toml"
+
 
 class ConnectionProfile(BaseModel):
     forward_block_sizes: list
@@ -89,6 +91,7 @@ class Device(BaseModel):
 class Settings(BaseModel):
     model: Model
     device: Device
+    total_batch_count: Optional[int] = None  # type: ignore[assignment
 
     # needs to be None because it is not in the config file
     data_config: DataConfig = None  # type: ignore[assignment]

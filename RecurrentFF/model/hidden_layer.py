@@ -294,6 +294,7 @@ class HiddenLayer(nn.Module):
         self.size = size
         self.next_size = next_size
         self.prev_size = prev_size
+        self.layer_num = layer_num
 
         self.residual_connections = nn.ModuleList()
 
@@ -353,7 +354,6 @@ class HiddenLayer(nn.Module):
                 block_size=connection_profile.backward_block_sizes[layer_num])
             nn.init.uniform_(self.backward_linear_inverse.weight, -0.05, 0.05)
 
-
         # Initialize the lateral weights to be the identity matrix
         self.lateral_linear = MaskedLinear(
             size, size, block_size=connection_profile.lateral_block_sizes[layer_num],
@@ -369,8 +369,10 @@ class HiddenLayer(nn.Module):
 
         self.inverse_optimizer = Adam(
             self.parameters(),
-            lr=self.settings.model.ff_adam.learning_rate)
+            lr=self.settings.model.ff_adam.learning_rate * 10)
         self.inverse_criterion = nn.MSELoss()
+
+        self.should_train = False
 
     def init_residual_connection(self, residual_connection: ResidualConnection) -> None:
         self.residual_connections.append(residual_connection)
@@ -646,8 +648,11 @@ class HiddenLayer(nn.Module):
         neg_badness_2 = layer_activations_to_badness(neg_activations_2)
         neg_badness = (neg_badness_1 + neg_badness_2) / 2
 
-        wandb.log({"pos_badness_loss": pos_badness.mean()})
-        wandb.log({"neg_badness_loss": neg_badness.mean()})
+        # if abs(pos_badness.mean() - neg_badness.mean()) < 0.1:
+        #     self.should_train = True
+
+        wandb.log({"pos_badness_loss": pos_badness.mean()}, step=self.settings.total_batch_count)
+        wandb.log({"neg_badness_loss": neg_badness.mean()}, step=self.settings.total_batch_count)
         # print(neg_badness[0])
         # print(pos_badness[0])
         # print()
@@ -893,32 +898,53 @@ class HiddenLayer(nn.Module):
 
         # neg_input_forwards = F.linear(-self.backward_act.detach().clone(),
         #                               self.forward_linear.weight.T)
-        neg_input_forwards = F.linear(-self.backward_act.detach().clone(),
-                                        self.forward_linear_inverse.weight)
+        neg_input_forwards = F.linear(self.backward_act.detach().clone(),
+                                      self.forward_linear_inverse.weight)
         # inverse_loss.backward()
         # self.inverse_optimizer.step()
         neg_contribution_forwards = F.linear(
             neg_input_forwards,
             self.forward_linear.weight.detach().clone())
         inverse_loss_forwards = self.inverse_criterion(neg_contribution_forwards, self.forward_act.detach().clone())
-        neg_1_summation_act = neg_contribution_forwards + self.backward_act.detach().clone()
+        neg_contribution_forwards_redo = F.linear(
+            neg_input_forwards.detach().clone(),
+            self.forward_linear.weight)
+        neg_1_summation_act = neg_contribution_forwards_redo + self.backward_act.detach().clone()
         new_activation_neg_1 = F.leaky_relu(neg_1_summation_act)
 
         # neg_input_backwards = F.linear(-self.forward_act.detach().clone(),
         #                                self.backward_linear.weight.T)
-        neg_input_backwards = F.linear(-self.forward_act.detach().clone(),
-                                        self.backward_linear_inverse.weight)
+        neg_input_backwards = F.linear(self.forward_act.detach().clone(),
+                                       self.backward_linear_inverse.weight)
         neg_contribution_backwards = F.linear(
             neg_input_backwards,
             self.backward_linear.weight.detach().clone())
         inverse_loss_backwards = self.inverse_criterion(neg_contribution_backwards, self.backward_act.detach().clone())
-        neg_2_summation_act = neg_contribution_backwards + self.forward_act.detach().clone()
+        neg_contribution_backwards_redo = F.linear(
+            neg_input_backwards.detach().clone(),
+            self.backward_linear.weight)
+        neg_2_summation_act = neg_contribution_backwards_redo + self.forward_act.detach().clone()
         new_activation_neg_2 = F.leaky_relu(neg_2_summation_act)
 
-        if self.backward_linear_inverse.weight.grad is not None:
-            (inverse_loss_backwards + inverse_loss_forwards).backward(retain_graph=True)
-            self.inverse_optimizer.step()
-            self.inverse_optimizer.zero_grad()
+        # if self.layer_num == 0 and self.should_train:
+        #     # print("neg_1_summation_act norm:")
+        #     # print(torch.norm(neg_1_summation_act, p=2))
+        #     wandb.log({"neg_1_summation_act_norm": torch.norm(neg_1_summation_act, p=2)},
+        #               step=self.settings.total_batch_count)
+
+        #     print()
+
+        if self.layer_num == 1 and inverse_loss_backwards.requires_grad:
+            total_loss = inverse_loss_backwards + inverse_loss_forwards
+            wandb.log({"reconstruction_loss": total_loss.item()}, step=self.settings.total_batch_count)
+            print(total_loss.item())
+            input()
+            # if total_loss.item() < 1.5:
+            #     self.should_train = True
+            if not self.should_train:
+                total_loss.backward(retain_graph=True)
+                self.inverse_optimizer.step()
+                self.inverse_optimizer.zero_grad()
         # print(self.backward_linear.weight.requires_grad)
         # print(new_activation_neg_1.grad)
         # print(new_activation_neg_2.grad)

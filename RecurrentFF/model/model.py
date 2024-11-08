@@ -218,6 +218,7 @@ class RecurrentFFNet(nn.Module):
         """
 
         total_batch_count = 0
+        self.settings.total_batch_count = total_batch_count
         best_test_accuracy: float = 0
         confidence_threshold = {"value": 0.01}
         grad_pass_acc_threshold = {
@@ -265,6 +266,7 @@ class RecurrentFFNet(nn.Module):
                 # print()
 
                 total_batch_count += 1
+                self.settings.total_batch_count = total_batch_count
 
             self.eval()
 
@@ -617,7 +619,8 @@ class RecurrentFFNet(nn.Module):
             # for layer in self.inner_layers:
             #     layer.optimizer.step()
             for layer in self.inner_layers:
-                layer.optimizer.step()
+                if layer.should_train:
+                    layer.optimizer.step()
             loss.backward()
             self.optimizer.step()
             # if not has_decided_skip and grad_pass_acc_threshold["should_pass_back"]:
