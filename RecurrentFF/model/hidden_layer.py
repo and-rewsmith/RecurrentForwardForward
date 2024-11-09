@@ -19,6 +19,7 @@ from RecurrentFF.util import (
     TrainInputData,
     TrainLabelData,
     layer_activations_to_badness,
+    smooth_l2_penalty,
     standardize_layer_activations,
 )
 from RecurrentFF.settings import (
@@ -650,6 +651,8 @@ class HiddenLayer(nn.Module):
         pos_badness = layer_activations_to_badness(pos_activations)
         neg_badness = layer_activations_to_badness(neg_activations)
 
+        collapse_penalty = 0 * smooth_l2_penalty(pos_badness.mean(), 0.75, 10) 
+
         # if abs(pos_badness.mean() - neg_badness.mean()) < 0.1:
         #     self.should_train = True
 
@@ -682,7 +685,8 @@ class HiddenLayer(nn.Module):
         smooth_loss = torch.tensor(0)
         # smooth_loss = 0.0 * (smooth_loss_pos + smooth_loss_neg)
         # layer_loss = smooth_loss + contrastive_loss_0 + contrastive_loss_1
-        layer_loss = contrastive_loss_0 + contrastive_loss_1
+        contrastive_loss = contrastive_loss_0 + contrastive_loss_1
+        layer_loss = contrastive_loss + collapse_penalty
         # layer_loss = torch.clamp(layer_loss, max=20)
         layer_loss.backward(retain_graph=retain_graph)
         # layer_loss.backward()
@@ -699,7 +703,7 @@ class HiddenLayer(nn.Module):
 
         # self.reset_parameters_with_small_gradients()
         # return cast(float, layer_loss.item()), contrastive_loss_0.item() + contrastive_loss_1.item(), smooth_loss.item()
-        return cast(float, layer_loss.item()), layer_loss.item(), smooth_loss.item()
+        return cast(float, layer_loss.item()), layer_loss.item(), collapse_penalty.item()
 
     # TODO: needs to be more DRY
     def forward(self, mode: ForwardMode, data: torch.Tensor, labels: torch.Tensor, should_damp: bool) -> torch.Tensor:
@@ -900,7 +904,7 @@ class HiddenLayer(nn.Module):
 
         # neg_input_forwards = F.linear(-self.backward_act.detach().clone(),
         #                               self.forward_linear.weight.T)
-        neg_input_forwards = F.linear(self.backward_act.detach().clone(),
+        neg_input_forwards = F.linear(self.backward_act,
                                       self.forward_linear_inverse.weight)
         # inverse_loss.backward()
         # self.inverse_optimizer.step()
@@ -908,7 +912,7 @@ class HiddenLayer(nn.Module):
             neg_input_forwards,
             self.forward_linear.weight)
             # self.forward_linear.weight.detach().clone())
-        inverse_loss_forwards = self.inverse_criterion(neg_contribution_forwards, self.forward_act.detach().clone())
+        inverse_loss_forwards = self.inverse_criterion(neg_contribution_forwards, self.forward_act)
         neg_contribution_forwards_redo = F.linear(
             neg_input_forwards.detach().clone(),
             self.forward_linear.weight)
@@ -917,12 +921,12 @@ class HiddenLayer(nn.Module):
 
         # neg_input_backwards = F.linear(-self.forward_act.detach().clone(),
         #                                self.backward_linear.weight.T)
-        neg_input_backwards = F.linear(self.forward_act.detach().clone(),
+        neg_input_backwards = F.linear(self.forward_act,
                                        self.backward_linear_inverse.weight)
         neg_contribution_backwards = F.linear(
             neg_input_backwards,
             self.backward_linear.weight)
-        inverse_loss_backwards = self.inverse_criterion(neg_contribution_backwards, self.backward_act.detach().clone())
+        inverse_loss_backwards = self.inverse_criterion(neg_contribution_backwards, self.backward_act)
         neg_contribution_backwards_redo = F.linear(
             neg_input_backwards.detach().clone(),
             self.backward_linear.weight)

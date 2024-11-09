@@ -3,7 +3,29 @@ import logging
 from typing import Generator
 
 import torch
+import torch.nn as nn
 from torch.nn import functional as F
+import numpy as np
+
+# Define the smooth L2 penalty function using PyTorch
+def smooth_l2_penalty(avg_batchwise_l2_norm, threshold, penalty_weight):
+    return penalty_weight * torch.nn.functional.leaky_relu(threshold - avg_batchwise_l2_norm) ** 2
+
+# class RelativeMSELoss(nn.Module):
+#     def __init__(self, epsilon=1e-5):
+#         super(RelativeMSELoss, self).__init__()
+#         self.epsilon = epsilon  # small value to prevent division by zero
+    
+#     def forward(self, input_, target):
+#         # Compute relative error
+#         relative_error = ((input_ - target) / (torch.abs(target) + self.epsilon)) ** 2
+#         print(input_[0:10])
+#         print(target[0:10])
+#         print(relative_error[0:10])
+#         print()
+#         input()
+#         # Take the mean over all elements
+#         return torch.mean(relative_error)
 
 
 def shuffle_softmax(tensor):
