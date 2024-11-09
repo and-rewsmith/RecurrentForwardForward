@@ -904,15 +904,15 @@ class HiddenLayer(nn.Module):
 
         # neg_input_forwards = F.linear(-self.backward_act.detach().clone(),
         #                               self.forward_linear.weight.T)
-        neg_input_forwards = F.linear(self.backward_act,
+        neg_input_forwards = F.linear(self.backward_act.detach().clone(),
                                       self.forward_linear_inverse.weight)
         # inverse_loss.backward()
         # self.inverse_optimizer.step()
         neg_contribution_forwards = F.linear(
             neg_input_forwards,
-            self.forward_linear.weight)
+            self.forward_linear.weight.detach().clone())
             # self.forward_linear.weight.detach().clone())
-        inverse_loss_forwards = self.inverse_criterion(neg_contribution_forwards, self.forward_act)
+        inverse_loss_forwards = self.inverse_criterion(neg_contribution_forwards, self.forward_act.detach().clone())
         neg_contribution_forwards_redo = F.linear(
             neg_input_forwards.detach().clone(),
             self.forward_linear.weight)
@@ -921,12 +921,12 @@ class HiddenLayer(nn.Module):
 
         # neg_input_backwards = F.linear(-self.forward_act.detach().clone(),
         #                                self.backward_linear.weight.T)
-        neg_input_backwards = F.linear(self.forward_act,
+        neg_input_backwards = F.linear(self.forward_act.detach().clone(),
                                        self.backward_linear_inverse.weight)
         neg_contribution_backwards = F.linear(
             neg_input_backwards,
-            self.backward_linear.weight)
-        inverse_loss_backwards = self.inverse_criterion(neg_contribution_backwards, self.backward_act)
+            self.backward_linear.weight.detach().clone())
+        inverse_loss_backwards = self.inverse_criterion(neg_contribution_backwards, self.backward_act.detach().clone())
         neg_contribution_backwards_redo = F.linear(
             neg_input_backwards.detach().clone(),
             self.backward_linear.weight)
@@ -943,6 +943,7 @@ class HiddenLayer(nn.Module):
         #     print()
 
         if inverse_loss_backwards.requires_grad:
+            self.should_train = True
             total_loss = inverse_loss_backwards + inverse_loss_forwards
             self.reconstruction_losses.append(total_loss.item())
             total_loss.backward(retain_graph=True)
