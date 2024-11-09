@@ -941,10 +941,10 @@ class HiddenLayer(nn.Module):
         if inverse_loss_backwards.requires_grad:
             total_loss = inverse_loss_backwards + inverse_loss_forwards
             self.reconstruction_losses.append(total_loss.item())
-            # if not self.should_train:
             total_loss.backward(retain_graph=True)
-            self.inverse_optimizer.step()
-            self.inverse_optimizer.zero_grad()
+            if not self.should_train:
+                self.inverse_optimizer.step()
+                self.inverse_optimizer.zero_grad()
 
         # print(self.backward_linear.weight.requires_grad)
         # print(new_activation_neg_1.grad)

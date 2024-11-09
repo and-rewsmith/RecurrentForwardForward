@@ -71,6 +71,8 @@ class RecurrentFFNet(nn.Module):
 
         self.settings = settings
 
+        self.best_reconstruction_loss = float("inf")
+
         logging.info("Creating layers")
         inner_layers = nn.ModuleList()
         prev_size = self.settings.data_config.data_size
@@ -755,10 +757,21 @@ class RecurrentFFNet(nn.Module):
                 wandb.log({f"reconstruction_loss_layer_{i}": mean_reconstruction_loss}, step=total_batch_count)
             layer.reconstruction_losses.clear()
             rec_losses.append(mean_reconstruction_loss)
-
-        if sum(rec_losses) / len(rec_losses) < 3.25:
+        
+        mean_reconstruction_loss_all_layers = sum(rec_losses) / len(rec_losses)
+        if mean_reconstruction_loss_all_layers < 3.25:
             for layer in self.inner_layers:
                 layer.should_train = True
+        # if mean_reconstruction_loss_all_layers < 3.25 and mean_reconstruction_loss_all_layers > self.best_reconstruction_loss + 0.15 and self.inner_layers.layers[0].should_train == True:
+        #     print("-----------------STOP TRAINING-----------------")
+        #     for layer in self.inner_layers:
+        #         layer.should_train = False
+        # elif mean_reconstruction_loss_all_layers < 3.25 and self.inner_layers.layers[0].should_train == False:
+        #     print("-----------------START TRAINING-----------------")
+        #     for layer in self.inner_layers:
+        #         layer.should_train = True
+        if self.best_reconstruction_loss is None or mean_reconstruction_loss_all_layers < self.best_reconstruction_loss:
+            self.best_reconstruction_loss = mean_reconstruction_loss_all_layers
 
         # determine accuracy from class aggregations
         correct_percent_agg = (torch.argmax(class_predictions_agg, dim=1) == torch.argmax(
