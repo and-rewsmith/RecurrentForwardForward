@@ -407,6 +407,28 @@ class HiddenLayer(nn.Module):
         return (param for name, param in self.named_parameters()
                 if not name.startswith('previous_layer') and not name.startswith('next_layer') and not name.startswith('generative_linear'))
 
+    def filtered_parameters_for_optimizer(self):
+        """
+        Returns two parameter groups: one for inverse weights and one for all other parameters,
+        while maintaining the existing filtering logic for previous_layer, next_layer, and generative_linear.
+        """
+        inverse_params = []
+        other_params = []
+        
+        for name, param in self.named_parameters():
+            if name.startswith('previous_layer') or name.startswith('next_layer') or name.startswith('generative_linear'):
+                continue
+                
+            if any(x in name for x in ['backward_linear_inverse', 'forward_linear_inverse', 'lateral_linear_inverse']):
+                inverse_params.append(param)
+            else:
+                other_params.append(param)
+        
+        return [
+            {'params': inverse_params, 'lr': self.settings.model.ff_rmsprop.learning_rate * 10},  # Adjust multiplier as needed
+            {'params': other_params, 'lr': self.settings.model.ff_rmsprop.learning_rate}
+        ]
+
     def init_optimizer(self) -> None:
         self.optimizer: Optimizer
         if self.settings.model.ff_optimizer == "adam":
@@ -414,8 +436,7 @@ class HiddenLayer(nn.Module):
                                   lr=self.settings.model.ff_adam.learning_rate)
         elif self.settings.model.ff_optimizer == "rmsprop":
             self.optimizer = RMSprop(
-                self.filtered_parameters(),
-                lr=self.settings.model.ff_rmsprop.learning_rate,
+                self.filtered_parameters_for_optimizer(),
                 momentum=self.settings.model.ff_rmsprop.momentum)
         elif self.settings.model.ff_optimizer == "adadelta":
             self.optimizer = Adadelta(
