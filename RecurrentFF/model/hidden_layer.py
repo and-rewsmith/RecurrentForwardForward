@@ -375,7 +375,7 @@ class HiddenLayer(nn.Module):
             lr=0.0001)
         self.inverse_criterion = nn.MSELoss()
 
-        self.should_train = False
+        self.should_train = True
 
         self.reconstruction_losses = []
 
@@ -425,7 +425,7 @@ class HiddenLayer(nn.Module):
                 other_params.append(param)
         
         return [
-            {'params': inverse_params, 'lr': self.settings.model.ff_rmsprop.learning_rate * 10},  # Adjust multiplier as needed
+            {'params': inverse_params, 'lr': self.settings.model.ff_rmsprop.learning_rate * 1},  # Adjust multiplier as needed
             {'params': other_params, 'lr': self.settings.model.ff_rmsprop.learning_rate}
         ]
 
@@ -926,12 +926,12 @@ class HiddenLayer(nn.Module):
         # neg_input_forwards = F.linear(-self.backward_act.detach().clone(),
         #                               self.forward_linear.weight.T)
         neg_input_forwards = F.linear(self.backward_act.detach().clone(),
-                                      self.forward_linear_inverse.weight)
+                                      self.forward_linear.weight.detach().clone().T)
         # inverse_loss.backward()
         # self.inverse_optimizer.step()
         neg_contribution_forwards = F.linear(
             neg_input_forwards,
-            self.forward_linear.weight.detach().clone())
+            self.forward_linear.weight)
             # self.forward_linear.weight.detach().clone())
         inverse_loss_forwards = self.inverse_criterion(neg_contribution_forwards, self.forward_act.detach().clone())
         neg_contribution_forwards_redo = F.linear(
@@ -943,17 +943,17 @@ class HiddenLayer(nn.Module):
         # neg_input_backwards = F.linear(-self.forward_act.detach().clone(),
         #                                self.backward_linear.weight.T)
         neg_input_backwards = F.linear(self.forward_act.detach().clone(),
-                                       self.backward_linear_inverse.weight)
+                                       self.backward_linear.weight.detach().clone().T)
         neg_contribution_backwards = F.linear(
             neg_input_backwards,
-            self.backward_linear.weight.detach().clone())
+            self.backward_linear.weight)
         inverse_loss_backwards = self.inverse_criterion(neg_contribution_backwards, self.backward_act.detach().clone())
         neg_contribution_backwards_redo = F.linear(
             neg_input_backwards.detach().clone(),
             self.backward_linear.weight)
         # neg_2_summation_act = neg_contribution_backwards_redo + self.forward_act.detach().clone()
         # new_activation_neg_2 = F.leaky_relu(neg_2_summation_act)
-        new_activation_neg = F.leaky_relu(neg_contribution_forwards_redo + neg_contribution_backwards_redo)
+        new_activation_neg = F.leaky_relu(neg_contribution_forwards + neg_contribution_backwards)
 
         # if self.layer_num == 0 and self.should_train:
         #     # print("neg_1_summation_act norm:")
@@ -967,7 +967,7 @@ class HiddenLayer(nn.Module):
             self.should_train = True
             total_loss = inverse_loss_backwards + inverse_loss_forwards
             self.reconstruction_losses.append(total_loss.item())
-            total_loss.backward(retain_graph=True)
+            # total_loss.backward(retain_graph=True)
             if not self.should_train:
                 self.inverse_optimizer.step()
                 self.inverse_optimizer.zero_grad()

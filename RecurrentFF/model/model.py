@@ -759,14 +759,14 @@ class RecurrentFFNet(nn.Module):
             rec_losses.append(mean_reconstruction_loss)
         
         mean_reconstruction_loss_all_layers = sum(rec_losses) / len(rec_losses)
-        if mean_reconstruction_loss_all_layers < 3.25:
-            for layer in self.inner_layers:
-                layer.should_train = True
-        # if mean_reconstruction_loss_all_layers < 3.25 and mean_reconstruction_loss_all_layers > self.best_reconstruction_loss + 0.15 and self.inner_layers.layers[0].should_train == True:
+        # if mean_reconstruction_loss_all_layers < 3.25:
+        #     for layer in self.inner_layers:
+        #         layer.should_train = True
+        # if mean_reconstruction_loss_all_layers > self.best_reconstruction_loss + 0.15 and self.inner_layers.layers[0].should_train == True:
         #     print("-----------------STOP TRAINING-----------------")
         #     for layer in self.inner_layers:
         #         layer.should_train = False
-        # elif mean_reconstruction_loss_all_layers < 3.25 and self.inner_layers.layers[0].should_train == False:
+        # elif self.inner_layers.layers[0].should_train == False and mean_reconstruction_loss_all_layers < self.best_reconstruction_loss:
         #     print("-----------------START TRAINING-----------------")
         #     for layer in self.inner_layers:
         #         layer.should_train = True
