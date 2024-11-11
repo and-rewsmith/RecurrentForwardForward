@@ -935,7 +935,7 @@ class HiddenLayer(nn.Module):
 
         # neg_input_forwards = F.linear(-self.backward_act.detach().clone(),
         #                               self.forward_linear.weight.T)
-        neg_input_forwards = F.linear(self.backward_act,
+        neg_input_forwards = F.linear(self.backward_act.detach().clone(),
                                       self.forward_linear_inverse.weight)
         # inverse_loss.backward()
         # self.inverse_optimizer.step()
@@ -953,7 +953,7 @@ class HiddenLayer(nn.Module):
 
         # neg_input_backwards = F.linear(-self.forward_act.detach().clone(),
         #                                self.backward_linear.weight.T)
-        neg_input_backwards = F.linear(self.forward_act,
+        neg_input_backwards = F.linear(self.forward_act.detach().clone(),
                                        self.backward_linear_inverse.weight)
         neg_contribution_backwards = F.linear(
             neg_input_backwards.detach().clone(),
@@ -969,9 +969,8 @@ class HiddenLayer(nn.Module):
             neg_contribution_forwards + neg_contribution_backwards)
 
         new_activation = F.leaky_relu(summation_act)
-        activations_for_mismatch = self.forward_act.detach().clone(
-        ) - neg_contribution_forwards_redo
-        activations_for_mismatch_2 = self.backward_act.detach().clone() - \
+        activations_for_mismatch = self.forward_act - neg_contribution_forwards_redo
+        activations_for_mismatch_2 = self.backward_act - \
             neg_contribution_backwards_redo
         activations_for_mismatch_badness = layer_activations_to_badness(
             activations_for_mismatch)
