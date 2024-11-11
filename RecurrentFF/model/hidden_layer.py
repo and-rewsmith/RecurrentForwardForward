@@ -343,7 +343,8 @@ class HiddenLayer(nn.Module):
         if next_size == self.settings.data_config.num_classes:
             self.backward_linear = nn.Linear(next_size, size, bias=False)
             amplified_initialization(self.backward_linear, 3.0)
-            self.backward_linear_inverse = nn.Linear(size, next_size, bias=False)
+            self.backward_linear_inverse = nn.Linear(
+                size, next_size, bias=False)
             nn.init.kaiming_uniform_(
                 self.backward_linear_inverse.weight, nonlinearity='relu')
             # amplified_initialization(self.backward_linear_inverse, 1.0)
@@ -414,18 +415,20 @@ class HiddenLayer(nn.Module):
         """
         inverse_params = []
         other_params = []
-        
+
         for name, param in self.named_parameters():
             if name.startswith('previous_layer') or name.startswith('next_layer') or name.startswith('generative_linear'):
                 continue
-                
+
             if any(x in name for x in ['backward_linear_inverse', 'forward_linear_inverse', 'lateral_linear_inverse']):
                 inverse_params.append(param)
             else:
                 other_params.append(param)
-        
+
         return [
-            {'params': inverse_params, 'lr': self.settings.model.ff_rmsprop.learning_rate * 1},  # Adjust multiplier as needed
+            # Adjust multiplier as needed
+            {'params': inverse_params,
+                'lr': self.settings.model.ff_rmsprop.learning_rate * 1},
             {'params': other_params, 'lr': self.settings.model.ff_rmsprop.learning_rate}
         ]
 
@@ -642,24 +645,24 @@ class HiddenLayer(nn.Module):
         if input_data is not None and label_data is not None:
             (pos_input, neg_input) = input_data
             (pos_labels, neg_labels) = label_data
-            pos_activations, neg_activations = self.forward(
+            pos_activations, neg_activations, additional_badness = self.forward(
                 ForwardMode.PositiveData, pos_input, pos_labels, should_damp)
             # neg_activations = self.forward(
             #     ForwardMode.NegativeData, neg_input, neg_labels, should_damp)
         elif input_data is not None:
             (pos_input, neg_input) = input_data
-            pos_activations, neg_activations = self.forward(
+            pos_activations, neg_activations, additional_badness = self.forward(
                 ForwardMode.PositiveData, pos_input, None, should_damp)
             # neg_activations = self.forward(
             #     ForwardMode.NegativeData, neg_input, None, should_damp)
         elif label_data is not None:
             (pos_labels, neg_labels) = label_data
-            pos_activations, neg_activations = self.forward(
+            pos_activations, neg_activations, additional_badness = self.forward(
                 ForwardMode.PositiveData, None, pos_labels, should_damp)
             # neg_activations = self.forward(
             #     ForwardMode.NegativeData, None, neg_labels, should_damp)
         else:
-            pos_activations, neg_activations = self.forward(
+            pos_activations, neg_activations, additional_badness = self.forward(
                 ForwardMode.PositiveData, None, None, should_damp)
             # neg_activations = self.forward(
             #     ForwardMode.NegativeData, None, None, should_damp)
@@ -671,14 +674,17 @@ class HiddenLayer(nn.Module):
 
         pos_badness = layer_activations_to_badness(pos_activations)
         neg_badness = layer_activations_to_badness(neg_activations)
+        neg_badness -= additional_badness
 
-        collapse_penalty = 0 * smooth_l2_penalty(pos_badness.mean(), 0.75, 10) 
+        collapse_penalty = 0 * smooth_l2_penalty(pos_badness.mean(), 0.75, 10)
 
         # if abs(pos_badness.mean() - neg_badness.mean()) < 0.1:
         #     self.should_train = True
 
-        wandb.log({"pos_badness_loss": pos_badness.mean()}, step=self.settings.total_batch_count)
-        wandb.log({"neg_badness_loss": neg_badness.mean()}, step=self.settings.total_batch_count)
+        wandb.log({"pos_badness_loss": pos_badness.mean()},
+                  step=self.settings.total_batch_count)
+        wandb.log({"neg_badness_loss": neg_badness.mean()},
+                  step=self.settings.total_batch_count)
         # print(neg_badness[0])
         # print(pos_badness[0])
         # print()
@@ -821,7 +827,8 @@ class HiddenLayer(nn.Module):
             self.forward_act = self.forward_linear.forward(prev_layer_stdized)
             # print("0")
             # print(next_layer_stdized[0:10])
-            self.backward_act = self.backward_linear.forward(next_layer_stdized)
+            self.backward_act = self.backward_linear.forward(
+                next_layer_stdized)
             self.lateral_act = self.lateral_linear.forward(prev_act_stdized)
 
         # Single layer scenario. Hidden layer connected to input layer and
@@ -876,7 +883,8 @@ class HiddenLayer(nn.Module):
             # print(next_layer.pos_activations.previous[0:10])
             # print(next_layer.pos_activations.current[0:10])
             # print(next_layer_stdized[0:10])
-            self.backward_act = self.backward_linear.forward(next_layer_stdized)
+            self.backward_act = self.backward_linear.forward(
+                next_layer_stdized)
             self.lateral_act = self.lateral_linear.forward(prev_act_stdized)
 
         # Output layer scenario. Connected to hidden layer and output layer.
@@ -919,21 +927,22 @@ class HiddenLayer(nn.Module):
         # for residual_connection in self.residual_connections:
         #     summation_act = summation_act + residual_connection.forward(mode)
 
-        new_activation = F.leaky_relu(summation_act)
+        # new_activation = F.leaky_relu(summation_act)
 
         self.inverse_optimizer.zero_grad()
 
         # neg_input_forwards = F.linear(-self.backward_act.detach().clone(),
         #                               self.forward_linear.weight.T)
         neg_input_forwards = F.linear(self.backward_act.detach().clone(),
-                                      self.forward_linear.weight.detach().clone().T)
+                                      self.forward_linear_inverse.weight)
         # inverse_loss.backward()
         # self.inverse_optimizer.step()
         neg_contribution_forwards = F.linear(
             neg_input_forwards,
             self.forward_linear.weight)
-            # self.forward_linear.weight.detach().clone())
-        inverse_loss_forwards = self.inverse_criterion(neg_contribution_forwards, self.forward_act.detach().clone())
+        # self.forward_linear.weight.detach().clone())
+        inverse_loss_forwards = self.inverse_criterion(
+            neg_contribution_forwards, self.forward_act.detach().clone())
         neg_contribution_forwards_redo = F.linear(
             neg_input_forwards.detach().clone(),
             self.forward_linear.weight)
@@ -943,17 +952,31 @@ class HiddenLayer(nn.Module):
         # neg_input_backwards = F.linear(-self.forward_act.detach().clone(),
         #                                self.backward_linear.weight.T)
         neg_input_backwards = F.linear(self.forward_act.detach().clone(),
-                                       self.backward_linear.weight.detach().clone().T)
+                                       self.backward_linear_inverse.weight)
         neg_contribution_backwards = F.linear(
             neg_input_backwards,
             self.backward_linear.weight)
-        inverse_loss_backwards = self.inverse_criterion(neg_contribution_backwards, self.backward_act.detach().clone())
+        inverse_loss_backwards = self.inverse_criterion(
+            neg_contribution_backwards, self.backward_act.detach().clone())
         neg_contribution_backwards_redo = F.linear(
             neg_input_backwards.detach().clone(),
             self.backward_linear.weight)
         # neg_2_summation_act = neg_contribution_backwards_redo + self.forward_act.detach().clone()
         # new_activation_neg_2 = F.leaky_relu(neg_2_summation_act)
-        new_activation_neg = F.leaky_relu(neg_contribution_forwards + neg_contribution_backwards)
+        new_activation_neg = F.leaky_relu(
+            neg_contribution_forwards + neg_contribution_backwards)
+
+        new_activation = F.leaky_relu(summation_act)
+        activations_for_mismatch = self.forward_act.detach().clone(
+        ) - neg_contribution_forwards
+        activations_for_mismatch_2 = self.backward_act.detach().clone() - \
+            neg_contribution_backwards
+        activations_for_mismatch_badness = layer_activations_to_badness(
+            activations_for_mismatch)
+        activations_for_mismatch_badness_2 = layer_activations_to_badness(
+            activations_for_mismatch_2)
+        activations_for_mismatch_badness = activations_for_mismatch_badness + \
+            activations_for_mismatch_badness_2
 
         # if self.layer_num == 0 and self.should_train:
         #     # print("neg_1_summation_act norm:")
@@ -1013,4 +1036,4 @@ class HiddenLayer(nn.Module):
         # print(new_activation_neg_2.shape)
         # input()
 
-        return new_activation, new_activation_neg
+        return new_activation, new_activation_neg, activations_for_mismatch_badness
