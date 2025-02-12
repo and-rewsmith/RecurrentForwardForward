@@ -442,10 +442,31 @@ class StaticSingleClassProcessor(DataScenarioProcessor):
                                 activations = cast(Activations, layer.pos_activations).current \
                                     if forward_mode == ForwardMode.PositiveData \
                                     else cast(Activations, layer.predict_activations).current
+                                
+                                pos_activations_new, neg_activations_new, scale_pos, scale_neg = layer.prep_badness_calc_inference()
+                                # outcome = self.decider(pos_activations)
+                                outcome = layer.decider(layer.predict_activations.current)
+                                outcome_pos = F.sigmoid(-1 * (torch.abs(layer.predict_activations.current) - self.settings.model.loss_threshold))
+                                outcome_neg = F.sigmoid(1 * (torch.abs(layer.predict_activations.current) - self.settings.model.loss_threshold))
 
-                                layer_badnesses.append(
-                                    layer_activations_to_badness(
-                                        activations))
+                                # sum along dim 1
+                                scale_pos = outcome_pos.sum(dim=1)
+                                scale_neg = outcome_neg.sum(dim=1)
+
+                                pos_activations_new = layer.predict_activations.current * outcome_pos
+                                neg_activations_new = layer.predict_activations.current * outcome_neg
+
+                                pos_badness = layer_activations_to_badness(pos_activations_new, scale_pos)
+                                neg_badness = layer_activations_to_badness(neg_activations_new, scale_neg)
+
+                                # Loss function equivelent to:
+                                # plot3d log(1 + exp(-n + 1)) + log(1 + exp(p - 1)) for n=0 to 3, p=0
+                                # to 3
+                                layer_loss = F.softplus(
+                                    ((-1 * neg_badness) + self.settings.model.loss_threshold) + (pos_badness - self.settings.model.loss_threshold)
+                                )
+
+                                layer_badnesses.append(layer_loss)
 
                             badnesses.append(torch.stack(
                                 layer_badnesses, dim=1))

@@ -86,7 +86,7 @@ class ForwardMode(Enum):
     PredictData = 3
 
 
-def layer_activations_to_badness(layer_activations: torch.Tensor) -> torch.Tensor:
+def layer_activations_to_badness(layer_activations: torch.Tensor, num_units: torch.Tensor) -> torch.Tensor:
     """
     Computes the 'badness' of activations for a given layer in a neural network
     by taking the mean of the squared values.
@@ -107,8 +107,8 @@ def layer_activations_to_badness(layer_activations: torch.Tensor) -> torch.Tenso
         (batch_size,), since the mean is taken over the activation values for
         each sample in the batch.
     """
-    badness_for_layer = torch.mean(
-        torch.square(layer_activations), dim=1)
+    badness_for_layer = torch.abs(layer_activations)
+    badness_for_layer = torch.sum(badness_for_layer, dim=1) / num_units
 
     return badness_for_layer
 

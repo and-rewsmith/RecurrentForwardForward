@@ -197,10 +197,12 @@ class RecurrentFFNet(nn.Module):
             # batch is w.r.t. total samples
             #
             # TODO: Fix this hacky data loader bridge format
-            train_accuracy = self.processor.brute_force_predict(
-                TrainTestBridgeFormatLoader(train_loader), 10, False)  # type: ignore[arg-type]
+            # train_accuracy = self.processor.brute_force_predict(
+            #     TrainTestBridgeFormatLoader(train_loader), 10, False)  # type: ignore[arg-type]
             test_accuracy = self.processor.brute_force_predict(
                 test_loader, 1, True)
+
+            print(test_accuracy)
 
             if test_accuracy > best_test_accuracy:
                 best_test_accuracy = test_accuracy
@@ -208,7 +210,7 @@ class RecurrentFFNet(nn.Module):
 
             if self.settings.model.should_log_metrics:
                 self.__log_epoch_metrics(
-                    train_accuracy,
+                    0,
                     test_accuracy,
                     epoch,
                     total_batch_count
@@ -268,10 +270,16 @@ class RecurrentFFNet(nn.Module):
 
             if iteration >= lower_iteration_threshold and \
                     iteration <= upper_iteration_threshold:
-                pos_badness_per_layer.append([layer_activations_to_badness(
-                    cast(Activations, layer.pos_activations).current).mean() for layer in self.inner_layers])
-                neg_badness_per_layer.append([layer_activations_to_badness(
-                    cast(Activations, layer.neg_activations).current).mean() for layer in self.inner_layers])
+
+                for layer in self.inner_layers:
+                    pos_activations_new, neg_activations_new, scale_pos, scale_neg = layer.prep_badness_calc()
+                    pos_badness_per_layer.append(layer_activations_to_badness(pos_activations_new, scale_pos).mean())
+                    neg_badness_per_layer.append(layer_activations_to_badness(neg_activations_new, scale_neg).mean())
+                
+                # pos_badness_per_layer.append([layer_activations_to_badness(
+                #     cast(Activations, layer.pos_activations).current).mean() for layer in self.inner_layers])
+                # neg_badness_per_layer.append([layer_activations_to_badness(
+                #     cast(Activations, layer.neg_activations).current).mean() for layer in self.inner_layers])
 
                 positive_latents = [
                     cast(Activations, layer.pos_activations).current for layer in self.inner_layers]
@@ -283,19 +291,23 @@ class RecurrentFFNet(nn.Module):
             pos_target_latents = pos_target_latents_averager.retrieve()
             self.processor.train_class_predictor_from_latents(
                 pos_target_latents, label_data.pos_labels[0], total_batch_count)
+            
+        # for blah in pos_badness_per_layer:
+        #     print(blah)
+        #     input()
 
-        pos_badness_per_layer_condensed: list[float] = [
-            sum(layer_badnesses) /
-            len(layer_badnesses) for layer_badnesses in zip(
-                *
-                pos_badness_per_layer)]
-        neg_badness_per_layer_condensed: list[float] = [
-            sum(layer_badnesses) /
-            len(layer_badnesses) for layer_badnesses in zip(
-                *
-                neg_badness_per_layer)]
+        # pos_badness_per_layer_condensed: list[float] = [
+        #     layer_badnesses /
+        #     len(layer_badnesses) for layer_badnesses in zip(
+        #         *
+        #         pos_badness_per_layer)]
+        # neg_badness_per_layer_condensed: list[float] = [
+        #     layer_badnesses /
+        #     len(layer_badnesses) for layer_badnesses in zip(
+        #         *
+        #         neg_badness_per_layer)]
 
-        return layer_metrics, pos_badness_per_layer_condensed, neg_badness_per_layer_condensed
+        return layer_metrics, pos_badness_per_layer, neg_badness_per_layer
 
     def __log_epoch_metrics(
             self,

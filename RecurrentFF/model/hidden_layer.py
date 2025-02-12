@@ -270,6 +270,8 @@ class HiddenLayer(nn.Module):
         self.backward_act: Tensor
         self.lateral_act: Tensor
 
+        self.decider = nn.Linear(size, size)
+
     def init_residual_connection(self, residual_connection: ResidualConnection) -> None:
         self.residual_connections.append(residual_connection)
 
@@ -412,6 +414,35 @@ class HiddenLayer(nn.Module):
     def set_next_layer(self, next_layer: Self) -> None:
         self.next_layer = next_layer
 
+    def prep_badness_calc_inference(self):
+        # outcome = self.decider(pos_activations)
+        outcome_pos = F.sigmoid(-1 * (torch.abs(self.predict_activations.current) - self.settings.model.loss_threshold))
+        outcome_neg = F.sigmoid(1 * (torch.abs(self.predict_activations.current) - self.settings.model.loss_threshold))
+
+        # sum along dim 1
+        scale_pos = outcome_pos.sum(dim=1)
+        scale_neg = outcome_neg.sum(dim=1)
+
+        pos_activations_new = self.predict_activations.current * outcome_pos
+        neg_activations_new = self.predict_activations.current * outcome_neg
+
+        return pos_activations_new, neg_activations_new, scale_pos, scale_neg
+    
+    def prep_badness_calc(self):
+        # outcome = self.decider(pos_activations)
+        outcome_pos = F.sigmoid(-1 * (torch.abs(self.pos_activations.current) - self.settings.model.loss_threshold))
+        outcome_neg = F.sigmoid(1 * (torch.abs(self.pos_activations.current) - self.settings.model.loss_threshold))
+
+        # sum along dim 1
+        scale_pos = outcome_pos.sum(dim=1)
+        scale_neg = outcome_neg.sum(dim=1)
+
+        pos_activations_new = self.pos_activations.current * outcome_pos
+        neg_activations_new = self.pos_activations.current * outcome_neg
+
+        return pos_activations_new, neg_activations_new, scale_pos, scale_neg
+
+
     # @profile(stdout=False, filename='baseline.prof',
     #          skip=Settings.new().model.skip_profiling)
     def train_layer(self,  # type: ignore[override]
@@ -446,9 +477,20 @@ class HiddenLayer(nn.Module):
                 ForwardMode.PositiveData, None, None, should_damp)
             neg_activations = self.forward(
                 ForwardMode.NegativeData, None, None, should_damp)
+        
+        outcome = self.decider(pos_activations)
+        outcome_pos = F.sigmoid(-1 * (outcome - self.settings.model.loss_threshold))
+        outcome_neg = F.sigmoid(1 * (outcome - self.settings.model.loss_threshold))
 
-        pos_badness = layer_activations_to_badness(pos_activations)
-        neg_badness = layer_activations_to_badness(neg_activations)
+        # sum along dim 1
+        scale_pos = outcome_pos.sum(dim=1)
+        scale_neg = outcome_neg.sum(dim=1)
+
+        pos_activations_new = pos_activations * outcome_pos
+        neg_activations_new = pos_activations * outcome_neg
+
+        pos_badness = layer_activations_to_badness(pos_activations_new, scale_pos)
+        neg_badness = layer_activations_to_badness(neg_activations_new, scale_neg)
 
         # Loss function equivelent to:
         # plot3d log(1 + exp(-n + 1)) + log(1 + exp(p - 1)) for n=0 to 3, p=0
