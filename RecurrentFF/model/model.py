@@ -197,8 +197,8 @@ class RecurrentFFNet(nn.Module):
             # batch is w.r.t. total samples
             #
             # TODO: Fix this hacky data loader bridge format
-            # train_accuracy = self.processor.brute_force_predict(
-            #     TrainTestBridgeFormatLoader(train_loader), 10, False)  # type: ignore[arg-type]
+            train_accuracy = self.processor.brute_force_predict(
+                TrainTestBridgeFormatLoader(train_loader), 1, True)  # type: ignore[arg-type]
             test_accuracy = self.processor.brute_force_predict(
                 test_loader, 1, True)
 
@@ -210,7 +210,7 @@ class RecurrentFFNet(nn.Module):
 
             if self.settings.model.should_log_metrics:
                 self.__log_epoch_metrics(
-                    0,
+                    train_accuracy,
                     test_accuracy,
                     epoch,
                     total_batch_count
@@ -224,7 +224,8 @@ class RecurrentFFNet(nn.Module):
             input_data: TrainInputData,
             label_data: TrainLabelData,
             total_batch_count: int) -> Tuple[LayerMetrics, List[float], List[float]]:
-        logging.info("Batch: " + str(batch_num))
+        if batch_num % 100 == 0:
+            logging.info("Batch: " + str(batch_num))
 
         self.inner_layers.reset_activations(True)
 

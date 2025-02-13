@@ -442,7 +442,7 @@ class HiddenLayer(nn.Module):
         neg_activations_new = self.pos_activations.current * outcome_neg
 
         return pos_activations_new, neg_activations_new, scale_pos, scale_neg
-
+    
 
     # @profile(stdout=False, filename='baseline.prof',
     #          skip=Settings.new().model.skip_profiling)
@@ -540,8 +540,8 @@ class HiddenLayer(nn.Module):
 
         loss = outcome_pos.sum() + outcome_neg.sum()
         loss.backward()
-        self.decider.weight.grad = 100 * self.decider.weight.grad
-        self.decider.bias.grad = 100 * self.decider.bias.grad
+        self.decider.weight.grad = 10 * self.decider.weight.grad
+        self.decider.bias.grad = 10 * self.decider.bias.grad
         self.decider_opt.step()
 
         # for param in self.parameters():
