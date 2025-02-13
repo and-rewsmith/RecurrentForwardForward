@@ -271,6 +271,7 @@ class HiddenLayer(nn.Module):
         self.lateral_act: Tensor
 
         self.decider = nn.Linear(size, size)
+        self.decider_opt = Adam(self.decider.parameters(), lr=self.settings.model.ff_rmsprop.learning_rate)
 
     def init_residual_connection(self, residual_connection: ResidualConnection) -> None:
         self.residual_connections.append(residual_connection)
@@ -448,7 +449,8 @@ class HiddenLayer(nn.Module):
     def train_layer(self,  # type: ignore[override]
                     input_data: TrainInputData,
                     label_data: TrainLabelData,
-                    should_damp: bool) -> float:
+                    should_damp: bool,
+                    total_batch_count: int) -> float:
         self.optimizer.zero_grad()
 
         pos_activations = None
@@ -485,6 +487,22 @@ class HiddenLayer(nn.Module):
         # sum along dim 1
         scale_pos = outcome_pos.sum(dim=1)
         scale_neg = outcome_neg.sum(dim=1)
+        import wandb
+        wandb.log({
+            "pos_neuron_proportion": scale_pos.mean().item(),
+            "neg_neuron_proportion": scale_neg.mean().item(),
+        },
+        step=total_batch_count)
+
+       # reg 
+        target_proportion = 350.0
+        scale_pos_diff = scale_pos - target_proportion
+        scale_neg_diff = scale_neg - target_proportion
+        
+        scale_pos_regularizer = (scale_pos_diff ** 2).mean()
+        scale_neg_regularizer = (scale_neg_diff ** 2).mean()
+        
+        # proportion_loss = (scale_pos_regularizer + scale_neg_regularizer)
 
         pos_activations_new = pos_activations * outcome_pos
         neg_activations_new = pos_activations * outcome_neg
@@ -499,9 +517,39 @@ class HiddenLayer(nn.Module):
             (-1 * neg_badness) + self.settings.model.loss_threshold,
             pos_badness - self.settings.model.loss_threshold
         ])).mean()
-        layer_loss.backward()
-
+        (layer_loss).backward(retain_graph=True)
+        # clip gradients
+        # torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=1.0)
+        self.decider.weight.grad = -10 * self.decider.weight.grad
+        self.decider.bias.grad = -10 * self.decider.bias.grad
         self.optimizer.step()
+
+        self.decider.weight.grad.zero_()
+        self.decider.bias.grad.zero_()
+
+        # wandb.log({
+        #     "scale_pos_regularizer": proportion_loss.item(),
+        #     "scale_neg_regularizer": proportion_loss.item(),
+        # },
+        # step=total_batch_count)
+
+
+
+        # self.decider.weight.grad = -0.01 * self.decider.weight.grad
+        # self.decider.bias.grad = -0.01 * self.decider.bias.grad
+
+        loss = outcome_pos.sum() + outcome_neg.sum()
+        loss.backward()
+        self.decider.weight.grad = 100 * self.decider.weight.grad
+        self.decider.bias.grad = 100 * self.decider.bias.grad
+        self.decider_opt.step()
+
+        # for param in self.parameters():
+        #     if param is not None:
+        #         param.grad = -1 * param.grad
+
+
+
         return cast(float, layer_loss.item())
 
     # TODO: needs to be more DRY

@@ -211,7 +211,8 @@ class InnerLayers(nn.Module):
             input_data: tuple[Tensor, Tensor],
             label_data: tuple[Tensor, Tensor],
             should_damp: bool,
-            layer_metrics: LayerMetrics) -> None:
+            layer_metrics: LayerMetrics,
+            total_batch_count: int) -> None:
         """
         Advances the training process for all layers in the network by computing
         the loss for each layer and updating their activations.
@@ -234,13 +235,13 @@ class InnerLayers(nn.Module):
             logging.debug("Training layer " + str(i))
             loss = None
             if i == 0 and len(self.layers) == 1:
-                loss = layer.train_layer(input_data, label_data, should_damp)
+                loss = layer.train_layer(input_data, label_data, should_damp, total_batch_count)
             elif i == 0:
-                loss = layer.train_layer(input_data, None, should_damp)
+                loss = layer.train_layer(input_data, None, should_damp, total_batch_count)
             elif i == len(self.layers) - 1:
-                loss = layer.train_layer(None, label_data, should_damp)
+                loss = layer.train_layer(None, label_data, should_damp, total_batch_count)
             else:
-                loss = layer.train_layer(None, None, should_damp)
+                loss = layer.train_layer(None, None, should_damp, total_batch_count)
 
             layer_num = i + 1
             logging.debug("Loss for layer " +

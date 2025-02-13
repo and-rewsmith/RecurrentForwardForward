@@ -261,7 +261,7 @@ class RecurrentFFNet(nn.Module):
                 label_data.neg_labels[iteration])
 
             self.inner_layers.advance_layers_train(
-                input_data_sample, label_data_sample, True, layer_metrics)
+                input_data_sample, label_data_sample, True, layer_metrics, total_batch_count)
 
             lower_iteration_threshold = iterations // 2 - \
                 iterations // 10
