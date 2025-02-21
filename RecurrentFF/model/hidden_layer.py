@@ -443,6 +443,36 @@ class HiddenLayer(nn.Module):
 
         return pos_activations_new, neg_activations_new, scale_pos, scale_neg
     
+    # def generate_lpl_loss_hebbian(self, activations: Tensor) -> Tensor:
+    #     def generate_loss(activations: Tensor) -> Tensor:
+    #         # activations = activations.detach()
+    #         mean_act = torch.mean(activations, dim=0).detach()
+    #         mean_subtracted = activations - mean_act
+
+    #         sigma_squared = torch.sum(
+    #             mean_subtracted ** 2, dim=0) / (activations.shape[0] - 1)
+
+    #         loss = -torch.log(sigma_squared).sum() / sigma_squared.shape[0]
+    #         return loss
+
+    #     return generate_loss(activations)
+
+    def generate_lpl_loss_hebbian(self, pos_activations: Tensor, neg_activations: Tensor) -> Tensor:
+        def generate_loss(activations: Tensor) -> Tensor:
+            # activations = activations.detach()
+            mean_act = torch.mean(activations, dim=0).detach()
+            mean_subtracted = activations - mean_act
+
+            sigma_squared = torch.sum(
+                mean_subtracted ** 2, dim=0) / (activations.shape[0] - 1)
+
+            loss = -torch.log(sigma_squared).sum() / sigma_squared.shape[0]
+            return loss
+
+        pos_loss = generate_loss(pos_activations)
+        neg_loss = generate_loss(neg_activations)
+
+        return (pos_loss + neg_loss) / 2
 
     # @profile(stdout=False, filename='baseline.prof',
     #          skip=Settings.new().model.skip_profiling)
@@ -479,10 +509,14 @@ class HiddenLayer(nn.Module):
                 ForwardMode.PositiveData, None, None, should_damp)
             neg_activations = self.forward(
                 ForwardMode.NegativeData, None, None, should_damp)
-        
+            
         outcome = self.decider(pos_activations)
         outcome_pos = F.sigmoid(-1 * (outcome - self.settings.model.loss_threshold))
         outcome_neg = F.sigmoid(1 * (outcome - self.settings.model.loss_threshold))
+
+        # outcome_g = self.decider(pos_activations.detach())
+        # outcome_pos_g = F.sigmoid(-1 * (outcome_g - self.settings.model.loss_threshold))
+        # outcome_neg_g = F.sigmoid(1 * (outcome_g - self.settings.model.loss_threshold))
 
         # sum along dim 1
         scale_pos = outcome_pos.sum(dim=1)
@@ -494,21 +528,31 @@ class HiddenLayer(nn.Module):
         },
         step=total_batch_count)
 
-       # reg 
-        target_proportion = 350.0
-        scale_pos_diff = scale_pos - target_proportion
-        scale_neg_diff = scale_neg - target_proportion
+    #    # reg 
+    #     target_proportion = 350.0
+    #     scale_pos_diff = scale_pos - target_proportion
+    #     scale_neg_diff = scale_neg - target_proportion
         
-        scale_pos_regularizer = (scale_pos_diff ** 2).mean()
-        scale_neg_regularizer = (scale_neg_diff ** 2).mean()
+    #     scale_pos_regularizer = (scale_pos_diff ** 2).mean()
+    #     scale_neg_regularizer = (scale_neg_diff ** 2).mean()
         
         # proportion_loss = (scale_pos_regularizer + scale_neg_regularizer)
 
         pos_activations_new = pos_activations * outcome_pos
         neg_activations_new = pos_activations * outcome_neg
+        # pos_activations_new_g = pos_activations.detach() * outcome_pos_g
+        # neg_activations_new_g = pos_activations.detach() * outcome_neg_g
 
         pos_badness = layer_activations_to_badness(pos_activations_new, scale_pos)
         neg_badness = layer_activations_to_badness(neg_activations_new, scale_neg)
+
+        # calc hebbian loss
+        hebbian_loss = self.generate_lpl_loss_hebbian(pos_activations_new, neg_activations_new)
+        # hebbian_loss = torch.tensor(0.0)
+        wandb.log({
+            "hebbian_loss": hebbian_loss.item(),
+        },
+        step=total_batch_count)
 
         # Loss function equivelent to:
         # plot3d log(1 + exp(-n + 1)) + log(1 + exp(p - 1)) for n=0 to 3, p=0
@@ -517,15 +561,21 @@ class HiddenLayer(nn.Module):
             (-1 * neg_badness) + self.settings.model.loss_threshold,
             pos_badness - self.settings.model.loss_threshold
         ])).mean()
-        (layer_loss).backward(retain_graph=True)
+        (layer_loss + hebbian_loss).backward(retain_graph=False)
         # clip gradients
         # torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=1.0)
-        self.decider.weight.grad = -10 * self.decider.weight.grad
-        self.decider.bias.grad = -10 * self.decider.bias.grad
+        # self.decider.weight.grad = -10 * self.decider.weight.grad
+        # self.decider.bias.grad = -10 * self.decider.bias.grad
+        # self.decider.weight.grad.zero_()
+        # self.decider.bias.grad.zero_()
         self.optimizer.step()
 
-        self.decider.weight.grad.zero_()
-        self.decider.bias.grad.zero_()
+        # loss = outcome_pos.sum() + outcome_neg.sum()
+        # loss.backward()
+        # self.decider.weight.grad = 10 * self.decider.weight.grad
+        # self.decider.bias.grad = 10 * self.decider.bias.grad
+        # self.decider_opt.step()
+
 
         # wandb.log({
         #     "scale_pos_regularizer": proportion_loss.item(),
@@ -538,11 +588,11 @@ class HiddenLayer(nn.Module):
         # self.decider.weight.grad = -0.01 * self.decider.weight.grad
         # self.decider.bias.grad = -0.01 * self.decider.bias.grad
 
-        loss = outcome_pos.sum() + outcome_neg.sum()
-        loss.backward()
-        self.decider.weight.grad = 10 * self.decider.weight.grad
-        self.decider.bias.grad = 10 * self.decider.bias.grad
-        self.decider_opt.step()
+        # loss = outcome_pos.sum() + outcome_neg.sum()
+        # loss.backward()
+        # self.decider.weight.grad = 10 * self.decider.weight.grad
+        # self.decider.bias.grad = 10 * self.decider.bias.grad
+        # self.decider_opt.step()
 
         # for param in self.parameters():
         #     if param is not None:
