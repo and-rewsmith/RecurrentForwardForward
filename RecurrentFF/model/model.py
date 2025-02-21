@@ -77,7 +77,8 @@ class RecurrentFFNet(nn.Module):
                 prev_size,
                 size,
                 next_size,
-                self.settings.model.damping_factor)
+                self.settings.model.damping_factor,
+                i)
             inner_layers.append(hidden_layer)
             prev_size = size
 

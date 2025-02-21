@@ -223,12 +223,14 @@ class HiddenLayer(nn.Module):
             prev_size: int,
             size: int,
             next_size: int,
-            damping_factor: float):
+            damping_factor: float,
+            layer_index: int):
         super(HiddenLayer, self).__init__()
 
         self.size = size
         self.next_size = next_size
         self.prev_size = prev_size
+        self.layer_index = layer_index
 
         self.residual_connections = nn.ModuleList()
 
@@ -238,6 +240,8 @@ class HiddenLayer(nn.Module):
         self.test_activations_dim = (test_batch_size, size)
 
         self.damping_factor = damping_factor
+        damping_factors = [0.9, 0.7, 0.5, 0.3, 0.1]
+        self.damping_factor = damping_factors[layer_index]
 
         self.pos_activations: Optional[Activations] = None
         self.neg_activations: Optional[Activations] = None
@@ -279,9 +283,10 @@ class HiddenLayer(nn.Module):
             self.optimizer = Adam(self.parameters(),
                                   lr=self.settings.model.ff_adam.learning_rate)
         elif self.settings.model.ff_optimizer == "rmsprop":
+            learning_rates = [0.00005, 0.00001, 0.000005, 0.000001, 0.0000005]
             self.optimizer = RMSprop(
                 self.parameters(),
-                lr=self.settings.model.ff_rmsprop.learning_rate,
+                lr=learning_rates[2],
                 momentum=self.settings.model.ff_rmsprop.momentum)
         elif self.settings.model.ff_optimizer == "adadelta":
             self.optimizer = Adadelta(

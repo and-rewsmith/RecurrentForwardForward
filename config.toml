@@ -1,5 +1,5 @@
 [device]
-device = "mps"
+device = "cuda:0"
 
 [model]
 hidden_sizes = [700, 700, 700, 700, 700]
